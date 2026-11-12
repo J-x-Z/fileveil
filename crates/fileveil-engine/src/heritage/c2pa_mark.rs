@@ -6,7 +6,7 @@
 
 use super::signing::read_private_key_bytes;
 use crate::provenance::{self, CheckStatus, ProvenanceReport};
-use c2pa::{Builder, BuilderIntent, Context, SigningAlg, create_signer};
+use c2pa::{Builder, BuilderIntent, Context, Reader, SigningAlg, create_signer};
 use fileveil_core::{Error, Format, Limits, Result, digest};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -27,6 +27,36 @@ pub struct C2paMarkClaims {
     pub asserted_time: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct C2paWatermarkAssociation {
+    pub method_id: String,
+    pub work_id_digest: String,
+    pub copy_id_digest: String,
+    pub key_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct C2paMarkContext {
+    pub copy_id: String,
+    pub watermark: Option<C2paWatermarkAssociation>,
+}
+
+/// Digest-only values from the active signed claim. Watermark MAC verification
+/// requires a separately authorized key and pixel detector.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct C2paAssociationSummary {
+    pub claim_schema: String,
+    pub work_id_digest: String,
+    pub copy_id_digest: Option<String>,
+    pub watermark: Option<C2paWatermarkAssociation>,
+    pub signature: CheckStatus,
+    pub asset_binding: CheckStatus,
+    pub watermark_mac: CheckStatus,
+    pub scope: String,
+}
+
 pub struct C2paMarkedAsset {
     pub bytes: Vec<u8>,
     pub manifest_sha256: String,
@@ -45,6 +75,27 @@ pub fn sign_bytes_with_key_path(
     sign_bytes(input, format, certificate_pem, &key, claims, limits)
 }
 
+pub fn sign_bytes_with_key_path_v2(
+    input: &[u8],
+    format: Format,
+    certificate_pem: &[u8],
+    private_key_path: &Path,
+    claims: &C2paMarkClaims,
+    context: &C2paMarkContext,
+    limits: &Limits,
+) -> Result<C2paMarkedAsset> {
+    let key = read_private_key_bytes(private_key_path)?;
+    sign_bytes_v2(
+        input,
+        format,
+        certificate_pem,
+        &key,
+        claims,
+        context,
+        limits,
+    )
+}
+
 /// Signs an already-bounded snapshot. Prefer `sign_bytes_with_key_path` when
 /// reading files, to retain private-file permissions and MCP descriptor checks.
 /// The caller owns the supplied secret buffer. This module zeroizes its copy.
@@ -54,6 +105,48 @@ pub fn sign_bytes(
     certificate_pem: &[u8],
     private_key_pem: &[u8],
     claims: &C2paMarkClaims,
+    limits: &Limits,
+) -> Result<C2paMarkedAsset> {
+    sign_internal(
+        input,
+        format,
+        certificate_pem,
+        private_key_pem,
+        claims,
+        None,
+        limits,
+    )
+}
+
+/// Binds work/copy identifiers and an optional asserted watermark association
+/// into the C2PA signature. The caller verifies the selected watermark's pixels.
+pub fn sign_bytes_v2(
+    input: &[u8],
+    format: Format,
+    certificate_pem: &[u8],
+    private_key_pem: &[u8],
+    claims: &C2paMarkClaims,
+    context: &C2paMarkContext,
+    limits: &Limits,
+) -> Result<C2paMarkedAsset> {
+    sign_internal(
+        input,
+        format,
+        certificate_pem,
+        private_key_pem,
+        claims,
+        Some(context),
+        limits,
+    )
+}
+
+fn sign_internal(
+    input: &[u8],
+    format: Format,
+    certificate_pem: &[u8],
+    private_key_pem: &[u8],
+    claims: &C2paMarkClaims,
+    association: Option<&C2paMarkContext>,
     limits: &Limits,
 ) -> Result<C2paMarkedAsset> {
     if input.len() as u64 > limits.max_file_bytes {
@@ -106,6 +199,9 @@ pub fn sign_bytes(
             "C2PA title, work ID and version must be present".into(),
         ));
     }
+    if let Some(context) = association {
+        validate_association(&claims.work_id, context)?;
+    }
     let key = Zeroizing::new(private_key_pem.to_vec());
     // An absent TSA URL and disabled host access prevent content or timestamps
     // from being submitted to an external service by this signing operation.
@@ -113,37 +209,37 @@ pub fn sign_bytes(
         create_signer::from_keys(certificate_pem, &key, SigningAlg::Es256, None).map_err(|_| {
             Error::Input("C2PA requires a compatible local ES256 certificate and PEM key".into())
         })?;
-    let context = Context::new().with_settings(json!({
-        "verify": {
-            "verify_after_sign": true,
-            "verify_trust": false,
-            "remote_manifest_fetch": false,
-            "ocsp_fetch": false,
-            "ocsp_fetch_should_override": false
-        },
-        "core": {
-            "allowed_network_hosts": [],
-            "allow_redirects": false,
-            "decode_identity_assertions": false,
-            "max_decompressed_manifest_size_in_mb": limits.max_metadata_bytes.div_ceil(1024 * 1024).clamp(1, 32)
+    let context = offline_context(limits)?;
+    let mut author_claim = json!({
+        "schema":"fileveil.c2pa.author_claim.v1",
+        "work_id":claims.work_id,
+        "author":claims.author,
+        "edition":claims.edition,
+        "version":claims.version,
+        "asserted_time":claims.asserted_time,
+        "identity_scope":"user_asserted_author_claim",
+        "timestamp_scope":"user_asserted_time"
+    });
+    let mut assertions = Vec::new();
+    if let Some(association) = association {
+        author_claim["schema"] = json!("fileveil.c2pa.author_claim.v2");
+        author_claim["copy_id"] = json!(association.copy_id);
+        if let Some(watermark) = &association.watermark {
+            assertions.push(json!({
+                "label":"org.fileveil.watermark",
+                "data":{
+                    "schema":"fileveil.c2pa.watermark_association.v1",
+                    "association":watermark,
+                    "scope":"signer_asserted_keyed_watermark_reference"
+                }
+            }));
         }
-    })).map_err(|_| Error::Input("Could not configure offline C2PA signing".into()))?;
+    }
+    assertions.push(json!({"label":"org.fileveil.heritage","data":author_claim}));
     let definition = json!({
         "title": claims.title,
         "claim_generator_info": [{"name":"FileVeil", "version":env!("CARGO_PKG_VERSION")}],
-        "assertions": [{
-            "label":"org.fileveil.heritage",
-            "data": {
-                "schema":"fileveil.c2pa.author_claim.v1",
-                "work_id":claims.work_id,
-                "author":claims.author,
-                "edition":claims.edition,
-                "version":claims.version,
-                "asserted_time":claims.asserted_time,
-                "identity_scope":"user_asserted_author_claim",
-                "timestamp_scope":"user_asserted_time"
-            }
-        }]
+        "assertions":assertions
     });
     let mut builder = Builder::from_context(context)
         .with_definition(definition)
@@ -182,6 +278,154 @@ pub fn sign_bytes(
         manifest_sha256: digest(&manifest),
         provenance: verified,
     })
+}
+
+fn offline_context(limits: &Limits) -> Result<Context> {
+    Context::new().with_settings(json!({
+        "verify": {
+            "verify_after_sign": true,
+            "verify_after_reading": true,
+            "verify_trust": false,
+            "remote_manifest_fetch": false,
+            "ocsp_fetch": false,
+            "ocsp_fetch_should_override": false
+        },
+        "core": {
+            "allowed_network_hosts": [],
+            "allow_redirects": false,
+            "decode_identity_assertions": false,
+            "max_decompressed_manifest_size_in_mb": limits.max_metadata_bytes.div_ceil(1024 * 1024).clamp(1, 32)
+        }
+    })).map_err(|_| Error::Input("Could not configure offline C2PA operations".into()))
+}
+
+fn validate_association(work_id: &str, context: &C2paMarkContext) -> Result<()> {
+    let work = super::robust_v2::work_id_digest(work_id)?;
+    let copy = super::robust_v2::copy_id_digest(&context.copy_id)?;
+    if let Some(watermark) = &context.watermark
+        && (watermark.method_id != super::robust_v2::METHOD_ID
+            || watermark.work_id_digest != work
+            || watermark.copy_id_digest != copy
+            || watermark.key_id.len() != 64
+            || !watermark
+                .key_id
+                .bytes()
+                .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte)))
+    {
+        return Err(Error::Input(
+            "C2PA watermark association must match its work, copy and supported keyed protocol"
+                .into(),
+        ));
+    }
+    Ok(())
+}
+
+/// Reads only FileVeil assertions in the active manifest. Historical ingredient
+/// assertions cannot supply the active asset's work/copy association.
+pub fn extract_association(
+    data: &[u8],
+    format: Format,
+    limits: &Limits,
+) -> Result<Option<C2paAssociationSummary>> {
+    let Some(verified) = provenance::inspect(data, format, limits)? else {
+        return Ok(None);
+    };
+    let reader = Reader::from_context(offline_context(limits)?)
+        .with_stream(format.mime(), Cursor::new(data))
+        .map_err(|_| Error::Verification("C2PA association manifest is unreadable".into()))?;
+    let Some(manifest) = reader.active_manifest() else {
+        return Ok(None);
+    };
+    let mut author_claims = manifest
+        .assertions()
+        .iter()
+        .filter(|item| item.label() == "org.fileveil.heritage");
+    let Some(author) = author_claims.next() else {
+        return Ok(None);
+    };
+    if author_claims.next().is_some() {
+        return Err(Error::Input(
+            "C2PA has ambiguous FileVeil author assertions".into(),
+        ));
+    }
+    let author: serde_json::Value = author
+        .to_assertion()
+        .map_err(|_| Error::Input("C2PA FileVeil author assertion is malformed".into()))?;
+    let text = |field: &str| -> Result<&str> {
+        author[field]
+            .as_str()
+            .filter(|value| value.len() <= 4096)
+            .ok_or_else(|| {
+                Error::Input("C2PA FileVeil author assertion has an invalid field".into())
+            })
+    };
+    let schema = text("schema")?;
+    let work_id = text("work_id")?;
+    if !matches!(
+        schema,
+        "fileveil.c2pa.author_claim.v1" | "fileveil.c2pa.author_claim.v2"
+    ) {
+        return Err(Error::Unsupported(
+            "Unrecognized FileVeil C2PA author assertion version".into(),
+        ));
+    }
+    let work_digest = super::robust_v2::work_id_digest(work_id)?;
+    let copy_id = if schema == "fileveil.c2pa.author_claim.v2" {
+        Some(text("copy_id")?)
+    } else {
+        None
+    };
+    let mut watermark_claims = manifest
+        .assertions()
+        .iter()
+        .filter(|item| item.label() == "org.fileveil.watermark");
+    let watermark = if let Some(assertion) = watermark_claims.next() {
+        if watermark_claims.next().is_some() {
+            return Err(Error::Input(
+                "C2PA has ambiguous FileVeil watermark assertions".into(),
+            ));
+        }
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct WatermarkAssertion {
+            schema: String,
+            association: C2paWatermarkAssociation,
+            scope: String,
+        }
+        let assertion: WatermarkAssertion = assertion
+            .to_assertion()
+            .map_err(|_| Error::Input("C2PA FileVeil watermark assertion is malformed".into()))?;
+        if assertion.schema != "fileveil.c2pa.watermark_association.v1"
+            || assertion.scope != "signer_asserted_keyed_watermark_reference"
+        {
+            return Err(Error::Unsupported(
+                "Unrecognized FileVeil C2PA watermark assertion version".into(),
+            ));
+        }
+        let copy_id = copy_id.ok_or_else(|| {
+            Error::Input("C2PA watermark association requires a v2 copy identifier".into())
+        })?;
+        validate_association(
+            work_id,
+            &C2paMarkContext {
+                copy_id: copy_id.into(),
+                watermark: Some(assertion.association.clone()),
+            },
+        )?;
+        Some(assertion.association)
+    } else {
+        None
+    };
+    Ok(Some(C2paAssociationSummary {
+        claim_schema: schema.into(),
+        work_id_digest: work_digest,
+        copy_id_digest: copy_id.map(super::robust_v2::copy_id_digest).transpose()?,
+        watermark,
+        signature: verified.signature,
+        asset_binding: verified.asset_binding,
+        watermark_mac: CheckStatus::NotAssessed,
+        scope: "active_manifest_signed_identifier_assertions_with_separate_pixel_mac_and_identity_verification".into(),
+    }))
 }
 
 struct BoundedCursor {
@@ -486,6 +730,16 @@ Set-Acl -LiteralPath $env:FILEVEIL_TEST_PEM -AclObject $acl
             assert_eq!(digest(&source), original_hash);
             assert_eq!(marked.provenance.signature, CheckStatus::Valid);
             assert_eq!(marked.provenance.asset_binding, CheckStatus::Valid);
+            let legacy = extract_association(&marked.bytes, format, &Limits::default())
+                .unwrap()
+                .unwrap();
+            assert_eq!(legacy.claim_schema, "fileveil.c2pa.author_claim.v1");
+            assert_eq!(
+                legacy.work_id_digest,
+                super::super::robust_v2::work_id_digest("fixture-1").unwrap()
+            );
+            assert!(legacy.copy_id_digest.is_none());
+            assert!(legacy.watermark.is_none());
             assert_eq!(
                 marked.provenance.trust,
                 provenance::TrustStatus::NotAssessed
@@ -521,6 +775,162 @@ Set-Acl -LiteralPath $env:FILEVEIL_TEST_PEM -AclObject $acl
                 );
             }
         }
+
+        // The keyed pixel mark survives credential embedding. The ES256 claim
+        // binds its public work/copy/key references to those exact image bytes.
+        let limits = Limits::default();
+        let image = image::open(
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/watermark/astronaut.png"),
+        )
+        .unwrap();
+        let signing_key = super::super::signing::SigningKey::generate().unwrap();
+        let watermark_key = signing_key.derive_watermark_key();
+        let statement = claims();
+        let (pixels, _) = super::super::robust_v2::embed(
+            &image,
+            &statement.work_id,
+            "copy-c2pa-05",
+            &watermark_key,
+            super::super::robust_v2::DEFAULT_STRENGTH,
+            &limits,
+        )
+        .unwrap();
+        let mut source = Cursor::new(Vec::new());
+        pixels
+            .write_to(&mut source, image::ImageFormat::Png)
+            .unwrap();
+        let source = source.into_inner();
+        let original_hash = digest(&source);
+        let association = C2paWatermarkAssociation {
+            method_id: super::super::robust_v2::METHOD_ID.into(),
+            work_id_digest: super::super::robust_v2::work_id_digest(&statement.work_id).unwrap(),
+            copy_id_digest: super::super::robust_v2::copy_id_digest("copy-c2pa-05").unwrap(),
+            key_id: super::super::robust_v2::key_id(&watermark_key),
+        };
+        let context = C2paMarkContext {
+            copy_id: "copy-c2pa-05".into(),
+            watermark: Some(association.clone()),
+        };
+        let marked = sign_bytes_with_key_path_v2(
+            &source,
+            Format::Png,
+            &certificate,
+            &key_path,
+            &statement,
+            &context,
+            &limits,
+        )
+        .unwrap();
+        assert_eq!(digest(&source), original_hash);
+        let summary = extract_association(&marked.bytes, Format::Png, &limits)
+            .unwrap()
+            .unwrap();
+        assert_eq!(summary.claim_schema, "fileveil.c2pa.author_claim.v2");
+        assert_eq!(summary.work_id_digest, association.work_id_digest);
+        assert_eq!(
+            summary.copy_id_digest.as_ref(),
+            Some(&association.copy_id_digest)
+        );
+        assert_eq!(summary.watermark, Some(association));
+        assert_eq!(summary.signature, CheckStatus::Valid);
+        assert_eq!(summary.asset_binding, CheckStatus::Valid);
+        assert_eq!(summary.watermark_mac, CheckStatus::NotAssessed);
+        let encoded = serde_json::to_string(&summary).unwrap();
+        for value in [
+            &statement.work_id,
+            &context.copy_id,
+            &statement.author,
+            &statement.asserted_time,
+        ] {
+            assert!(!encoded.contains(value));
+        }
+        let decoded = image::load_from_memory(&marked.bytes).unwrap();
+        assert_eq!(pixels.to_rgba8(), decoded.to_rgba8());
+        let detected = super::super::robust_v2::detect(&decoded, &watermark_key, &limits).unwrap();
+        assert!(detected.frame_valid && detected.authenticated);
+        assert_eq!(detected.work_id_digest, Some(summary.work_id_digest));
+        assert_eq!(detected.copy_id_digest, summary.copy_id_digest);
+        let trusted =
+            provenance::inspect_with_trust(&marked.bytes, Format::Png, &limits, Some(&trust_root))
+                .unwrap()
+                .unwrap();
+        assert_eq!(trusted.trust, provenance::TrustStatus::Trusted);
+
+        let input_path = path.join("linked-source.png");
+        image.save(&input_path).unwrap();
+        let source_hash = digest(&fs::read(&input_path).unwrap());
+        let watermark_key_path = path.join("watermark.key");
+        signing_key.save_new(&watermark_key_path).unwrap();
+        let output_path = path.join("linked-marked.png");
+        let request = crate::heritage::HeritageRequest {
+            action: crate::heritage::HeritageAction::C2paMark,
+            certificate: Some(path.join("signer.pem")),
+            private_key: Some(key_path.clone()),
+            watermark_key: Some(watermark_key_path.clone()),
+            mark: crate::heritage::MarkSettings {
+                work_id: statement.work_id.clone(),
+                copy_id: context.copy_id.clone(),
+                author: statement.author.clone(),
+                created_at: statement.asserted_time.clone(),
+                watermark_version: 2,
+                robust: true,
+                strength: super::super::robust_v2::DEFAULT_STRENGTH,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let report =
+            crate::heritage::run(&input_path, Some(&output_path), &request, &limits).unwrap();
+        assert_eq!(report.integrity.original_unchanged, Some(true));
+        assert_eq!(report.provenance.as_ref().unwrap()["signature"], "valid");
+        assert_eq!(
+            report.advanced.as_ref().unwrap()["heritage"]["robust_recheck"]["authenticated"],
+            true
+        );
+        let verified = crate::heritage::run(
+            &output_path,
+            None,
+            &crate::heritage::HeritageRequest {
+                action: crate::heritage::HeritageAction::Verify,
+                watermark_key: Some(watermark_key_path),
+                c2pa_trust_roots: Some(path.join("root.pem")),
+                ..Default::default()
+            },
+            &limits,
+        )
+        .unwrap();
+        assert_eq!(verified.provenance.as_ref().unwrap()["trust"], "trusted");
+        let linked = &verified.advanced.as_ref().unwrap()["heritage"]["c2pa_association"];
+        assert_eq!(linked["pixel_reference_match"], true);
+        assert_eq!(linked["credential"]["signature"], "valid");
+        assert_eq!(linked["credential"]["asset_binding"], "valid");
+        assert_eq!(linked["credential"]["watermark_mac"], "not_assessed");
+        let encoded = serde_json::to_string(&verified).unwrap();
+        for value in [&statement.work_id, &context.copy_id, &statement.author] {
+            assert!(!encoded.contains(value));
+        }
+        let wrong_key_path = path.join("different-watermark.key");
+        super::super::signing::SigningKey::generate()
+            .unwrap()
+            .save_new(&wrong_key_path)
+            .unwrap();
+        let wrong_key = crate::heritage::run(
+            &output_path,
+            None,
+            &crate::heritage::HeritageRequest {
+                action: crate::heritage::HeritageAction::Verify,
+                watermark_key: Some(wrong_key_path),
+                ..Default::default()
+            },
+            &limits,
+        )
+        .unwrap();
+        assert_eq!(wrong_key.provenance.as_ref().unwrap()["signature"], "valid");
+        assert_ne!(
+            wrong_key.advanced.as_ref().unwrap()["heritage"]["c2pa_association"]["pixel_reference_match"],
+            true
+        );
+        assert_eq!(digest(&fs::read(&input_path).unwrap()), source_hash);
 
         // Use the committed, independently readable PDF fixture, removing its
         // old credential in an operation-owned copy before creating a new one.
