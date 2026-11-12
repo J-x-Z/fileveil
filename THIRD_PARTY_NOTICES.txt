@@ -17,6 +17,17 @@ assets/fonts/egui-UFL.txt
 assets/fonts/egui-egui-icons.txt
 assets/fonts/egui-emoji-icon-font-mit-license.txt
 
+Adapted image-watermark decoder
+crates/fileveil-engine/src/watermark/dwt_dct.rs
+Upstream ShieldMnt/invisible-watermark
+Source https://github.com/ShieldMnt/invisible-watermark/tree/68d0376d94a4701ed240af0841ec12e00676e325
+Copyright (c) 2021 ShieldMnt
+Adaptation Copyright (c) 2026 FileVeil contributors
+License MIT
+License text assets/licenses/external-invisible-watermark/LICENSE-MIT
+The adapted file retains its MIT license.
+Natural-photo fixture attribution crates/fileveil-engine/tests/fixtures/watermark/README.md
+
 Registry packages
 
 abnf 0.13.0

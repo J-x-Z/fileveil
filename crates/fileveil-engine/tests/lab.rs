@@ -87,6 +87,18 @@ fn exact_pixel_and_low_bit_disagreement_match_the_known_control() {
     assert_eq!(pair.changed_pixel_fraction, 1.0);
     assert_eq!(pair.lsb_disagreement_fraction, [1.0, 0.0]);
     assert_eq!(report.samples[1].channels[0].lsb_one_counts, [256, 0]);
+    let previews = report.samples[0].previews.as_ref().unwrap();
+    assert!(previews.low_bits.gray.iter().all(|value| *value == 0));
+    assert!(previews.residual.gray.iter().all(|value| *value == 128));
+    assert!(
+        report.comparisons[0]
+            .difference_preview
+            .as_ref()
+            .unwrap()
+            .gray
+            .iter()
+            .all(|value| *value == 8)
+    );
 }
 
 #[test]
@@ -119,6 +131,10 @@ fn frequency_and_entropy_detect_a_controlled_alternating_pattern() {
     // This 16-pixel checkerboard aliases in the independent 8-pixel DCT grid.
     // Both grids and their sampling limits are explicitly reported.
     assert_eq!(report.samples[1].frequency.dct_grid_side, 8);
+    let native = report.samples[1].signal.as_ref().unwrap();
+    assert!(native.block_dct_ac_power.iter().sum::<f64>() > 15.0);
+    assert_eq!(native.block_dct_blocks, 4);
+    assert!(native.haar_detail_power[2] > 0.99);
 }
 
 #[test]
@@ -146,6 +162,169 @@ fn unequal_geometry_skips_pixel_alignment_and_jpeg_is_a_valid_control() {
     assert!(report.comparisons[0].pixels.is_none());
     assert_eq!(report.samples[1].width, 8);
     assert_eq!(report.samples[1].height, 4);
+    assert!(report.comparisons[0].difference_preview.is_none());
+    assert!(report.comparisons[0].residual_correlation.is_none());
+    let jpeg = report.samples[1]
+        .signal
+        .as_ref()
+        .unwrap()
+        .jpeg
+        .as_ref()
+        .unwrap();
+    assert!(!jpeg.progressive);
+    assert_eq!(jpeg.frame_components.len(), 3);
+    assert!(jpeg.quantization_tables >= 2);
+}
+
+fn fixed_pattern_frame(device: u32, capture: u32) -> Vec<u8> {
+    encode(
+        RgbImage::from_fn(64, 64, |x, y| {
+            let mut state = (x + y * 64 + device * 9341)
+                .wrapping_mul(1664525)
+                .wrapping_add(1013904223);
+            state ^= state >> 13;
+            state = state.wrapping_mul(2246822519);
+            let pattern = (state % 7) as i32 - 3;
+            let scene = 96 + (capture * 7 + x / 8 + y / 8) as i32;
+            image::Rgb([(scene + pattern) as u8; 3])
+        }),
+        ImageFormat::Png,
+    )
+}
+
+#[test]
+fn labeled_controls_use_leave_one_out_and_separate_unrelated_patterns() {
+    let data = [
+        fixed_pattern_frame(1, 1),
+        fixed_pattern_frame(1, 2),
+        fixed_pattern_frame(2, 1),
+        fixed_pattern_frame(2, 2),
+    ];
+    let inputs = data
+        .iter()
+        .map(|data| LabSample {
+            data,
+            format: Format::Png,
+        })
+        .collect::<Vec<_>>();
+    let report = lab::analyze_with_groups(
+        &inputs,
+        &[
+            lab::SampleGroup {
+                label: "reference A".into(),
+                sample_indices: vec![0, 1],
+            },
+            lab::SampleGroup {
+                label: "reference B".into(),
+                sample_indices: vec![2, 3],
+            },
+        ],
+        &Limits::default(),
+    )
+    .unwrap();
+    assert_eq!(report.attribution, "not_assessed");
+    let group = &report.groups[0];
+    assert!(group.tests[0].leave_one_out);
+    assert_eq!(group.tests[0].reference_count, 1);
+    assert!(group.tests[0].ncc.unwrap() > 0.95, "{:?}", group.tests);
+    assert!(!group.tests[2].leave_one_out);
+    assert_eq!(group.tests[2].reference_count, 2);
+    assert!(
+        group.tests[2].ncc.unwrap().abs() < 0.15,
+        "{:?}",
+        group.tests
+    );
+    assert!(group.scope.contains("without_device_attribution"));
+    assert!(
+        lab::analyze_with_groups(
+            &inputs,
+            &[lab::SampleGroup {
+                label: "invalid".into(),
+                sample_indices: vec![0, 0],
+            }],
+            &Limits::default()
+        )
+        .is_err()
+    );
+    assert!(
+        lab::analyze_with_groups(
+            &inputs,
+            &[lab::SampleGroup {
+                label: "invalid".into(),
+                sample_indices: vec![0, 4],
+            }],
+            &Limits::default()
+        )
+        .is_err()
+    );
+}
+
+#[test]
+fn duplicate_reference_inputs_and_flat_samples_cannot_establish_a_noise_match() {
+    let data = fixed_pattern_frame(1, 1);
+    let inputs = [
+        LabSample {
+            data: &data,
+            format: Format::Png,
+        },
+        LabSample {
+            data: &data,
+            format: Format::Png,
+        },
+    ];
+    let report = lab::analyze_with_groups(
+        &inputs,
+        &[lab::SampleGroup {
+            label: "duplicates".into(),
+            sample_indices: vec![0, 1],
+        }],
+        &Limits::default(),
+    )
+    .unwrap();
+    for test in &report.groups[0].tests {
+        assert_eq!(test.reference_count, 0);
+        assert_eq!(test.ncc, None);
+    }
+    let single = lab::analyze_signal(&solid(128), Format::Png, &Limits::default()).unwrap();
+    assert_eq!(single.signal.lsb_pair_chi_square, [256.0; 3]);
+    assert_eq!(single.signal.lsb_pair_degrees_of_freedom, [1; 3]);
+    assert_eq!(single.signal.noise_residual_rms, 0.0);
+    assert!(lab::analyze_signal(&data, Format::Jpeg, &Limits::default()).is_err());
+}
+
+#[test]
+fn earlier_lab_reports_read_with_absent_signal_fields() {
+    let data = solid(128);
+    let inputs = [
+        LabSample {
+            data: &data,
+            format: Format::Png,
+        },
+        LabSample {
+            data: &data,
+            format: Format::Png,
+        },
+    ];
+    let report = lab::analyze(&inputs, &Limits::default()).unwrap();
+    let mut json = serde_json::to_value(report).unwrap();
+    json.as_object_mut().unwrap().remove("groups");
+    for sample in json["samples"].as_array_mut().unwrap() {
+        sample.as_object_mut().unwrap().remove("signal");
+        sample.as_object_mut().unwrap().remove("previews");
+    }
+    for comparison in json["comparisons"].as_array_mut().unwrap() {
+        comparison
+            .as_object_mut()
+            .unwrap()
+            .remove("difference_preview");
+        comparison
+            .as_object_mut()
+            .unwrap()
+            .remove("residual_correlation");
+    }
+    let old: lab::LabReport = serde_json::from_value(json).unwrap();
+    assert!(old.groups.is_empty());
+    assert!(old.samples[0].signal.is_none());
 }
 
 #[test]

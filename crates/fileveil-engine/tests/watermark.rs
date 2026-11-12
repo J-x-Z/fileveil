@@ -53,8 +53,168 @@ fn static_descriptor_is_offline_and_reports_its_limits() {
     assert!(descriptor.supports_postprocess_retest);
     assert!(!descriptor.false_positive_limits.is_empty());
     assert!(!descriptor.false_negative_limits.is_empty());
-    assert_eq!(watermark::detectors(), vec![descriptor]);
+    assert_eq!(watermark::detectors().first(), Some(&descriptor));
+    assert_eq!(watermark::detectors().len(), 3);
     assert!(SyntheticLsbV1.detect(&[], &Limits::default()).is_err());
+}
+
+const PHOTO: &[u8] = include_bytes!("fixtures/watermark/astronaut.png");
+const PHOTO_SD1: &[u8] = include_bytes!("fixtures/watermark/astronaut-sd1.png");
+const PHOTO_SDXL: &[u8] = include_bytes!("fixtures/watermark/astronaut-sdxl.png");
+const PHOTO_OTHER: &[u8] = include_bytes!("fixtures/watermark/astronaut-other.png");
+const PHOTO_SD1_JPEG: &[u8] = include_bytes!("fixtures/watermark/astronaut-sd1-444.jpg");
+const PHOTO_SDXL_JPEG: &[u8] = include_bytes!("fixtures/watermark/astronaut-sdxl-444.jpg");
+
+#[test]
+fn deployed_sd_payloads_match_independent_upstream_natural_photo_fixtures() {
+    for (photo, format, method, expected) in [
+        (
+            PHOTO_SD1,
+            Format::Png,
+            "stable_diffusion_dwt_dct_v1",
+            "matched_bits=136",
+        ),
+        (
+            PHOTO_SDXL,
+            Format::Png,
+            "stable_diffusion_xl_dwt_dct",
+            "matched_bits=48",
+        ),
+        (
+            PHOTO_SD1_JPEG,
+            Format::Jpeg,
+            "stable_diffusion_dwt_dct_v1",
+            "matched_bits=136",
+        ),
+        (
+            PHOTO_SDXL_JPEG,
+            Format::Jpeg,
+            "stable_diffusion_xl_dwt_dct",
+            "matched_bits=48",
+        ),
+    ] {
+        let reports = watermark::detect_all(photo, format, &Limits::default()).unwrap();
+        let report = reports
+            .iter()
+            .find(|report| report.method_id == method)
+            .unwrap();
+        assert_eq!(report.status, DetectionStatus::Detected, "{report:?}");
+        assert!(
+            report.evidence_codes.iter().any(|code| code == expected),
+            "{report:?}"
+        );
+        assert!(report.offline);
+        assert!(report.scope.contains("without_origin_authentication"));
+    }
+    for photo in [PHOTO, PHOTO_OTHER] {
+        let reports = watermark::detect_all(photo, Format::Png, &Limits::default()).unwrap();
+        for report in reports {
+            assert_ne!(report.status, DetectionStatus::Detected, "{report:?}");
+        }
+    }
+}
+
+#[test]
+fn signal_recipe_has_named_retests_on_independently_encoded_sd_photos() {
+    for (photo, extension, method) in [
+        (PHOTO_SD1, "png", "stable_diffusion_dwt_dct_v1"),
+        (PHOTO_SDXL, "png", "stable_diffusion_xl_dwt_dct"),
+        (PHOTO_SD1_JPEG, "jpg", "stable_diffusion_dwt_dct_v1"),
+        (PHOTO_SDXL_JPEG, "jpg", "stable_diffusion_xl_dwt_dct"),
+    ] {
+        let directory = tempfile::tempdir().unwrap();
+        let input = directory.path().join(format!("source.{extension}"));
+        let output = directory.path().join("processed.png");
+        fs::write(&input, photo).unwrap();
+        let original_hash = digest(photo);
+        let report = process_image_in(
+            &input,
+            Some(&output),
+            &ImageProcessOptions {
+                mode: ImageProcessMode::Signal,
+                low_bits: 1,
+            },
+            &Limits::default(),
+            None,
+        )
+        .unwrap();
+        let retests = report.advanced.as_ref().unwrap()["detector_retests"]
+            .as_array()
+            .unwrap();
+        let retest = retests
+            .iter()
+            .find(|item| item["method_id"] == method)
+            .unwrap();
+        assert_eq!(retest["before"]["status"], "detected");
+        assert_eq!(retest["after"]["status"], "not_detected", "{retest}");
+        assert_eq!(retest["result"], "detector_no_longer_detects");
+        assert_eq!(digest(&fs::read(&input).unwrap()), original_hash);
+        assert!(report.integrity.original_unchanged == Some(true));
+    }
+}
+
+#[test]
+fn natural_photo_edits_and_lossy_encoding_controls_do_not_confirm_public_marks() {
+    let source = image::load_from_memory(PHOTO).unwrap().to_rgb8();
+    let controls = [
+        source.clone(),
+        image::imageops::flip_horizontal(&source),
+        image::imageops::flip_vertical(&source),
+        image::imageops::rotate90(&source),
+        image::imageops::blur(&source, 0.75),
+        image::imageops::resize(&source, 384, 384, image::imageops::FilterType::Triangle),
+    ];
+    for image in controls {
+        let bytes = png(image);
+        for report in watermark::detect_all(&bytes, Format::Png, &Limits::default()).unwrap() {
+            assert_ne!(report.status, DetectionStatus::Detected, "{report:?}");
+        }
+    }
+    for bytes in [
+        include_bytes!("fixtures/watermark/astronaut-sd1.jpg").as_slice(),
+        include_bytes!("fixtures/watermark/astronaut-sdxl.jpg").as_slice(),
+    ] {
+        for report in watermark::detect_all(bytes, Format::Jpeg, &Limits::default()).unwrap() {
+            assert_ne!(report.status, DetectionStatus::Detected, "{report:?}");
+        }
+    }
+    let small = png(RgbImage::from_pixel(16, 16, image::Rgb([128; 3])));
+    let reports = watermark::detect_all(&small, Format::Png, &Limits::default()).unwrap();
+    assert!(
+        reports[1..]
+            .iter()
+            .all(|report| report.status == DetectionStatus::NotAssessed)
+    );
+    assert!(watermark::detect_all(PHOTO, Format::Jpeg, &Limits::default()).is_err());
+}
+
+#[test]
+fn signal_processing_preserves_embedded_and_remote_credential_protection() {
+    for source in [
+        include_bytes!("fixtures/provenance/signed.png").as_slice(),
+        include_bytes!("fixtures/provenance/remote.png").as_slice(),
+    ] {
+        let directory = tempfile::tempdir().unwrap();
+        let input = directory.path().join("credential.png");
+        let output = directory.path().join("processed.png");
+        fs::write(&input, source).unwrap();
+        let result = process_image_in(
+            &input,
+            Some(&output),
+            &ImageProcessOptions {
+                mode: ImageProcessMode::Signal,
+                low_bits: 1,
+            },
+            &Limits::default(),
+            None,
+        );
+        assert!(
+            matches!(result, Err(fileveil_core::Error::Blocked(_))),
+            "{result:?}"
+        );
+        assert!(!output.exists());
+        assert_eq!(fs::read(&input).unwrap(), source);
+    }
 }
 
 #[test]

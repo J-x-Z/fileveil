@@ -56,12 +56,17 @@ enum Command {
         #[arg(long)]
         options_json: Option<String>,
     },
-    /// Detect a named, reproducible synthetic image watermark protocol
+    /// Detect named public image watermark protocols offline
     DetectWatermark { path: PathBuf },
     /// Compare 2 to 8 explicitly selected image control samples
     Lab {
         #[arg(num_args = 2..=8)]
         paths: Vec<PathBuf>,
+        #[arg(
+            long,
+            help = "Optional reference groups JSON with labels and zero-based sample_indices"
+        )]
+        groups_json: Option<String>,
     },
     /// Validate embedded C2PA credentials offline and report AI detector availability
     Provenance {
@@ -167,6 +172,31 @@ fn print_report(report: &Report, json: bool) {
             finding.state, finding.code, finding.location, finding.summary
         );
     }
+    if let Some(credentials) = &report.provenance {
+        for field in ["signature", "asset_binding", "trust"] {
+            if let Some(value) = credentials[field].as_str() {
+                println!("  C2PA {field} · {value}");
+            }
+        }
+    }
+    if let Some(advanced) = &report.advanced {
+        if let Some(detections) = advanced
+            .get("detections")
+            .or_else(|| advanced.get("watermark_detections"))
+            .and_then(serde_json::Value::as_array)
+        {
+            for detection in detections {
+                println!(
+                    "  {} · {}",
+                    detection["method_id"].as_str().unwrap_or("unknown"),
+                    detection["status"].as_str().unwrap_or("not_assessed")
+                );
+            }
+        }
+        if let Some(samples) = advanced["lab"]["samples"].as_array() {
+            println!("  Compared {} image controls", samples.len());
+        }
+    }
     if let Some(name) = &report.output_name {
         println!("Saved {}", name.escape_debug());
     }
@@ -257,7 +287,15 @@ fn execute(cli: &Cli, limits: &Limits) -> Result<i32> {
         Command::DetectWatermark { path } => {
             fileveil_engine::audits::detect_watermark(path, limits)?
         }
-        Command::Lab { paths } => fileveil_engine::audits::lab(paths, limits)?,
+        Command::Lab { paths, groups_json } => {
+            let groups: Vec<fileveil_engine::lab::SampleGroup> = groups_json
+                .as_deref()
+                .map(serde_json::from_str)
+                .transpose()
+                .map_err(|_| Error::Input("Invalid sample groups JSON".into()))?
+                .unwrap_or_default();
+            fileveil_engine::audits::lab_with_groups(paths, &groups, limits)?
+        }
         Command::Provenance { path, trust_roots } => {
             fileveil_engine::audits::provenance(path, trust_roots.as_deref(), limits)?
         }
@@ -404,8 +442,12 @@ fn supervise(cli: &Cli) -> Result<i32> {
         Command::DetectWatermark { path } => {
             command.arg("detect-watermark").arg("--").arg(path);
         }
-        Command::Lab { paths } => {
-            command.arg("lab").arg("--").args(paths);
+        Command::Lab { paths, groups_json } => {
+            command.arg("lab");
+            if let Some(groups) = groups_json {
+                command.arg("--groups-json").arg(groups);
+            }
+            command.arg("--").args(paths);
         }
         Command::Provenance { path, trust_roots } => {
             command.arg("provenance");

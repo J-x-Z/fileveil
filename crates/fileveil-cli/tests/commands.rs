@@ -248,3 +248,77 @@ fn mobile_media_commands_complete_scan_sanitize_verify_without_overwriting_origi
         assert_eq!(std::fs::read(&output).unwrap(), cleaned);
     }
 }
+
+#[test]
+fn public_watermarks_provenance_and_grouped_lab_use_normal_cli_workers() {
+    let root =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../fileveil-engine/tests/fixtures/watermark");
+    for (name, method) in [
+        ("astronaut-sd1.png", "stable_diffusion_dwt_dct_v1"),
+        ("astronaut-sdxl.png", "stable_diffusion_xl_dwt_dct"),
+    ] {
+        let input = root.join(name);
+        let bytes = std::fs::read(&input).unwrap();
+        for command in ["detect-watermark", "provenance"] {
+            let output = run(&[command, input.to_str().unwrap(), "--json"]);
+            assert_eq!(
+                output.status.code(),
+                Some(4),
+                "{}",
+                String::from_utf8_lossy(&output.stdout)
+            );
+            let report: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+            let field = if command == "provenance" {
+                "watermark_detections"
+            } else {
+                "detections"
+            };
+            assert!(
+                report["advanced"][field]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|result| result["method_id"] == method && result["status"] == "detected")
+            );
+            assert_eq!(report["integrity"]["original_unchanged"], true);
+            if command == "detect-watermark" {
+                assert!(
+                    report["advanced"]["signal_analysis"]["signal"]["block_dct_blocks"]
+                        .as_u64()
+                        .unwrap()
+                        > 0
+                );
+            }
+        }
+        assert_eq!(std::fs::read(&input).unwrap(), bytes);
+    }
+    let paths = [
+        root.join("astronaut.png"),
+        root.join("astronaut-sd1.png"),
+        root.join("astronaut-sdxl.png"),
+    ];
+    let output = run(&[
+        "lab",
+        "--groups-json",
+        r#"[{"label":"reference","sample_indices":[0,1]}]"#,
+        paths[0].to_str().unwrap(),
+        paths[1].to_str().unwrap(),
+        paths[2].to_str().unwrap(),
+        "--json",
+    ]);
+    assert_eq!(
+        output.status.code(),
+        Some(4),
+        "{}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let report: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(
+        report["advanced"]["lab"]["groups"][0]["tests"]
+            .as_array()
+            .unwrap()
+            .len(),
+        3
+    );
+    assert_eq!(report["advanced"]["lab"]["attribution"], "not_assessed");
+}

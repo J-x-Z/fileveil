@@ -142,7 +142,7 @@ impl Workspaces {
         }
         self.result_workspace = self.selected;
         self.result_samples = match &kind {
-            JobKind::Lab { paths } => paths.clone(),
+            JobKind::Lab { paths } | JobKind::LabGrouped { paths, .. } => paths.clone(),
             _ => Vec::new(),
         };
         self.result_input = match &kind {
@@ -155,7 +155,7 @@ impl Workspaces {
             JobKind::Provenance { path, .. }
             | JobKind::DetectWatermark { path }
             | JobKind::Scan { path } => Some(path.clone()),
-            JobKind::Lab { .. } => None,
+            JobKind::Lab { .. } | JobKind::LabGrouped { .. } => None,
         };
         if matches!(kind, JobKind::SanitizeAdvanced { .. }) {
             self.last_output = None;

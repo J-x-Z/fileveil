@@ -8,6 +8,8 @@
 use fileveil_core::{Confidence, Error, Format, Limits, Result, digest};
 use serde::{Deserialize, Serialize};
 
+mod dwt_dct;
+
 pub const SYNTHETIC_MAGIC: &[u8; 8] = b"FVLSB1\r\n";
 pub const SYNTHETIC_VERSION: u8 = 1;
 pub const SYNTHETIC_HEADER_BYTES: usize = 8 + 1 + 4 + 32;
@@ -65,6 +67,157 @@ pub trait Detector: Send + Sync {
 }
 
 pub struct SyntheticLsbV1;
+
+/// Public, deployed Stable Diffusion payload adapters. Matching a public mark
+/// establishes a signal match and carries no cryptographic origin assertion.
+pub struct StableDiffusionDwtDct {
+    pub xl: bool,
+}
+
+impl Detector for StableDiffusionDwtDct {
+    fn descriptor(&self) -> DetectorDescriptor {
+        DetectorDescriptor {
+            method_id: self.method_id().into(),
+            version: "1.0.0".into(),
+            formats: vec![Format::Jpeg, Format::Png],
+            min_samples: 1,
+            max_samples: 1,
+            requires_key: false,
+            requires_network: false,
+            evidence_types: vec!["public_payload_bit_match".into(), "haar_chroma_block_votes".into()],
+            false_positive_limits: "Public payloads can be copied by anyone. Thresholds are method-specific signal evidence. Error rates for arbitrary images and OEM/device attribution have not been calibrated.".into(),
+            false_negative_limits: "Only invisible-watermark's 8-bit U-channel dwtDct matrix route and the official SD1/SDXL payloads are tested. Cropping, resizing, re-encoding, floating-point variants, other payloads and other watermark families can evade detection.".into(),
+            supports_postprocess_retest: true,
+        }
+    }
+
+    fn detect(&self, samples: &[DetectorSample<'_>], limits: &Limits) -> Result<DetectionReport> {
+        let [sample] = samples else {
+            return Err(Error::Input(
+                "Stable Diffusion detection requires one sample".into(),
+            ));
+        };
+        let Some(image) = signal_image(sample.data, sample.format, limits)? else {
+            return Ok(self.unassessed("unsupported_container_or_sample_model"));
+        };
+        Ok(self.evaluate(&image, &dwt_dct::block_decisions(&image)))
+    }
+}
+
+impl StableDiffusionDwtDct {
+    fn method_id(&self) -> &'static str {
+        if self.xl {
+            "stable_diffusion_xl_dwt_dct"
+        } else {
+            "stable_diffusion_dwt_dct_v1"
+        }
+    }
+
+    fn unassessed(&self, evidence: &str) -> DetectionReport {
+        DetectionReport {
+            method_id: self.method_id().into(),
+            detector_version: "1.0.0".into(),
+            status: DetectionStatus::NotAssessed,
+            confidence: Confidence::Unknown,
+            evidence_codes: vec![evidence.into()],
+            payload_sha256: None,
+            payload_bytes: None,
+            offline: true,
+            scope: "public_payload_signal_match_without_origin_authentication".into(),
+        }
+    }
+
+    fn evaluate(&self, image: &image::RgbImage, decisions: &[bool]) -> DetectionReport {
+        let mut report = self.unassessed("");
+        report.evidence_codes.clear();
+        if u64::from(image.width()) * u64::from(image.height()) < 256 * 256 {
+            report
+                .evidence_codes
+                .push("image_area_below_upstream_minimum".into());
+            return report;
+        }
+        let payload: &[u8] = if self.xl {
+            &[0xb3, 0xec, 0x90, 0x7b, 0xb1, 0x9e]
+        } else {
+            b"StableDiffusionV1"
+        };
+        let length = payload.len() * 8;
+        let votes = dwt_dct::votes(decisions, length);
+        if votes.iter().any(|(_, total)| *total < 4) {
+            report
+                .evidence_codes
+                .push("insufficient_independent_block_votes".into());
+            return report;
+        }
+        let matched = votes
+            .iter()
+            .enumerate()
+            .filter(|(index, (ones, total))| {
+                let expected = (payload[index / 8] >> (7 - index % 8)) & 1 != 0;
+                (*ones as f64 * 255.0 > *total as f64 * 127.0) == expected
+            })
+            .count();
+        let margin = votes
+            .iter()
+            .map(|(ones, total)| (2.0 * *ones as f64 / *total as f64 - 1.0).abs())
+            .sum::<f64>()
+            / length as f64;
+        let (positive, partial) = if self.xl { (36, 28) } else { (128, 102) };
+        report.status = if matched >= positive {
+            DetectionStatus::Detected
+        } else if matched >= partial {
+            DetectionStatus::Indeterminate
+        } else {
+            DetectionStatus::NotDetected
+        };
+        report.confidence = if report.status == DetectionStatus::Detected {
+            Confidence::StrongEvidence
+        } else if report.status == DetectionStatus::Indeterminate {
+            Confidence::Heuristic
+        } else {
+            Confidence::Unknown
+        };
+        report.evidence_codes = vec![
+            format!("matched_bits={matched}"),
+            format!("total_bits={length}"),
+            format!("positive_threshold={positive}"),
+            format!("block_votes={}", decisions.len()),
+            format!("mean_vote_margin={margin:.6}"),
+            "public_payload_is_not_authenticated_model_or_device_identity".into(),
+        ];
+        if report.status == DetectionStatus::Detected {
+            report.payload_sha256 = Some(digest(payload));
+            report.payload_bytes = Some(payload.len() as u32);
+        }
+        report
+    }
+}
+
+fn signal_image(data: &[u8], format: Format, limits: &Limits) -> Result<Option<image::RgbImage>> {
+    if data.len() as u64 > limits.max_file_bytes {
+        return Err(Error::Blocked(
+            "Watermark input exceeds the file size limit".into(),
+        ));
+    }
+    let expected = match format {
+        Format::Png => image::ImageFormat::Png,
+        Format::Jpeg => image::ImageFormat::Jpeg,
+        _ => return Ok(None),
+    };
+    if image::guess_format(data).ok() != Some(expected) {
+        return Err(Error::Input(
+            "Watermark container does not match the format hint".into(),
+        ));
+    }
+    let image = super::decode_pixels(data, limits)?;
+    if !matches!(
+        image,
+        image::DynamicImage::ImageRgb8(_) | image::DynamicImage::ImageRgba8(_)
+    ) {
+        return Ok(None);
+    }
+    Ok(Some(image.into_rgb8()))
+}
 
 impl Detector for SyntheticLsbV1 {
     fn descriptor(&self) -> DetectorDescriptor {
@@ -191,11 +344,31 @@ impl Detector for SyntheticLsbV1 {
 
 /// Registry entries are compiled-in detectors with explicit capabilities.
 pub fn detectors() -> Vec<DetectorDescriptor> {
-    vec![SyntheticLsbV1.descriptor()]
+    vec![
+        SyntheticLsbV1.descriptor(),
+        StableDiffusionDwtDct { xl: false }.descriptor(),
+        StableDiffusionDwtDct { xl: true }.descriptor(),
+    ]
 }
 
 pub fn detect(data: &[u8], format: Format, limits: &Limits) -> Result<DetectionReport> {
     SyntheticLsbV1.detect(&[DetectorSample { data, format }], limits)
+}
+
+/// Additive multi-method entry point. `detect` retains its V1 packet contract.
+pub fn detect_all(data: &[u8], format: Format, limits: &Limits) -> Result<Vec<DetectionReport>> {
+    let mut reports = vec![detect(data, format, limits)?];
+    let sd1 = StableDiffusionDwtDct { xl: false };
+    let sdxl = StableDiffusionDwtDct { xl: true };
+    if let Some(image) = signal_image(data, format, limits)? {
+        let decisions = dwt_dct::block_decisions(&image);
+        reports.push(sd1.evaluate(&image, &decisions));
+        reports.push(sdxl.evaluate(&image, &decisions));
+    } else {
+        reports.push(sd1.unassessed("unsupported_container_or_sample_model"));
+        reports.push(sdxl.unassessed("unsupported_container_or_sample_model"));
+    }
+    Ok(reports)
 }
 
 fn lsb_bytes(samples: &[u8]) -> Vec<u8> {

@@ -47,6 +47,10 @@ pub enum JobKind {
     Lab {
         paths: Vec<PathBuf>,
     },
+    LabGrouped {
+        paths: Vec<PathBuf>,
+        groups: Vec<fileveil_engine::lab::SampleGroup>,
+    },
     Provenance {
         path: PathBuf,
         trust_roots: Option<PathBuf>,
@@ -84,7 +88,7 @@ impl JobKind {
                 "verify"
             }
             Self::DetectWatermark { .. } => "detect_watermark",
-            Self::Lab { .. } => "lab",
+            Self::Lab { .. } | Self::LabGrouped { .. } => "lab",
             Self::Provenance { .. } => "provenance",
         }
     }
@@ -675,6 +679,9 @@ fn execute_bound_worker(request: &JobRequest) -> fileveil_core::Result<Report> {
             fileveil_engine::audits::detect_watermark(path, &request.limits)
         }
         JobKind::Lab { paths } => fileveil_engine::audits::lab(paths, &request.limits),
+        JobKind::LabGrouped { paths, groups } => {
+            fileveil_engine::audits::lab_with_groups(paths, groups, &request.limits)
+        }
         JobKind::Provenance { path, trust_roots } => {
             fileveil_engine::audits::provenance(path, trust_roots.as_deref(), &request.limits)
         }

@@ -226,3 +226,9 @@ Windows GUI CI 使用已校验 SHA-256 的 Mesa 26.2.6 MinGW x64 llvmpipe。三�
 2026-11-12 增加 HEIC/HEIF、AVIF、MP4/MOV 偏移保持重写。19 项 BMFF 测试覆盖实际编码样本、共享 extent、保护与加密结构、损坏偏移、未知 UUID 保留、篡改和幂等。Engine 的三个正常入口回归覆盖 Scan → Sanitize → Verify、原件字节不变、签名保护和 Deep 文件属性。
 
 macOS 独立 ImageIO/AVAssetReader 回归实际通过，覆盖 HEIC、AVIF、H.264 MOV、H.264 MP4 和 H.264/AAC MP4。清理前后的解码 RGBA、PCM、视频帧、轨道变换及采样时序完全相同。运行时报告明确保留编码负载与结构的验证范围，平台解码属于此回归证据。记录保存在 `work/v03-final/media-*.log`，原始媒体由仓库内平台编码脚本生成。
+
+### 公开图像水印与离线 AI 来源回归
+
+2026-11-12 增加 Stable Diffusion 1/SDXL 实际公开消息检测、原分辨率信号观察、灰阶预览和用户参考组。独立 Python 上游编码器及解码器在 NASA 512×512 自然照片上确认 PNG 和 JPEG 4:4:4 正样本分别匹配 136/136 与 48/48 位。Rust CLI Signal 处理后的输出由同一独立上游解码器复检，分别匹配 86/136 与 26/48 位，均低于对应检测阈值。普通 JPEG 4:2:0 重编码、未知消息与干净照片作为阴性或编码对照。版本、哈希及分数位于 `crates/fileveil-engine/tests/fixtures/watermark/upstream-evidence.json`，可复现脚本与第三方 MIT 声明随源码保留。
+
+Lab、公开检测器、CLI/MCP 分组入口及 GUI 结果显示均有针对性回归。OpenAI、Anthropic、Google 的专有检测器保持明确的未配置或受限状态。当前版本未配置在线凭据，检测全程离线。

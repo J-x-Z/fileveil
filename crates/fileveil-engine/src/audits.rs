@@ -26,9 +26,25 @@ pub fn provenance(input: &Path, trust_roots: Option<&Path>, limits: &Limits) -> 
         .transpose()
         .map_err(|_| Error::Io("Could not serialize provenance evidence".into()))?;
     neutralize_provenance_findings(&mut report);
+    let watermark_detections =
+        crate::watermark::detect_all(&snapshot.bytes, inspection.format, limits)?;
+    let source_marker_codes: std::collections::BTreeSet<_> = inspection
+        .findings
+        .iter()
+        .filter(|finding| {
+            matches!(
+                finding.code.as_str(),
+                "text.invisible_unicode" | "html.meta" | "html.comment" | "text.control_character"
+            )
+        })
+        .map(|finding| finding.code.as_str())
+        .collect();
     report.advanced = Some(
         serde_json::json!({"capabilities":crate::provenance::capabilities(),
         "external_interfaces":crate::provenance::external_interfaces(),
+        "watermark_detections":watermark_detections,
+        "source_marker_codes":source_marker_codes,
+        "public_payload_authentication":"not_assessed",
         "credential_found":report.provenance.as_ref().is_some_and(|value|value["presence"]=="embedded"),
         "provenance_evidence_present":report.provenance.is_some(),"personal_identity_link":"not_assessed",
         "unknown_ai_watermarks":"not_assessed","model_source_validation":"not_assessed"}),
@@ -60,17 +76,30 @@ pub fn provenance(input: &Path, trust_roots: Option<&Path>, limits: &Limits) -> 
 pub fn detect_watermark(input: &Path, limits: &Limits) -> Result<Report> {
     let snapshot = Snapshot::open(input, limits)?;
     let inspection = inspect_snapshot(&snapshot.bytes, input, limits)?;
-    let detection = crate::watermark::detect(&snapshot.bytes, inspection.format, limits)?;
-    let unsupported = detection.status == crate::watermark::DetectionStatus::NotAssessed;
+    let detections = crate::watermark::detect_all(&snapshot.bytes, inspection.format, limits)?;
+    let signal_analysis = if inspection.format.is_image() {
+        Some(crate::lab::analyze_signal(
+            &snapshot.bytes,
+            inspection.format,
+            limits,
+        )?)
+    } else {
+        None
+    };
+    let unsupported = detections
+        .iter()
+        .all(|detection| detection.status == crate::watermark::DetectionStatus::NotAssessed);
     let mut report = report_for("detect_watermark", &inspection, &snapshot);
-    report.advanced =
-        Some(serde_json::json!({"detection":detection,"detectors":crate::watermark::detectors()}));
+    report.advanced = Some(
+        serde_json::json!({"detection":detections.first(),"detections":detections,
+            "signal_analysis":signal_analysis,"detectors":crate::watermark::detectors()}),
+    );
     report.result = if unsupported {
         Outcome::Unsupported
     } else {
         Outcome::PartiallyVerified
     };
-    report.warnings.push("Detection covers the named synthetic packet protocol. A negative result leaves other schemes unassessed.".into());
+    report.warnings.push("Results cover the named public watermark protocols. Public messages can be copied and do not authenticate a model, person or device. Negative results leave other schemes unassessed.".into());
     if !snapshot.unchanged(input, limits)? {
         return Err(Error::Blocked("Watermark input changed".into()));
     }
@@ -79,6 +108,14 @@ pub fn detect_watermark(input: &Path, limits: &Limits) -> Result<Report> {
 }
 
 pub fn lab(inputs: &[PathBuf], limits: &Limits) -> Result<Report> {
+    lab_with_groups(inputs, &[], limits)
+}
+
+pub fn lab_with_groups(
+    inputs: &[PathBuf],
+    groups: &[crate::lab::SampleGroup],
+    limits: &Limits,
+) -> Result<Report> {
     if !(2..=8).contains(&inputs.len()) {
         return Err(Error::Input(
             "The difference lab requires 2 to 8 explicit samples".into(),
@@ -104,7 +141,7 @@ pub fn lab(inputs: &[PathBuf], limits: &Limits) -> Result<Report> {
             format: fileveil_formats::identify(&snapshot.bytes, path),
         })
         .collect();
-    let analysis = crate::lab::analyze(&samples, limits)?;
+    let analysis = crate::lab::analyze_with_groups(&samples, groups, limits)?;
     for (snapshot, path) in snapshots.iter().zip(inputs) {
         if !snapshot.unchanged(path, limits)? {
             return Err(Error::Blocked(

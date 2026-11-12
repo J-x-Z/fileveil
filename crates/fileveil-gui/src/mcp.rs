@@ -438,14 +438,22 @@ fn job_kind(name: &str, arguments: &Map<String, Value>) -> Result<JobKind, Strin
         "fileveil_detect_watermark" => JobKind::DetectWatermark {
             path: path(arguments, "path"),
         },
-        "fileveil_lab" => JobKind::Lab {
-            paths: arguments["paths"]
+        "fileveil_lab" => {
+            let paths = arguments["paths"]
                 .as_array()
                 .expect("validated paths")
                 .iter()
                 .map(|path| PathBuf::from(path.as_str().expect("validated path")))
-                .collect(),
-        },
+                .collect();
+            match arguments.get("groups_json").and_then(Value::as_str) {
+                Some(encoded) => JobKind::LabGrouped {
+                    paths,
+                    groups: serde_json::from_str(encoded)
+                        .map_err(|_| "Invalid sample groups JSON".to_string())?,
+                },
+                None => JobKind::Lab { paths },
+            }
+        }
         "fileveil_provenance" => JobKind::Provenance {
             path: path(arguments, "path"),
             trust_roots: arguments
@@ -580,8 +588,8 @@ fn tools() -> Vec<Value> {
         ),
         (
             "fileveil_detect_watermark",
-            "Detect synthetic image watermark",
-            "Read-only synthetic packet detector with a named method and explicit limitations",
+            "Detect public image watermarks",
+            "Read-only public LSB and Stable Diffusion image detectors with named methods and explicit limitations",
             json!({"path":file}),
             vec!["path"],
             true,
@@ -590,7 +598,7 @@ fn tools() -> Vec<Value> {
             "fileveil_lab",
             "Image difference lab",
             "Compare 2 to 8 authorized image control samples using pixel, LSB, entropy and frequency statistics",
-            json!({"paths":{"type":"array","items":file,"minItems":2,"maxItems":8}}),
+            json!({"paths":{"type":"array","items":file,"minItems":2,"maxItems":8}, "groups_json":{"type":"string","description":"Optional reference groups JSON with labels and zero-based sample_indices"}}),
             vec!["paths"],
             true,
         ),

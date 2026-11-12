@@ -790,7 +790,7 @@ pub fn capabilities(limits: &Limits) -> serde_json::Value {
             {"format":"mp3","scan":"bounded_id3_audit","safe":"unavailable","verify":"not_assessed"}
         ],
         "platform_attributes": if cfg!(windows) { "selective_private_stream_removal_motw_preserved" } else if cfg!(unix) { "selective_privacy_attributes_quarantine_preserved_resource_forks_block_rewrite" } else { "unavailable" },
-        "c2pa_signature_verification": "offline_available", "content_watermark_detection": "synthetic_lsb_v1_only", "statistical_watermark_detection": "not_assessed",
+        "c2pa_signature_verification": "offline_available", "content_watermark_detection": "public_lsb_and_stable_diffusion_dwt", "statistical_watermark_detection": "named_image_statistics_only",
         "limits": limits, "timeout_enforcement": "isolated_worker_process", "overwrite": false
     })
 }

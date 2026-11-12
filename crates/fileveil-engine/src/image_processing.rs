@@ -45,7 +45,7 @@ fn inspect_input(
     hint: &Path,
     limits: &Limits,
 ) -> Result<fileveil_core::Inspection> {
-    let inspection = fileveil_formats::inspect(&snapshot.bytes, hint, limits)?;
+    let inspection = super::inspect_snapshot(&snapshot.bytes, hint, limits)?;
     if !inspection.format.is_image() {
         return Err(Error::Unsupported(
             "Image processing supports JPEG and PNG inputs".into(),
@@ -482,33 +482,50 @@ fn verify_snapshots(
     report.findings.push(executed);
     report.warnings.push("PNG rebuilding intentionally changes image samples and omits original privacy metadata and non-color ancillary records.".into());
     report.warnings.push("Color profiles, applicable PNG display records, alpha samples and readable platform attributes are preserved.".into());
-    report.warnings.push("Unknown content and statistical watermark detectors were not run. Low-bit checks establish sample-bit clearing only.".into());
-    let detected_before = crate::watermark::detect(&original.bytes, before.format, limits)?;
-    let detected_after = crate::watermark::detect(&output.bytes, Format::Png, limits)?;
-    let detector_result = match (detected_before.status, detected_after.status) {
-        (
-            crate::watermark::DetectionStatus::Detected,
-            crate::watermark::DetectionStatus::NotDetected,
-        ) => "detector_no_longer_detects",
-        (
-            crate::watermark::DetectionStatus::Detected,
-            crate::watermark::DetectionStatus::Detected,
-        ) => "detector_still_detects",
-        (crate::watermark::DetectionStatus::Detected, _) => "indeterminate",
-        _ => "not_assessed",
-    };
+    report.warnings.push("Compiled-in synthetic LSB and public Stable Diffusion dwtDct detectors were repeated after processing. Unknown and proprietary watermarks remain unassessed. Low-bit clearing alone establishes sample-bit clearing.".into());
+    let detections_before = crate::watermark::detect_all(&original.bytes, before.format, limits)?;
+    let detections_after = crate::watermark::detect_all(&output.bytes, Format::Png, limits)?;
+    let detector_retests = detections_before
+        .iter()
+        .zip(&detections_after)
+        .map(|(before, after)| {
+            serde_json::json!({
+                "method_id": before.method_id,
+                "before": before,
+                "after": after,
+                "result": retest_result(before.status, after.status),
+                "scope": "same_method_retest"
+            })
+        })
+        .collect::<Vec<_>>();
+    let detected_before = &detections_before[0];
+    let detected_after = &detections_after[0];
     report.advanced = Some(serde_json::json!({
         "signal_processing": "algorithm_applied",
         "watermark_retest": {
             "method_id": "synthetic_lsb_v1",
             "before": detected_before,
             "after": detected_after,
-            "result": detector_result,
+            "result": retest_result(detected_before.status, detected_after.status),
             "scope": "fileveil_synthetic_packet_only"
-        }
+        },
+        "detector_retests": detector_retests
     }));
     report.image_processing = Some(processing);
     Ok(report)
+}
+
+fn retest_result(
+    before: crate::watermark::DetectionStatus,
+    after: crate::watermark::DetectionStatus,
+) -> &'static str {
+    use crate::watermark::DetectionStatus::{Detected, NotDetected};
+    match (before, after) {
+        (Detected, NotDetected) => "detector_no_longer_detects",
+        (Detected, Detected) => "detector_still_detects",
+        (Detected, _) => "indeterminate",
+        _ => "not_assessed",
+    }
 }
 
 pub fn process_image_in(

@@ -53,6 +53,18 @@ pub fn capabilities() -> Vec<ProvenanceCapability> {
         network_enabled: false,
         availability_reason: "offline_cryptographic_reader".into(),
     }];
+    for provider_id in ["stable_diffusion_v1", "stable_diffusion_xl"] {
+        capabilities.push(ProvenanceCapability {
+            provider_id: provider_id.into(),
+            evidence_kind: "public_image_watermark_payload".into(),
+            status: "available".into(),
+            verified_formats: vec!["png".into(), "jpeg".into()],
+            additional_reader_formats: Vec::new(),
+            network_enabled: false,
+            availability_reason: "offline_public_payload_detector_without_origin_authentication"
+                .into(),
+        });
+    }
     for (provider_id, evidence_kind) in [
         (
             "openai_statistical_text",
@@ -63,6 +75,8 @@ pub fn capabilities() -> Vec<ProvenanceCapability> {
             "keyed_statistical_text_watermark",
         ),
         ("proprietary_image_watermark", "content_watermark"),
+        ("google_synthid_image", "proprietary_content_watermark"),
+        ("google_synthid_text", "keyed_statistical_text_watermark"),
         ("oem_device_fingerprint", "device_attribution"),
     ] {
         capabilities.push(ProvenanceCapability {
@@ -101,6 +115,16 @@ pub fn external_interfaces() -> serde_json::Value {
             "reference":"https://www.anthropic.com/news/claude-text-watermark",
             "requires_provider_access":true,"requires_explicit_upload_consent":true,
             "hidden_character_removal_is_a_separate_operation":true,"executed":false
+        },
+        "google_synthid":{
+            "status":"official_portal_not_configured", "reference":"https://deepmind.google/models/synthid/",
+            "portal":"https://synthid.com", "executed":false
+        },
+        "google_synthid_text_reference":{
+            "status":"matching_generation_configuration_and_keys_required",
+            "reference":"https://github.com/google-deepmind/synthid-text",
+            "required_inputs":["matching_tokenizer","token_ids","sampling_keys","generation_configuration"],
+            "commercial_model_compatibility":"not_assessed", "executed":false
         }
     })
 }

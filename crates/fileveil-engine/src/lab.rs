@@ -6,6 +6,9 @@ use fileveil_core::{Error, Format, Limits, Result, digest};
 use image::{ImageFormat, ImageReader, RgbImage};
 use serde::{Deserialize, Serialize};
 
+mod signals;
+pub use signals::{GrayPreview, JpegComponent, JpegStructure, SignalAnalysis, SignalPreviews};
+
 const DFT_SIDE: usize = 16;
 const DCT_SIDE: usize = 8;
 const FREQUENCY_BANDS: usize = 8;
@@ -45,6 +48,10 @@ pub struct SampleStatistics {
     pub converted_to_rgb8: bool,
     pub channels: [ChannelStatistics; 3],
     pub frequency: FrequencyStatistics,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signal: Option<SignalAnalysis>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub previews: Option<SignalPreviews>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -67,6 +74,39 @@ pub struct PairwiseComparison {
     pub entropy_delta_bits: [f64; 3],
     pub dft_band_distance: f64,
     pub dct_band_distance: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub difference_preview: Option<GrayPreview>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub residual_correlation: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SignalObservation {
+    pub signal: SignalAnalysis,
+    pub previews: SignalPreviews,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SampleGroup {
+    pub label: String,
+    pub sample_indices: Vec<usize>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GroupMatch {
+    pub sample_index: usize,
+    pub reference_count: usize,
+    pub ncc: Option<f64>,
+    pub leave_one_out: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GroupComparison {
+    pub group_index: usize,
+    pub label: String,
+    pub reference_samples: Vec<usize>,
+    pub tests: Vec<GroupMatch>,
+    pub scope: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -79,11 +119,46 @@ pub struct LabReport {
     pub attribution: String,
     pub watermark_detection: String,
     pub limitations: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub groups: Vec<GroupComparison>,
+}
+
+/// A single authorized image receives the same native-resolution observations
+/// and bounded visualizations used by the multi-sample laboratory.
+pub fn analyze_signal(data: &[u8], format: Format, limits: &Limits) -> Result<SignalObservation> {
+    if data.len() as u64 > limits.max_file_bytes {
+        return Err(Error::Blocked("Signal input exceeds the byte limit".into()));
+    }
+    let expected = match format {
+        Format::Jpeg => ImageFormat::Jpeg,
+        Format::Png => ImageFormat::Png,
+        _ => {
+            return Err(Error::Unsupported(
+                "Signal analysis supports JPEG and PNG snapshots".into(),
+            ));
+        }
+    };
+    if image::guess_format(data).ok() != Some(expected) {
+        return Err(Error::Input(
+            "Signal container does not match the format hint".into(),
+        ));
+    }
+    let rgb = super::decode_pixels(data, limits)?.into_rgb8();
+    let (signal, previews, _) = signals::analyze(&rgb, data);
+    Ok(SignalObservation { signal, previews })
 }
 
 /// Inputs are authorized byte snapshots. Sample indices preserve the caller's
 /// order without exporting file paths, source labels or image metadata values.
 pub fn analyze(inputs: &[LabSample<'_>], limits: &Limits) -> Result<LabReport> {
+    analyze_with_groups(inputs, &[], limits)
+}
+
+pub fn analyze_with_groups(
+    inputs: &[LabSample<'_>],
+    groups: &[SampleGroup],
+    limits: &Limits,
+) -> Result<LabReport> {
     if !(2..=8).contains(&inputs.len()) {
         return Err(Error::Input(
             "Diff Lab requires two to eight samples".into(),
@@ -93,6 +168,7 @@ pub fn analyze(inputs: &[LabSample<'_>], limits: &Limits) -> Result<LabReport> {
     let mut total_pixels = 0u64;
     let mut images = Vec::with_capacity(inputs.len());
     let mut samples = Vec::with_capacity(inputs.len());
+    let mut noise_grids = Vec::with_capacity(inputs.len());
     for (index, input) in inputs.iter().enumerate() {
         total_bytes = total_bytes.saturating_add(input.data.len() as u64);
         if input.data.len() as u64 > limits.max_file_bytes
@@ -132,6 +208,7 @@ pub fn analyze(inputs: &[LabSample<'_>], limits: &Limits) -> Result<LabReport> {
             image::DynamicImage::ImageRgb8(_) | image::DynamicImage::ImageRgba8(_)
         );
         let rgb = image.into_rgb8();
+        let (signal, previews, noise) = signals::analyze(&rgb, input.data);
         samples.push(SampleStatistics {
             sample_index: index,
             input_sha256: digest(input.data),
@@ -141,7 +218,10 @@ pub fn analyze(inputs: &[LabSample<'_>], limits: &Limits) -> Result<LabReport> {
             converted_to_rgb8: converted,
             channels: channel_statistics(&rgb),
             frequency: frequency_statistics(&rgb),
+            signal: Some(signal),
+            previews: Some(previews),
         });
+        noise_grids.push(noise);
         images.push(rgb);
     }
     let mut comparisons = Vec::new();
@@ -167,25 +247,106 @@ pub fn analyze(inputs: &[LabSample<'_>], limits: &Limits) -> Result<LabReport> {
                     &a.frequency.dct_frequency_power,
                     &b.frequency.dct_frequency_power,
                 ),
+                difference_preview: same_dimensions
+                    .then(|| signals::difference_preview(&images[first], &images[second])),
+                residual_correlation: same_dimensions
+                    .then(|| {
+                        signals::correlation(
+                            &noise_grids[first].residual,
+                            &noise_grids[second].residual,
+                        )
+                    })
+                    .flatten(),
             });
         }
     }
+    let hashes = samples
+        .iter()
+        .map(|sample| sample.input_sha256.as_str())
+        .collect::<Vec<_>>();
+    let group_comparisons = compare_groups(&noise_grids, groups, &hashes)?;
     Ok(LabReport {
         method_id: "image_diff_lab".into(),
-        method_version: "1.0.0".into(),
+        method_version: "1.1.0".into(),
         samples,
         comparisons,
         offline: true,
         attribution: "not_assessed".into(),
         watermark_detection: "not_assessed".into(),
+        groups: group_comparisons,
         limitations: vec![
             "Statistics describe the selected decoded samples. Encoding, sensor noise and ordinary edits can produce the same differences.".into(),
             "Use known clean images, repeated captures and ordinary re-encoding as controls. Sample groups and device identity are supplied by the researcher.".into(),
             "No empirical false-positive or false-negative rate is established. Statistical differences alone do not identify an OEM, tracking system or watermark.".into(),
             "DFT uses a fixed 16x16 nearest-sampled luminance grid and DCT a fixed 8x8 grid. Alpha and color management are excluded. Converted RGB8 low bits differ from native higher-bit-depth samples.".into(),
             "Pixel differences require matching dimensions and assume aligned content. Different dimensions receive statistical comparisons only.".into(),
+            "Native 8x8 DCT uses at most 256 original-resolution blocks. Haar detail uses at most 4096 original 2x2 blocks. Low-bit previews average the three RGB bit planes. Residual previews use 128 + 8 times a 3x3 Gaussian high-pass residual. Difference previews use eight times mean RGB absolute difference.".into(),
+            "LSB pair chi-square and adjacent-bit correlation are steganalysis observations without a calibrated watermark probability. Ordinary noise, encoding and editing require negative controls.".into(),
+            "Reference groups are user-supplied. Leave-one-out residual NCC suppresses dark/saturated pixels and strong edges but can retain scene or codec structure. Repeated unrelated scenes and separate encoder controls are required for device-fingerprint research. No OEM attribution is performed.".into(),
         ],
     })
+}
+
+fn compare_groups(
+    noise: &[signals::NoiseGrid],
+    groups: &[SampleGroup],
+    hashes: &[&str],
+) -> Result<Vec<GroupComparison>> {
+    if groups.len() > noise.len() {
+        return Err(Error::Input(
+            "Reference groups exceed the sample count".into(),
+        ));
+    }
+    let mut output = Vec::with_capacity(groups.len());
+    for (group_index, group) in groups.iter().enumerate() {
+        if group.label.trim().is_empty()
+            || group.label.chars().count() > 80
+            || group.label.chars().any(char::is_control)
+        {
+            return Err(Error::Input(
+                "Reference group labels require one to 80 printable characters".into(),
+            ));
+        }
+        let mut indices = group.sample_indices.clone();
+        indices.sort_unstable();
+        indices.dedup();
+        if indices.len() != group.sample_indices.len()
+            || indices.len() < 2
+            || indices.iter().any(|index| *index >= noise.len())
+        {
+            return Err(Error::Input(
+                "Each reference group requires two or more distinct valid sample indices".into(),
+            ));
+        }
+        let tests = noise
+            .iter()
+            .enumerate()
+            .map(|(sample_index, query)| {
+                let references = indices
+                    .iter()
+                    .filter(|index| {
+                        **index != sample_index && hashes[**index] != hashes[sample_index]
+                    })
+                    .map(|index| &noise[*index])
+                    .collect::<Vec<_>>();
+                GroupMatch {
+                    sample_index,
+                    reference_count: references.len(),
+                    ncc: signals::reference_correlation(query, &references),
+                    leave_one_out: indices.contains(&sample_index),
+                }
+            })
+            .collect();
+        output.push(GroupComparison {
+            group_index,
+            label: group.label.clone(),
+            reference_samples: indices,
+            tests,
+            scope: "user_labeled_fixed_pattern_residual_association_without_device_attribution"
+                .into(),
+        });
+    }
+    Ok(output)
 }
 
 fn channel_statistics(image: &RgbImage) -> [ChannelStatistics; 3] {

@@ -654,3 +654,54 @@ fn signed_documents_preserve_format_hints_through_authorized_mcp_workers() {
     }
     assert_eq!(client.close(), 0);
 }
+
+#[test]
+fn public_watermarks_and_reference_groups_use_authorized_mcp_workers() {
+    let directory = tempdir();
+    let root =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../fileveil-engine/tests/fixtures/watermark");
+    let first = directory.path().join("sd1.png");
+    let second = directory.path().join("sdxl.png");
+    fs::copy(root.join("astronaut-sd1.png"), &first).unwrap();
+    fs::copy(root.join("astronaut-sdxl.png"), &second).unwrap();
+    let original = fs::read(&first).unwrap();
+    let mut client = Client::authorized("2025-11-25", directory.path());
+    for (tool, field) in [
+        ("fileveil_detect_watermark", "detections"),
+        ("fileveil_provenance", "watermark_detections"),
+    ] {
+        let response = client.call(tool, json!({"path":first}));
+        assert!(
+            report(&response)["advanced"][field]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(
+                    |detection| detection["method_id"] == "stable_diffusion_dwt_dct_v1"
+                        && detection["status"] == "detected"
+                )
+        );
+        assert_eq!(report(&response)["integrity"]["original_unchanged"], true);
+    }
+    let groups = json!([{"label":"reference","sample_indices":[0,1]}]).to_string();
+    let response = client.call(
+        "fileveil_lab",
+        json!({"paths":[first,second],"groups_json":groups}),
+    );
+    assert_eq!(
+        report(&response)["advanced"]["lab"]["groups"][0]["tests"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+    let invalid = client.call("fileveil_lab", json!({"paths":[first,second],"groups_json":"[{\"label\":\"bad\",\"sample_indices\":[0,99]}]"}));
+    assert_eq!(invalid["result"]["isError"], true);
+    let outside = root.join("astronaut.png");
+    assert_permission_denied(&client.call(
+        "fileveil_lab",
+        json!({"paths":[first,outside],"groups_json":groups}),
+    ));
+    assert_eq!(fs::read(&first).unwrap(), original);
+    assert_eq!(client.close(), 0);
+}

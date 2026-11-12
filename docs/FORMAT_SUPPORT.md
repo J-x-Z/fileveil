@@ -30,11 +30,11 @@ TXT/Markdown 使用固定版本 SDK 的实验性 A.8/A.9 功能。A.8 文本保�
 
 WAV 已用独立公开合成签名样本验证 COSE 签名、资产绑定、本地根信任及音频字节篡改。标准 `C2PA` RIFF 块默认保护，重复块报告无法验证。音频凭据移除未提供。FLAC 的标准 C2PA 路径采用前置 ID3v2 GEOB，当前文件格式适配器拒绝此包装的改写。原生 FLAC APPLICATION 块中的 `c2pa`/`C2PA` 标识仅作私有候选保护，其布局和真实性未评估。[C2PA 2.4 音频嵌入规范](https://spec.c2pa.org/specifications/specifications/2.4/specs/C2PA_Specification.html#_embedding_manifests_into_id3)
 
-静态只读检测器契约声明格式、样本数量、密钥、网络、方法版本、证据类型、误报/漏报限制和复验能力。当前 synthetic_lsb_v1 使用公开 RGB LSB 包及 SHA-256 校验，可在支持的 8 位 PNG 中识别合成包。检测结果只包含结构证据与载荷摘要。未知方案保持未评估。
+静态只读检测器契约声明格式、样本数量、密钥、网络、方法版本、证据类型、误报/漏报限制和复验能力。synthetic_lsb_v1 使用公开 RGB LSB 包及 SHA-256 校验。Stable Diffusion 1 和 SDXL 适配器兼容上游 U 通道 Haar/dwtDct 路径，分别比对 136 位和 48 位公开消息。正控含 NASA 自然照片上的独立上游嵌入 PNG 和 JPEG 4:4:4，反控含原照片、未知消息与普通 JPEG 4:2:0 重编码。检测结果包含方法、匹配位数、阈值与公开消息摘要，公开消息不提供密码学身份认证。未知方案保持未评估。
 
-Research 的 Experimental Signal Processing 提供 RGB 低 1–3 位清理和固定缩放/模糊/JPEG 回译，输出 PNG。验证包括配方、像素误差、Alpha/ICC、安全标记及对应合成检测器的前后结果。整体报告保持部分验证。
+Research 的 Experimental Signal Processing 提供 RGB 低 1–3 位清理和固定缩放/模糊/JPEG 回译，输出 PNG。验证包括配方、像素误差、Alpha/ICC、安全标记及各公开检测器的前后结果。整体报告保持部分验证。
 
-Diff Lab 接受 2–8 张显式图像，提供像素差分、RGB 直方图、低位分布、信息熵、固定采样 DCT/DFT 和配对比较。实验需要干净、编码和传感器噪声对照，统计异常仅构成研究线索。
+Diff Lab 接受 2–8 张显式图像，提供像素差分、RGB 直方图、低位分布、信息熵、固定采样 DCT/DFT、原分辨率块 DCT/Haar、LSB χ²/相邻相关、JPEG 量化/采样结构、低位/残差/差分预览和配对残差 NCC。参考组支持留一法对照，重复相同输入从参考中排除。实验需要干净、编码和传感器噪声对照，统计异常仅构成研究线索。
 
 ## 平台属性与工作流
 

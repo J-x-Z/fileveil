@@ -167,7 +167,11 @@ impl AccessPolicy {
                 };
                 job.inputs.push(input);
             }
-            JobKind::Lab { paths } => {
+            JobKind::Lab { paths } | JobKind::LabGrouped { paths, .. } => {
+                let groups = match &job.request.kind {
+                    JobKind::LabGrouped { groups, .. } => Some(groups.clone()),
+                    _ => None,
+                };
                 if !(2..=8).contains(&paths.len()) {
                     return Err(Error::Input(
                         "Lab requires 2 to 8 authorized samples".into(),
@@ -177,8 +181,10 @@ impl AccessPolicy {
                     .iter()
                     .map(|path| self.input(path))
                     .collect::<Result<Vec<_>>>()?;
-                job.request.kind = JobKind::Lab {
-                    paths: inputs.iter().map(|input| input.alias.clone()).collect(),
+                let paths = inputs.iter().map(|input| input.alias.clone()).collect();
+                job.request.kind = match groups {
+                    Some(groups) => JobKind::LabGrouped { paths, groups },
+                    None => JobKind::Lab { paths },
                 };
                 job.inputs.extend(inputs);
             }

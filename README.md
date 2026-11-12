@@ -4,7 +4,7 @@
 
 桌面版支持中文和英文界面、文件拖放、多文件队列、文件夹导入、发现信息搜索与分类筛选、处理计划、批量保存净化副本、二次验证与脱敏 JSON 报告导出。默认使用深色外观，侧栏可切换深色和中性浅色，设置内提供语言与高对比外观选项。任务支持取消与超时。
 
-JPEG、PNG、WAV、FLAC 和 DOCX/XLSX/PPTX 支持各自范围内的 Safe 净化。Deep 提供选择性 Office 内容清理，TXT/Markdown/HTML 支持显式净化副本。PDF 使用 qpdf 完整重写，独立 Poppler 检查页数、文本及受限分辨率页面渲染。C2PA 离线验签、合成 LSB 包检测、图片差异实验室与 HEIC/AVIF/MP4/MOV 结构审计已接入共享 Rust Core。具体范围见 [格式支持](docs/FORMAT_SUPPORT.md)。
+JPEG、PNG、HEIC/HEIF、AVIF、MP4/MOV、WAV、FLAC 和 DOCX/XLSX/PPTX 支持各自范围内的 Safe 净化。Deep 提供选择性 Office 内容清理，TXT/Markdown/HTML 支持显式净化副本。PDF 使用 qpdf 完整重写，独立 Poppler 检查页数、文本及受限分辨率页面渲染。C2PA 离线验签、公开 LSB 与 Stable Diffusion 图像水印检测、图片差异实验室和手机媒体容器重写已接入共享 Rust Core。具体范围见 [格式支持](docs/FORMAT_SUPPORT.md)。
 
 ## 启动桌面版
 
@@ -115,7 +115,7 @@ MPL-2.0 采用文件级 Copyleft。对外分发受覆盖源码及其修改时，
 /Volumes/WINDOWS/work/fileveil/dist/FileVeil.app/Contents/MacOS/fileveil-gui --mcp
 ```
 
-服务提供八个工具，覆盖能力查询、扫描、Safe/Deep、验证、图片处理、合成水印检测、差异实验室与 AI 来源。读取与输出目录分开授权，每连接默认最多 64 次操作，原件只读，输出只能新建。路径、链接、目录替换与资源限制由服务端验证。连接方式与示例见 [桌面版指南](docs/GUI.md)。
+服务提供八个工具，覆盖能力查询、扫描、Safe/Deep、验证、图片处理、公开图像水印检测、差异实验室与 AI 来源。读取与输出目录分开授权，每连接默认最多 64 次操作，原件只读，输出只能新建。路径、链接、目录替换与资源限制由服务端验证。连接方式与示例见 [桌面版指南](docs/GUI.md)。
 
 ## 0.3 高级入口与限制
 
@@ -133,7 +133,9 @@ PDF 需要 qpdf。独立完整验证需要另行安装 Poppler 的 pdfinfo、pdf
 
 HEIC/AVIF/MP4/MOV 当前提供结构与元数据审计，净化重写和编码内容验证尚未提供。未知 OEM 字段仅报告结构线索。MP3 净化、音频信号水印、私有密钥统计水印、厂商专有水印及 CAWG 身份校验仍待实现或授权检测能力。Deep 支持无依赖的简单隐藏工作表清理。复杂 Office 修订、公式或共享字符串依赖的隐藏表和复杂 HTML 结构会明确阻断。
 
-公开的 synthetic_lsb_v1 检测只覆盖 FileVeil 合成协议，包含校验有效性及处理后复验。实验性信号处理和阴性结果的适用范围均写入报告。Diff Lab 提供可重复统计与对照信息，OEM 归因保持未评估。
+公开检测器覆盖 FileVeil LSB 包、Stable Diffusion 1 的 136 位公开消息及 SDXL 的 48 位公开消息，包含逐方法处理后复检。正反样本使用独立上游编码器和解码器验证。公开消息可被复制，身份或模型来源认证仍需独立证据。Diff Lab 提供低位、DCT/Haar、JPEG 编码、残差及差分预览，可输入参考组进行留一法残差关联比较。手机 OEM 归因与专有水印保持未评估。
+
+OpenAI、Anthropic 和 Google 的专有检测器显示实际可用状态。当前版本完全离线，SynthID-Text 的参考算法需要匹配的 tokenizer、生成配置和密钥。未配置的服务与检测范围均在能力报告中列明。
 
 最低 Rust 版本升至 1.96，以使用固定版本的官方 C2PA SDK。旧 CLI 命令和 Safe 默认行为保留，报告新增字段均可选。发行包附带 MPL-2.0、第三方声明和对应项目源码 ZIP。正式签名、公证及实际目标平台状态见验证记录。
 

@@ -1,0 +1,81 @@
+{
+  "upstream_commit": "68d0376d94a4701ed240af0841ec12e00676e325",
+  "upstream_source_sha256": "b7f024cd525b793116f6b7ae461ddcb12be0c6004e2ada8a32c7f8fdae398cc3",
+  "numpy": "2.2.6",
+  "opencv": "4.12.0",
+  "pywavelets": "1.8.0",
+  "clean_photo_matches": {
+    "sd1": 68,
+    "sdxl": 21
+  },
+  "results": [
+    {
+      "file": "astronaut-sd1.png",
+      "bits": 136,
+      "matched_bits_upstream": 136,
+      "sha256": "d69ff7d8f377f980d68469508377be81a84694c9bbda73322602b5ba13b9cb48"
+    },
+    {
+      "file": "astronaut-sd1.jpg",
+      "bits": 136,
+      "matched_bits_upstream": 72,
+      "sha256": "fef6684441e67b056a5c0e2315b928643e66d0b8a5a1372396d136a5be890e1c",
+      "role": "ordinary_lossy_reencoding_control"
+    },
+    {
+      "file": "astronaut-sd1-444.jpg",
+      "bits": 136,
+      "matched_bits_upstream": 136,
+      "sha256": "69666b361a358599afc07943b2cbed7df2ba29c83c7df2c2888c3df10a728165",
+      "role": "positive_jpeg_444_quality_95"
+    },
+    {
+      "file": "astronaut-sdxl.png",
+      "bits": 48,
+      "matched_bits_upstream": 48,
+      "sha256": "6bcafe16fc8a49d6e1f8bfbb72d8e3886c75596ebabd4dc55b3480142591d911"
+    },
+    {
+      "file": "astronaut-sdxl.jpg",
+      "bits": 48,
+      "matched_bits_upstream": 21,
+      "sha256": "f0a3bb0a46553781ac26b95c887cfaf93841b2db83ff5042b77202c1b2ae4cd9",
+      "role": "ordinary_lossy_reencoding_control"
+    },
+    {
+      "file": "astronaut-sdxl-444.jpg",
+      "bits": 48,
+      "matched_bits_upstream": 48,
+      "sha256": "de322e73b03db91fd931a04ecd1a5bacac1b4b62978c49985c3ee4fe414fc5a4",
+      "role": "positive_jpeg_444_quality_95"
+    },
+    {
+      "file": "astronaut-other.png",
+      "bits": 128,
+      "matched_bits_upstream": 122,
+      "sha256": "f749a5e96e408762f3dde7f62af6149e6ab0c0463bccbf62cd8c75958426e748"
+    }
+  ],
+  "fileveil_signal_recipe_upstream_retest": {
+    "sd1": {
+      "matched_bits_upstream": 86,
+      "bits": 136,
+      "sha256": "03c0204baa8ad130102b2c42bc7dcc837485e8fa92b41770264a8a6d5c0503f4"
+    },
+    "sd1-jpeg": {
+      "matched_bits_upstream": 81,
+      "bits": 136,
+      "sha256": "16e34878d554d96d757e152c221b65a6cb69689f5df344b84c05d439e8f1b69f"
+    },
+    "sdxl": {
+      "matched_bits_upstream": 26,
+      "bits": 48,
+      "sha256": "4100a108ffce9f04c544e68d08527cb4dbe4103c8b86b4d3720e5b4824ec8082"
+    },
+    "sdxl-jpeg": {
+      "matched_bits_upstream": 22,
+      "bits": 48,
+      "sha256": "aff18e7cf58bf70e607f6ee10b3f15a866f77c13fef19c359b48b7eeee455944"
+    }
+  }
+}

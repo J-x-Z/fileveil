@@ -22,13 +22,16 @@ fn provider_availability_matches_configured_backends() {
             .iter()
             .filter(|item| item.status == "available")
             .count(),
-        1
+        3
     );
     assert!(capabilities.iter().all(|item| !item.network_enabled));
     assert!(
         capabilities
             .iter()
-            .filter(|item| item.provider_id != "c2pa")
+            .filter(
+                |item| !["c2pa", "stable_diffusion_v1", "stable_diffusion_xl"]
+                    .contains(&item.provider_id.as_str())
+            )
             .all(|item| item.verified_formats.is_empty() && item.status == "unavailable")
     );
 }
