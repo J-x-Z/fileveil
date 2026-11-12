@@ -269,3 +269,24 @@ OEM 私有水印、专有密钥 AI 检测器仍需真实样本或授权检测能
 格式检查与 workspace 全目标 Clippy `-D warnings` 通过。6 项打包单测通过，11 份实际报告、2 份旧报告及批量封套通过 JSON Schema 检查。依赖审计沿用已记录的 RUSTSEC-2023-0071 限定例外，保留四项维护状态提示。
 
 本轮回归覆盖 MCP 大小写与 Home 祖先授权、FIFO 与文件身份替换、极端预算数值、媒体嵌套 XMP、Office 历史隐藏属性、大报告分页、失败重扫后的资格控制和实际 worker 队列检测。原件不变、已有副本与处理配方保留均由对应测试检查。详细复现、性能测量与剩余边界见 [审计记录](AUDIT_2026-11-12.md)。本机证据保存在 `work/v03-audit/`。
+
+
+### 多轮审计最终三平台与发行包
+
+最终产品源码 `ad1fa18` 的 [CI 43248558309](https://github.com/J-x-Z/fileveil/actions/runs/43248558309) 已完成，三项原生任务全部 `success`。
+
+| 平台 | 通过 | 失败 | 忽略 | 原生验收 |
+| --- | --- | --- | --- | --- |
+| macOS Apple Silicon | 291 | 0 | 8 | framebuffer、独立媒体解码、包内 CLI 与本机 CUA 操作通过 |
+| Windows x86_64 | 279 | 0 | 6 | SendInput 实际点击、SDXL 48/48、数值共识、原件不变、包内 CLI 通过 |
+| Linux x86_64 | 286 | 0 | 6 | X11 XTEST 实际点击、SDXL 48/48、数值共识、原件不变、包内 CLI 通过 |
+
+各平台均执行 33 个 Rust 测试目标。Windows 使用 CI 专用 Mesa 软件 OpenGL，Linux 使用 Xvfb。Windows/Linux 均记录 4 个操作系统指针事件，实际激活图片页与检测按钮。三平台截图已查看。原始日志、截图、控制器和包内 CLI 证据位于 `work/v03-audit/ci-evidence/ci-43248558309/`。
+
+[依赖安全与许可工作流 43246794118](https://github.com/J-x-Z/fileveil/actions/runs/43246794118) 已成功。检查 645 个依赖，沿用 RUSTSEC-2023-0071 的已记录限定例外和四项维护状态提示，许可证检查通过。该工作流后的产品提交未修改锁文件及依赖清单。
+
+macOS 实际批量检测导出包含公开水印阳性与干净阴性两份报告，批量 Schema 与原件摘要检查通过。最终包实际验证了 1 MP 预算阻断、中文原因、失败重扫停用旧计划和恢复 32 MP 后重新扫描。双语、深浅主题均通过本机交互检查。记录位于 `work/v03-audit/macos-native-ui.json`。
+
+三份发行归档及 `SHA256SUMS` 已更新至 `dist/`，摘要复验全部通过。每包内 1380 份源码对应 `ad1fa18`，MPL-2.0、MIT 水印适配及 qpdf 声明已核对。Windows 内嵌源码 ZIP 规范化了五个 checkout CRLF 差异，GUI、CLI 与其余资源保持 CI 原字节，原始 CI 成品保留。Linux 可执行位为 0755。后续文档和 LF checkout 规则追记独立于产品运行代码。
+
+macOS ad-hoc 严格签名验证通过，Gatekeeper 拒绝，当前 Developer ID Application 身份为 0，Apple Development 为 1。Windows Authenticode 为 NotSigned。正式发行签名及公证仍待相应凭据。发行收据为 `work/v03-audit/delivery-receipt.json`，旧归档保存在 `work/v03-audit/previous-release/`。复用现有 target，收尾时磁盘可用约 21.1 GiB。

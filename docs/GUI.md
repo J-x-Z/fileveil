@@ -69,7 +69,7 @@ python3 tools/package-desktop.py --skip-build --replace
 
 ## 验收范围
 
-macOS arm64 的实际窗口交互、七文件批量队列、报告导出和应用包验证已记录在 [验证记录](VALIDATION.md)。原生拖放手势、Windows/Linux 原生桌面测试、正式签名和系统级文件关联需要对应平台验收。
+macOS arm64 的实际窗口交互、批量队列检测、报告导出、资源预算和应用包验证已记录在 [验证记录](VALIDATION.md)。Windows 与 Linux 原生 CI 执行窗口渲染、指针点击、实际水印检测、文件操作和打包。原生拖放手势、更广泛的物理 GPU 与桌面环境、正式签名和系统级文件关联需要对应平台验收。
 
 ## 资源预算
 
