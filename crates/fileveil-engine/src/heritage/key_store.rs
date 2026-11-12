@@ -459,7 +459,7 @@ mod backend {
             ));
         }
         let mut result = Zeroizing::new(Vec::with_capacity(32));
-        for pair in text.as_bytes().chunks_exact(2) {
+        for pair in text.as_bytes().as_chunks::<2>().0 {
             let s = std::str::from_utf8(pair).unwrap();
             result.push(u8::from_str_radix(s, 16).map_err(|_| {
                 Error::Blocked("Invalid Secret Service signing credential encoding".into())
