@@ -197,7 +197,7 @@ macOS 原生交互完成以下闭环。
 
 许可清单收敛为 639 个 registry 包、1215 份许可/署名文本，逐文件摘要核对通过。macOS 包同时包含 GUI、CLI、项目许可证、第三方声明、对应源码 ZIP 和 qpdf 后端。打包器已执行随包后端探测和 ad-hoc 签名验证。Gatekeeper 实际评估为 rejected，Developer ID Application 身份数量为零，正式发行签名和公证仍需凭据。
 
-最新产品源码提交为 `e4d9acb`，最终 CI 运行配置提交为 `2660b1e`。三平台原生验收、GUI framebuffer、包内 CLI 与签名状态均已实际通过工作流检查，见 [平台工作流](https://github.com/J-x-Z/fileveil/actions/runs/43153669093)。同一 Cargo.lock 的依赖漏洞与许可审计已通过，见 [安全工作流](https://github.com/J-x-Z/fileveil/actions/runs/43144954833)。安全审计继续保留本文安全说明中的 RSA 限定例外。
+上一轮产品源码提交为 `e4d9acb`，对应 CI 运行配置提交为 `2660b1e`。三平台原生验收、GUI framebuffer、包内 CLI 与签名状态均已实际通过工作流检查，见 [平台工作流](https://github.com/J-x-Z/fileveil/actions/runs/43153669093)。同一 Cargo.lock 的依赖漏洞与许可审计已通过，见 [安全工作流](https://github.com/J-x-Z/fileveil/actions/runs/43144954833)。安全审计继续保留本文安全说明中的 RSA 限定例外。
 
 含 NUL 的有效 UTF-8 TXT/Markdown 普通扫描提供只读候选审计，GUI 可据此进入 Deep 的显式控制符清理。默认 Safe 改写保护与基于文件签名的 identify 判型继续由各自入口检查。新增格式正反例两项、正常扫描后实际点击 Deep/展开文本范围的 headless GUI 回归一项，均通过，记录在 `text-candidate-tests.log`、`text-candidate-gui-tests.log`，原有 Core 控制符清理回归也通过。
 
@@ -242,3 +242,21 @@ Engine 系统属性与 Deep 选项回归 15 项通过，覆盖下载日期、最
 本轮本机 `cargo test --locked --offline --workspace` 汇总 269 项通过、0 失败、8 项忽略，共 33 个目标。忽略项中的手机媒体独立解码和 Deep Python 互操作已分别显式执行通过。workspace Clippy `-D warnings`、格式检查、6 项打包测试、11 份实际报告和 2 份旧版报告 schema 验证通过。
 
 macOS 本机使用正式打包应用实际点击完成公开 SDXL 检测、Signal 副本、输出检测、原件/副本 Diff Lab、H.264/AAC MP4 Safe 副本和文件选择器二次验证。深浅主题均目视核验。界面输出再次交由独立上游水印解码器核对为 48/48 → 26/48，视频副本由 AVAssetReader 独立对照音频、视频和时序完全相同。记录在 `work/v03-final/macos-native-ui.json`。随后补齐新增提示的中文翻译和频域图数值格式，46 项 GUI 单元测试和 GUI Clippy 通过。
+
+### 剩余功能最终三平台验收
+
+最终产品源码 `ec1e611` 的 [CI 43232451167](https://github.com/J-x-Z/fileveil/actions/runs/43232451167) 已实际完成且全部成功。
+
+| 平台 | 通过 | 失败 | 忽略 | 原生界面与发行包 |
+| --- | --- | --- | --- | --- |
+| macOS Apple Silicon | 269 | 0 | 8 | framebuffer、手机媒体独立解码、打包与包内 CLI 通过，本机 CUA 操作通过 |
+| Windows x86_64 | 259 | 0 | 6 | SendInput 实际点击水印页与检测，SDXL 48/48，4 个真实指针事件，打包及包内 CLI 通过 |
+| Linux x86_64 | 265 | 0 | 6 | X11 XTEST 实际点击水印页与检测，SDXL 48/48，4 个真实指针事件，打包及包内 CLI 通过 |
+
+Windows 使用 CI 专用 Mesa 软件 OpenGL，Linux 使用 Xvfb。CI 驱动未进入 Windows 发行包。三平台每平台 33 个测试目标，原件不变检查均通过。Windows/Linux 原始 GUI 状态、控制器记录、截图和测试日志绑定源码 SHA，位于 `work/v03-final/ci-pointer-43232451167/acceptance-receipt.json`。
+
+三个分发归档位于 `dist/`，附 `SHA256SUMS`。每包包含对应源码、MPL-2.0 与必要第三方许可，MIT 水印适配文件保留其原许可。Windows/Linux 归档逐文件对照 CI 产物，Linux 可执行位保留为 0755。macOS 仍为 ad-hoc 签名，严格签名验证通过，Gatekeeper 拒绝；当前有 Apple Development 身份但缺 Developer ID Application。Windows Authenticode 状态为 NotSigned。正式发行签名与公证待相应发行凭据。
+
+本轮仅清理可重新生成的 Cargo 缓存，实际释放 7.4 GiB。开始可用 17.4 GiB，构建、归档和保留旧发行包后可用 20.8 GiB。源码、原测试证据、原有 Windows/Linux 包及本轮替换前的 macOS 包均保留。最终包收据为 `work/v03-final/delivery-receipt.json`。
+
+OEM 私有水印、专有密钥 AI 检测器仍需真实样本或授权检测能力。复杂受保护媒体结构、签名和加密内容继续按报告阻断。真实 Microsoft Office 显示保真尚待应用端验收。
