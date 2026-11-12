@@ -128,13 +128,23 @@ def copy_resources(destination: Path) -> None:
         if source.is_file():
             shutil.copyfile(source, destination / source.name)
     # Include the corresponding project source for MPL section 3.2 distributions.
+    source_listing = subprocess.run(
+        ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
+        cwd=ROOT, capture_output=True, check=False,
+    )
+    source_paths = set(os.fsdecode(path) for path in source_listing.stdout.split(b"\0") if path) if source_listing.returncode == 0 else None
     with zipfile.ZipFile(destination / "FileVeil-source.zip", "w", zipfile.ZIP_DEFLATED) as archive:
         for base in ["Cargo.toml", "Cargo.lock", "LICENSE", "README.md", ".gitignore", ".gitattributes", ".github", "crates", "tools", "docs", "tests", "assets", "THIRD_PARTY_NOTICES.txt"]:
             source = ROOT / base
             paths = source.rglob("*") if source.is_dir() else [source]
             for path in sorted(paths):
-                if path.is_file() and not path.is_symlink() and "__pycache__" not in path.parts:
-                    archive.write(path, path.relative_to(ROOT))
+                relative = path.relative_to(ROOT)
+                if source_paths is not None and relative.as_posix() not in source_paths:
+                    continue
+                if any(part in ("__pycache__", "target", "work", "dist") for part in relative.parts):
+                    continue
+                if path.is_file() and not path.is_symlink():
+                    archive.write(path, relative)
 
 
 def bundle_macos_qpdf(resources: Path) -> None:
