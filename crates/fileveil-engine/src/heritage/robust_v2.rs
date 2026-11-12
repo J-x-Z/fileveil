@@ -26,7 +26,7 @@ mod geometry;
 
 pub const METHOD_ID: &str = "fileveil_keyed_dct_bch_v2";
 pub const VERSION: &str = "2.0.0";
-pub const DEFAULT_STRENGTH: u8 = 24;
+pub const DEFAULT_STRENGTH: u8 = 16;
 const REFERENCE: u32 = 512;
 const TILE: usize = 16;
 const SLOTS: usize = 512;
@@ -81,6 +81,7 @@ impl V2Report {
                 "BCH correction observations compare a majority-voted codeword to its MAC-valid reconstruction. They are distinct from raw image-channel BER.".into(),
                 "Search covers bounded scale grids, translations and quarter-turn rotations. Period-based proposals add bounded sub-quarter-turn deskew. Perspective, severe crops and heavy degradation can prevent detection.".into(),
                 "A negative result covers this key and search scope. Wrong keys and absent marks share that result.".into(),
+                "Autocorrelation proposes at most three deskew angles within -45..45 degrees at 0.25-degree spacing, with current-canvas aspect ratios 1:4 through 4:1. Correlation alone is never a positive detection.".into(),
             ],
         }
     }
@@ -1183,6 +1184,9 @@ mod tests {
     #[test]
     fn bch_corrects_three_errors_and_mac_rejects_changed_payload() {
         let bch = Bch::new();
+        // Independently generated polynomial/word using Python GF arithmetic.
+        assert_eq!(bch.generator, 0x0007_82cf);
+        assert_eq!(bch.encode(0x0123_4567_89ab), 0x048d_159e_26ae_7d1a);
         for message in [0, 1, 0x0123_4567_89ab, (1_u64 << 45) - 1] {
             let encoded = bch.encode(message);
             assert_eq!(bch.syndromes(encoded), [0; 6]);
