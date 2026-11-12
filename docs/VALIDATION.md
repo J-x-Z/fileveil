@@ -240,3 +240,5 @@ Lab、公开检测器、CLI/MCP 分组入口及 GUI 结果显示均有针对性�
 Engine 系统属性与 Deep 选项回归 15 项通过，覆盖下载日期、最近使用时间属性、新副本创建时间规范化、原件不变及时间被篡改时禁止发布。创建时间选项在 macOS 本机 APFS 已验证，Windows 将由原生 CI 回归，Linux 对该选项明确报告不支持。PDF 签名扫描状态回归通过，成功扫描与禁止改写独立记录，保护副本输出。
 
 本轮本机 `cargo test --locked --offline --workspace` 汇总 269 项通过、0 失败、8 项忽略，共 33 个目标。忽略项中的手机媒体独立解码和 Deep Python 互操作已分别显式执行通过。workspace Clippy `-D warnings`、格式检查、6 项打包测试、11 份实际报告和 2 份旧版报告 schema 验证通过。
+
+macOS 本机使用正式打包应用实际点击完成公开 SDXL 检测、Signal 副本、输出检测、原件/副本 Diff Lab、H.264/AAC MP4 Safe 副本和文件选择器二次验证。深浅主题均目视核验。界面输出再次交由独立上游水印解码器核对为 48/48 → 26/48，视频副本由 AVAssetReader 独立对照音频、视频和时序完全相同。记录在 `work/v03-final/macos-native-ui.json`。随后补齐新增提示的中文翻译和频域图数值格式，46 项 GUI 单元测试和 GUI Clippy 通过。

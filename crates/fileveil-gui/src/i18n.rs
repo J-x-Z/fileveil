@@ -206,6 +206,15 @@ pub fn tr(language: Language, english: &str) -> &str {
         "Detection covers the named synthetic packet protocol. A negative result leaves other schemes unassessed." => {
             "检测覆盖所列的合成包协议。阴性结果的范围限于该协议，其他方案仍未评估。"
         }
+        "Results cover the named public watermark protocols. Public messages can be copied and do not authenticate a model, person or device. Negative results leave other schemes unassessed." => {
+            "检测结果覆盖所列公开水印协议。公开消息可以被复制，模型、个人或设备身份仍需独立认证。阴性结果的范围限于对应协议，其他方案仍未评估。"
+        }
+        "The output modification time is verified as 2000-01-01 UTC. Access time is set initially and can change during reading. Access time, filesystem journals, snapshots and backups remain outside this modification-time verification scope. Creation time has a separate optional check." => {
+            "输出修改时间已验证为 2000-01-01 UTC。访问时间可能在读取时变化，文件系统日志、快照和备份历史仍在本次范围之外。创建时间采用独立的可选验证。"
+        }
+        "The new copy creation time is verified as 2000-01-01 UTC. Filesystem change times, journals, snapshots and backups remain outside this scope." => {
+            "新副本的创建时间已验证为 2000-01-01 UTC。文件系统变更时间、日志、快照和备份历史仍在本次范围之外。"
+        }
         "The report separates source credentials, hidden markers and personal identity. Proprietary keyed text and image detectors require an actual supported detector and remain unassessed." => {
             "报告分别记录来源凭据、隐藏标记和个人身份关联。专有密钥文本与图像水印仍需实际可用的检测器，当前未评估。"
         }
@@ -913,6 +922,8 @@ mod tests {
     #[test]
     fn credential_scope_limits_have_chinese_explanations_and_preserve_english() {
         for message in [
+            "Results cover the named public watermark protocols. Public messages can be copied and do not authenticate a model, person or device. Negative results leave other schemes unassessed.",
+            "The new copy creation time is verified as 2000-01-01 UTC. Filesystem change times, journals, snapshots and backups remain outside this scope.",
             "Text credential wrapper context is ambiguous or malformed",
             "Credential removal changed bytes outside the recognized text wrapper",
             "Protected audio provenance prevents metadata rewriting",

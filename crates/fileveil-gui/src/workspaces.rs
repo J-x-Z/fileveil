@@ -1460,7 +1460,7 @@ fn bar_plot(
         .max(f64::EPSILON);
     ui.horizontal(|ui| {
         ui.label(title);
-        ui.small(format!("0–{maximum}"));
+        ui.small(format!("0–{maximum:.3e}"));
     });
     let (rectangle, _) = ui.allocate_exact_size(
         egui::vec2(ui.available_width().clamp(120.0, 640.0), 72.0),
