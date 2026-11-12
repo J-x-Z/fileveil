@@ -197,6 +197,79 @@ fn staged_publication_binds_the_report_options_and_parse_result() {
 }
 
 #[test]
+fn staged_publication_uses_bound_file_identity_for_virtual_input_aliases() {
+    let directory = tempfile::tempdir().unwrap();
+    let original = directory.path().join("original.png");
+    let staged = directory.path().join("staged.png");
+    let output = directory.path().join("published.png");
+    let bytes = image_file(&original, ImageFormat::Png);
+    let options = SanitizeOptions::default();
+    let mut report =
+        sanitize_with_options(&original, Some(&staged), &Limits::default(), &options).unwrap();
+    let alias = directory.path().join("virtual-input-alias.png");
+    assert!(!alias.exists());
+    fileveil_engine::access_guard::with_bound_files(
+        vec![(alias.clone(), fs::File::open(&original).unwrap())],
+        || {
+            publish_advanced_staged(
+                &alias,
+                &staged,
+                Some(&output),
+                &mut report,
+                &Limits::default(),
+                &options,
+            )
+        },
+    )
+    .unwrap();
+    assert!(output.is_file());
+    assert_eq!(fs::read(&original).unwrap(), bytes);
+}
+
+#[test]
+fn every_publisher_rejects_the_original_as_an_artifact() {
+    let directory = tempfile::tempdir().unwrap();
+    let original = directory.path().join("original.png");
+    let staged = directory.path().join("staged.png");
+    let output = directory.path().join("published.png");
+    let bytes = image_file(&original, ImageFormat::Png);
+    let mut safe = fileveil_engine::sanitize(&original, Some(&staged), &Limits::default()).unwrap();
+    safe.output_sha256 = safe.input_sha256.clone();
+    assert!(
+        fileveil_engine::publish_staged(
+            &original,
+            &original,
+            Some(&output),
+            &mut safe,
+            &Limits::default()
+        )
+        .is_err()
+    );
+    let processed = directory.path().join("processed.png");
+    let mut research = fileveil_engine::process_image_in(
+        &original,
+        Some(&processed),
+        &fileveil_core::ImageProcessOptions::default(),
+        &Limits::default(),
+        None,
+    )
+    .unwrap();
+    research.output_sha256 = research.input_sha256.clone();
+    assert!(
+        fileveil_engine::publish_processed_staged(
+            &original,
+            &original,
+            Some(&output),
+            &mut research,
+            &Limits::default()
+        )
+        .is_err()
+    );
+    assert!(!output.exists());
+    assert_eq!(fs::read(&original).unwrap(), bytes);
+}
+
+#[test]
 fn staged_publication_cannot_take_ownership_of_the_original_or_hardlinks() {
     let directory = tempfile::tempdir().unwrap();
     let original = directory.path().join("original.png");
@@ -281,6 +354,42 @@ fn version_02_reports_deserialize_with_new_fields_absent() {
     assert!(legacy.pdf.is_none());
     assert!(legacy.provenance.is_none());
     assert!(legacy.advanced.is_none());
+    let legacy_options: SanitizeOptions = serde_json::from_str(r#"{"policy":"safe"}"#).unwrap();
+    assert!(!legacy_options.remove_provenance);
+    assert!(!legacy_options.any());
+}
+
+#[test]
+fn explicit_credential_removal_preserves_original_validity_and_verifies_the_output() {
+    let directory = tempfile::tempdir().unwrap();
+    for extension in ["png", "jpg"] {
+        let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join(format!("tests/fixtures/provenance/signed.{extension}"));
+        let original = directory.path().join(format!("original.{extension}"));
+        let output = directory.path().join(format!("clean.{extension}"));
+        let bytes = fs::read(fixture).unwrap();
+        fs::write(&original, &bytes).unwrap();
+        let mut options = SanitizeOptions::default();
+        assert!(
+            sanitize_with_options(&original, Some(&output), &Limits::default(), &options).is_err()
+        );
+        options.remove_provenance = true;
+        assert!(
+            sanitize_with_options(&original, Some(&output), &Limits::default(), &options).is_err()
+        );
+        assert!(!output.exists());
+        options.policy = Policy::Deep;
+        let report =
+            sanitize_with_options(&original, Some(&output), &Limits::default(), &options).unwrap();
+        let removal = &report.advanced.as_ref().unwrap()["provenance_removal"];
+        assert_eq!(removal["before"]["signature"], "valid");
+        assert_eq!(removal["before"]["asset_binding"], "valid");
+        assert!(removal["after"].is_null());
+        assert_eq!(report.integrity.pixel_equal, Some(true));
+        assert_eq!(report.result, fileveil_core::Outcome::PartiallyVerified);
+        verify_with_options(&original, &output, &Limits::default(), &options).unwrap();
+        assert_eq!(fs::read(&original).unwrap(), bytes);
+    }
 }
 
 #[test]

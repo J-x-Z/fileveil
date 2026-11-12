@@ -152,3 +152,23 @@ MCP 协商 2025-11-25，兼容 2025-06-18。协议测试覆盖初始化、五工
 使用官方 Python MCP SDK 2.3.0 直接启动最终签名应用内的可执行文件，完成初始化、五工具发现和 14 次工具调用。协议版本为 2025-11-25，协议异常为 0，17 份合成原件保持一致，暂存目录清理通过。完整记录位于 `work/gui-final/mcp-sdk-final/summary.json`，其中保存实际受测可执行文件 SHA-256。
 
 最终源码和应用包文件摘要位于 `work/gui-final/source-sha256.json`、`package-sha256.json`，打包及签名摘要位于 `package.json`。原生拖放手势、Windows/Linux 原生运行、正式签名与公证等验收范围沿用前述待完成项目。
+
+## 0.3 Gate 记录
+
+本轮沿用原工程和原 Cargo target，首次提交为 `2ee856a`。提交前检查 1283 个候选文件，未发现私钥或令牌标记，未发现 20 MiB 以上候选文件。target、work、dist、Python 缓存均被忽略。作者沿用另外两个本地项目的相同署名，并检查了已登录 GitHub 账号。由该提交导出的干净源码使用共享 target 执行 locked/offline workspace check，退出码 0，记录在 `work/v03/clean-check.log`。
+
+| Gate | 已实际完成的检查 | 尚需区分的范围 |
+| --- | --- | --- |
+| A | 完整官方 MPL-2.0、SPDX、第三方许可、首次提交、干净源码 check；MCP 权限单元 7 项、真实 stdio 8 项、jobs 9 项；8 样本 Lab FD 继承 | 依赖 RSA 已记录限定公钥验证调用范围的审计例外，原始失败日志保留 |
+| B | PDF 13 项、真实独立生成 15 页 PDF 的页数/文本/逐页渲染一致；C2PA 真实 ES256 PNG/JPEG 签名、根信任、篡改、禁远程引用；明确授权删除凭据后的 SDK/像素/结构复验 | PDF 签名信任、PDF C2PA、真实签名 BMFF、CAWG 身份验证未验收 |
+| C | Deep 格式回归、独立 XML 与 Python ZIP 互操作；HTML tokenizer 源范围处理；平台属性与修改时间；WAV/FLAC 音频负载保持；CoreAudio 独立解码两项通过 | 复杂修订、隐藏表公式依赖、复杂 HTML、MP3 重写保持明确支持限制 |
+| D | LSB 检测 6 项、Diff Lab 6 项、C2PA/来源 9 项；Advanced 13 项包含真实 MCP 虚拟别名、原件/硬链接防护、旧报告读取与显式凭据移除 | 合成检测器覆盖公开测试协议，私有统计水印和 OEM 归因仍未评估 |
+| E | macOS sips 实际编码并解码 HEIC/AVIF，AVFoundation 编码并读取 MP4/MOV，四格式 CLI 审计且原件哈希一致；Windows GNU 全目标 check；macOS 0.3 原生 framebuffer 2720×1700 捕获 | 三平台 CI 首轮发现 Clippy 问题并修复，后续真实执行结果继续记录 |
+
+PDF 测试包括 Info/XMP/custom、旧增量作者无残留、附件/JS 保留、签名和加密保护、损坏与预算、可见内容篡改拒绝、Deep 选择性移除以及 Widget/复杂动作链保护。旧增量修订通过重新序列化和对象结构检查，保留的任意流内容有独立残留说明。
+
+音频单元测试 7 项通过。macOS 独立验收用 9216 帧合成 PCM，经 CoreAudio 生成 FLAC，清洗前后独立解码为 WAV，使用 Python wave 对比 PCM 样本逐字节相同。技术声道、ReplayGain/R128 等字段保留，运行时内容验证声明其编码字节范围。日志为 `work/v03/audio-tests.log`、`audio-native-tests.log`。
+
+当前全部证据保存在 `work/v03/`，历史 0.1/0.2 日志保持原样。新增测试通过既有 GUI worker、CLI 和授权 MCP 入口调用真实后端。原始全 workspace 首轮因旧 schema/未支持 Deep/PDF 的测试预期发生变化而失败，对应预期已更新，后续完整回归以本节追加结果为准。
+
+本机未找到 Developer ID Application 身份，正式签名及公证待相应凭据。Apple Development 身份存在，当前开发包继续采用 ad-hoc 签名。可选本机 qpdf 后端 Mach-O 要求 macOS 27.0，主程序最低系统要求单独记录。

@@ -22,6 +22,9 @@ pub enum Format {
     Avif,
     Mp4,
     Mov,
+    Wav,
+    Mp3,
+    Flac,
     Unknown,
 }
 impl Format {
@@ -41,6 +44,9 @@ impl Format {
             Self::Avif => "image/avif",
             Self::Mp4 => "video/mp4",
             Self::Mov => "video/quicktime",
+            Self::Wav => "audio/wav",
+            Self::Mp3 => "audio/mpeg",
+            Self::Flac => "audio/flac",
             Self::Unknown => "application/octet-stream",
         }
     }
@@ -49,6 +55,9 @@ impl Format {
     }
     pub fn is_office(self) -> bool {
         matches!(self, Self::Docx | Self::Xlsx | Self::Pptx)
+    }
+    pub fn is_audio(self) -> bool {
+        matches!(self, Self::Wav | Self::Mp3 | Self::Flac)
     }
     pub fn is_media_container(self) -> bool {
         matches!(self, Self::Heic | Self::Avif | Self::Mp4 | Self::Mov)

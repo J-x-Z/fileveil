@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MPL-2.0
 //! Bounded JPEG marker parser. Encoded scan bytes are copied without recompression.
 use fileveil_core::{
-    Action, Error, Finding, Format, FormatAdapter, Inspection, Limits, Result, RiskLayer, digest,
+    Action, Error, Finding, Format, FormatAdapter, Inspection, Limits, Result, RiskLayer,
+    SanitizeOptions, digest,
 };
 
 pub struct JpegAdapter;
@@ -13,13 +14,35 @@ struct Parsed<'a> {
 
 impl FormatAdapter for JpegAdapter {
     fn inspect(&self, data: &[u8], limits: &Limits) -> Result<Inspection> {
-        Ok(parse(data, limits)?.inspection)
+        Ok(parse(data, limits, false)?.inspection)
     }
 
     fn sanitize(&self, data: &[u8], limits: &Limits) -> Result<Vec<u8>> {
-        let parsed = parse(data, limits)?;
+        let parsed = parse(data, limits, false)?;
         if !parsed.inspection.blockers.is_empty() {
             return Err(Error::Blocked(parsed.inspection.blockers.join("; ")));
+        }
+        Ok(parsed.retained.concat())
+    }
+}
+impl JpegAdapter {
+    pub(crate) fn inspect_with_options(
+        &self,
+        data: &[u8],
+        limits: &Limits,
+        options: &SanitizeOptions,
+    ) -> Result<Inspection> {
+        Ok(parse(data, limits, options.remove_provenance)?.inspection)
+    }
+    pub(crate) fn sanitize_with_options(
+        &self,
+        data: &[u8],
+        limits: &Limits,
+        options: &SanitizeOptions,
+    ) -> Result<Vec<u8>> {
+        let parsed = parse(data, limits, options.remove_provenance)?;
+        if !parsed.inspection.blockers.is_empty() {
+            return Err(Error::Blocked(parsed.inspection.blockers.join(". ")));
         }
         Ok(parsed.retained.concat())
     }
@@ -29,7 +52,7 @@ fn malformed(message: &str) -> Error {
     Error::Blocked(format!("Malformed JPEG: {message}"))
 }
 
-fn parse<'a>(data: &'a [u8], limits: &Limits) -> Result<Parsed<'a>> {
+fn parse<'a>(data: &'a [u8], limits: &Limits, remove_provenance: bool) -> Result<Parsed<'a>> {
     if data.len() as u64 > limits.max_file_bytes {
         return Err(Error::Blocked("JPEG exceeds file-size limit".into()));
     }
@@ -43,6 +66,7 @@ fn parse<'a>(data: &'a [u8], limits: &Limits) -> Result<Parsed<'a>> {
     let mut scan_seen = false;
     let mut end_seen = false;
     let mut segments = 0;
+    let mut credential_instances = std::collections::BTreeSet::new();
     while offset < data.len() {
         segments += 1;
         if segments > limits.max_members {
@@ -96,7 +120,32 @@ fn parse<'a>(data: &'a [u8], limits: &Limits) -> Result<Parsed<'a>> {
             .filter(|end| *end <= data.len())
             .ok_or_else(|| malformed("segment extends beyond file"))?;
         let payload = &data[offset + 2..end];
-        let remove = classify(marker, payload, start, &mut result, limits)?;
+        if remove_provenance
+            && marker == 0xeb
+            && payload.len() >= 8
+            && payload.starts_with(b"JP")
+            && payload[4..8] == [0, 0, 0, 1]
+            && credential_instances.contains(&[payload[2], payload[3]])
+            && !c2pa_first_fragment(payload)
+        {
+            return Err(Error::Blocked("Ambiguous reused JPEG JUMBF instance identifier prevents selective credential removal".into()));
+        }
+        if marker == 0xeb && c2pa_first_fragment(payload) {
+            credential_instances.insert([payload[2], payload[3]]);
+        }
+        let recognized_credential = marker == 0xeb
+            && payload.len() >= 8
+            && payload.starts_with(b"JP")
+            && credential_instances.contains(&[payload[2], payload[3]]);
+        let remove = classify(
+            marker,
+            payload,
+            start,
+            &mut result,
+            limits,
+            remove_provenance,
+            recognized_credential,
+        )?;
         if matches!(marker, 0xc0..=0xc3 | 0xc5..=0xc7 | 0xc9..=0xcb | 0xcd..=0xcf) {
             if frame_seen || payload.len() < 6 {
                 return Err(malformed("invalid or repeated frame header"));
@@ -163,6 +212,8 @@ fn classify(
     offset: usize,
     result: &mut Inspection,
     limits: &Limits,
+    remove_provenance: bool,
+    recognized_credential: bool,
 ) -> Result<bool> {
     if !matches!(marker, 0xe0..=0xef | 0xfe) {
         return Ok(false);
@@ -177,10 +228,29 @@ fn classify(
             || contains_ascii(payload, b"c2pa")))
         || (matches!(marker, 0xe1 | 0xed) && contains_ascii(payload, b"c2pa"))
     {
+        let xmp = marker == 0xe1
+            && (payload.starts_with(b"http://ns.adobe.com/xap/1.0/\0")
+                || payload.starts_with(b"http://ns.adobe.com/xmp/extension/\0"));
+        let exif = marker == 0xe1 && payload.starts_with(b"Exif\0\0");
+        let iptc = marker == 0xed
+            && payload.starts_with(b"Photoshop 3.0\0")
+            && photoshop_metadata_only(payload)?;
+        let authorized = remove_provenance && (recognized_credential || xmp || exif || iptc);
         result.findings.push(Finding::new("jpeg.provenance", RiskLayer::ProvenanceCredential,
-            &location, "Potential JUMBF/C2PA provenance container is present; signature validity was not assessed", Action::Preserve));
-        result.blockers.push("JPEG provenance container requires a dedicated offline credential verifier before rewriting".into());
-        return Ok(false);
+            &location, "Potential JUMBF/C2PA provenance container is present; signature validity was not assessed", if authorized {Action::Remove}else{Action::Preserve}));
+        if authorized {
+            if xmp && contains_ascii(payload, b"orientation") {
+                result
+                    .blockers
+                    .push("XMP orientation metadata requires semantic-preserving rewriting".into());
+            }
+            if exif {
+                inspect_exif(&payload[6..], result)?;
+            }
+        } else {
+            result.blockers.push("JPEG provenance container requires an explicit supported credential-removal selection or dedicated verifier".into());
+        }
+        return Ok(authorized);
     }
     let privacy = match marker {
         0xe1 if payload.starts_with(b"Exif\0\0") => {
@@ -263,6 +333,16 @@ fn classify(
         ));
     }
     Ok(false)
+}
+
+fn c2pa_first_fragment(payload: &[u8]) -> bool {
+    payload.len() >= 46
+        && payload.starts_with(b"JP")
+        && payload[4..8] == [0, 0, 0, 1]
+        && &payload[12..16] == b"jumb"
+        && &payload[20..24] == b"jumd"
+        && &payload[24..40] == b"c2pa\x00\x11\x00\x10\x80\x00\x00\xaa\x00\x38\x9b\x71"
+        && payload[41..46] == *b"c2pa\0"
 }
 
 fn contains_ascii(data: &[u8], needle: &[u8]) -> bool {

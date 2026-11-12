@@ -354,6 +354,9 @@ impl Server {
     }
     fn tool_error(&mut self, id: Value, name: &str, message: &str) -> io::Result<()> {
         let operation = match name {
+            "fileveil_detect_watermark" => "detect_watermark",
+            "fileveil_lab" => "lab",
+            "fileveil_provenance" => "provenance",
             "fileveil_scan" => "scan",
             "fileveil_verify" => "verify",
             _ => "sanitize",
@@ -365,6 +368,9 @@ impl Server {
     }
     fn permission_error(&mut self, id: Value, name: &str, message: &str) -> io::Result<()> {
         let operation = match name {
+            "fileveil_detect_watermark" => "detect_watermark",
+            "fileveil_lab" => "lab",
+            "fileveil_provenance" => "provenance",
             "fileveil_scan" => "scan",
             "fileveil_verify" => "verify",
             _ => "sanitize",

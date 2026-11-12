@@ -271,6 +271,33 @@ fn links_cannot_escape_mcp_roots_and_outputs_remain_new_files() {
     assert_eq!(fs::read_dir(outside.path()).unwrap().count(), 1);
     assert_eq!(client.close(), 0);
 }
+
+#[test]
+fn difference_lab_inherits_all_eight_read_only_sample_descriptors() {
+    let source = tempdir();
+    let mut paths = Vec::new();
+    for index in 0..8 {
+        let path = source.path().join(format!("control-{index}.png"));
+        fs::copy(fixture("png_clean.png"), &path).unwrap();
+        paths.push(path);
+    }
+    let original = fs::read(&paths[0]).unwrap();
+    let mut client = Client::with_roots("2025-11-25", &[source.path().into()], &[], 64);
+    let result = client.call("fileveil_lab", json!({"paths":paths}));
+    assert_eq!(report(&result)["operation"], "lab");
+    assert_eq!(
+        report(&result)["advanced"]["lab"]["samples"]
+            .as_array()
+            .unwrap()
+            .len(),
+        8
+    );
+    for path in paths {
+        assert_eq!(fs::read(path).unwrap(), original);
+    }
+    assert_eq!(fs::read_dir(source.path()).unwrap().count(), 8);
+    assert_eq!(client.close(), 0);
+}
 #[test]
 fn negotiation_tool_discovery_capabilities_and_protocol_errors() {
     for version in ["2025-06-18", "future-version"] {
@@ -418,4 +445,66 @@ fn busy_cancel_and_eof_reap_jobs_without_publishing_copies() {
             .to_string_lossy()
             .starts_with(".fileveil")
     }));
+}
+
+#[test]
+fn advanced_tools_use_authorized_snapshots_and_real_backends() {
+    let directory = tempdir();
+    let first = directory.path().join("first.png");
+    let second = directory.path().join("second.png");
+    fs::copy(fixture("png_clean.png"), &first).unwrap();
+    fs::copy(&first, &second).unwrap();
+    let provenance_fixtures =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../fileveil-engine/tests/fixtures/provenance");
+    let signed = directory.path().join("signed.png");
+    let roots = directory.path().join("roots.pem");
+    fs::copy(provenance_fixtures.join("signed.png"), &signed).unwrap();
+    fs::copy(provenance_fixtures.join("root.pem"), &roots).unwrap();
+    let original_hash = fileveil_core::digest(&fs::read(&signed).unwrap());
+    let mut client = Client::authorized("2025-11-25", directory.path());
+    let detected = client.call("fileveil_detect_watermark", json!({"path":first}));
+    assert_eq!(
+        report(&detected)["advanced"]["detection"]["status"],
+        "not_detected"
+    );
+    let lab = client.call("fileveil_lab", json!({"paths":[first,second]}));
+    assert_eq!(
+        report(&lab)["advanced"]["lab"]["samples"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+    let credentials = client.call(
+        "fileveil_provenance",
+        json!({"path":signed,"trust_roots":roots}),
+    );
+    assert_eq!(report(&credentials)["provenance"]["signature"], "valid");
+    assert_eq!(report(&credentials)["provenance"]["asset_binding"], "valid");
+    assert_eq!(report(&credentials)["provenance"]["trust"], "trusted");
+    let input = directory.path().join("source.html");
+    let clean = directory.path().join("clean.html");
+    fs::write(&input, "<!doctype html><html><head><meta name='author' content='SYNTHETIC'></head><body><!--PRIVATE-->Visible</body></html>").unwrap();
+    let choices =
+        json!({"text":{"remove_html_metadata":true,"remove_html_comments":true}}).to_string();
+    let sanitized = client.call(
+        "fileveil_sanitize",
+        json!({"path":input,"output":clean,"profile":"deep","options_json":choices}),
+    );
+    assert_eq!(report(&sanitized)["policy"], "deep");
+    assert_eq!(
+        report(&sanitized)["advanced"]["selected_scope_verified"],
+        true
+    );
+    assert!(!fs::read_to_string(&clean).unwrap().contains("PRIVATE"));
+    let verified = client.call(
+        "fileveil_verify",
+        json!({"original":input,"output":clean,"profile":"deep","options_json":choices}),
+    );
+    assert_eq!(report(&verified)["integrity"]["original_unchanged"], true);
+    assert_eq!(
+        original_hash,
+        fileveil_core::digest(&fs::read(signed).unwrap())
+    );
+    assert_eq!(client.close(), 0);
 }

@@ -136,3 +136,5 @@ Windows CI 包包含官方 qpdf 12.4.2 的 `backends/qpdf.exe`、匹配的 `qpdf
 独立 PDF 验证需要 Poppler 的 `pdfinfo`、`pdftotext` 和 `pdftoppm`。后端缺失时，报告会反映实际可用的验证范围。Linux 桌面需要窗口系统和 OpenGL 驱动。Windows GUI CI 使用固定 SHA-256 校验的 Mesa llvmpipe 软件 OpenGL，并在 framebuffer 证据中记录该运行条件。Mesa DLL 仅用于 CI 验收，发行目录由打包器按明确文件清单生成。
 
 Windows packages include official qpdf 12.4.2 binaries and upstream Apache-2.0 notices. Microsoft Visual C++ 2015–2022 x64 runtime is required. Linux packages use the system qpdf installation and its shared-library dependencies. `fileveil-package.json` records the actual build-time backend probe. Independent PDF checks additionally require Poppler tools. Windows CI framebuffer evidence identifies its Mesa llvmpipe software renderer.
+
+macOS 包的 LSMinimumSystemVersion 按主程序实际 Mach-O 最低版本记录，可选 qpdf 后端另存 Resources/pdf-backend.json。本机 Homebrew 后端要求 macOS 27.0。较早系统可通过 FILEVEIL_QPDF 配置兼容后端，能力查询会实际探测后端能否执行。当前检测到 Apple Development 身份，Developer ID Application 身份数量为 0，正式签名和公证待提供相应凭据。

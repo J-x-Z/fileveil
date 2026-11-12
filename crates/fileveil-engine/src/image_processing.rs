@@ -614,6 +614,7 @@ pub fn publish_processed_staged(
     }
     let original = Snapshot::open(input, limits)?;
     let artifact = Snapshot::open(staged, limits)?;
+    super::ensure_new_artifact(&original.file, &artifact.file)?;
     if report.input_sha256.as_deref() != Some(digest(&original.bytes).as_str())
         || report.output_sha256.as_deref() != Some(digest(&artifact.bytes).as_str())
         || original.attributes != artifact.attributes

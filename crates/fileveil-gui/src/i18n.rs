@@ -207,6 +207,7 @@ pub fn tr(language: Language, english: &str) -> &str {
         "Removable" => "可移除",
         "Retained" => "已保留",
         "Not assessed" => "未评估",
+        "Images · PDF · Office · Text · Media" => "图片 · PDF · Office · 文本 · 音视频",
         "Removed" => "已移除",
         "Search" => "搜索",
         "Search findings" => "搜索发现信息",

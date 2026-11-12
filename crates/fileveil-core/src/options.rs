@@ -11,10 +11,15 @@ pub struct SanitizeOptions {
     pub text: TextOptions,
     pub filesystem: FilesystemOptions,
     pub pdf: PdfOptions,
+    pub remove_provenance: bool,
 }
 impl SanitizeOptions {
     pub fn any(&self) -> bool {
-        self.deep.any() || self.text.any() || self.filesystem.any() || self.pdf.any()
+        self.deep.any()
+            || self.text.any()
+            || self.filesystem.any()
+            || self.pdf.any()
+            || self.remove_provenance
     }
 }
 

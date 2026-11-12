@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MPL-2.0
 //! PNG chunk parser with CRC checks and byte-preserving ancillary metadata removal.
 use fileveil_core::{
-    Action, Error, Finding, Format, FormatAdapter, Inspection, Limits, Result, RiskLayer, digest,
+    Action, Error, Finding, Format, FormatAdapter, Inspection, Limits, Result, RiskLayer,
+    SanitizeOptions, digest,
 };
 use flate2::read::ZlibDecoder;
 use std::io::Read;
@@ -14,12 +15,34 @@ struct Parsed<'a> {
 }
 impl FormatAdapter for PngAdapter {
     fn inspect(&self, data: &[u8], limits: &Limits) -> Result<Inspection> {
-        Ok(parse(data, limits)?.inspection)
+        Ok(parse(data, limits, false)?.inspection)
     }
     fn sanitize(&self, data: &[u8], limits: &Limits) -> Result<Vec<u8>> {
-        let parsed = parse(data, limits)?;
+        let parsed = parse(data, limits, false)?;
         if !parsed.inspection.blockers.is_empty() {
             return Err(Error::Blocked(parsed.inspection.blockers.join("; ")));
+        }
+        Ok(parsed.retained.concat())
+    }
+}
+impl PngAdapter {
+    pub(crate) fn inspect_with_options(
+        &self,
+        data: &[u8],
+        limits: &Limits,
+        options: &SanitizeOptions,
+    ) -> Result<Inspection> {
+        Ok(parse(data, limits, options.remove_provenance)?.inspection)
+    }
+    pub(crate) fn sanitize_with_options(
+        &self,
+        data: &[u8],
+        limits: &Limits,
+        options: &SanitizeOptions,
+    ) -> Result<Vec<u8>> {
+        let parsed = parse(data, limits, options.remove_provenance)?;
+        if !parsed.inspection.blockers.is_empty() {
+            return Err(Error::Blocked(parsed.inspection.blockers.join(". ")));
         }
         Ok(parsed.retained.concat())
     }
@@ -27,7 +50,7 @@ impl FormatAdapter for PngAdapter {
 fn malformed(message: &str) -> Error {
     Error::Blocked(format!("Malformed PNG: {message}"))
 }
-fn parse<'a>(data: &'a [u8], limits: &Limits) -> Result<Parsed<'a>> {
+fn parse<'a>(data: &'a [u8], limits: &Limits, remove_provenance: bool) -> Result<Parsed<'a>> {
     if data.len() as u64 > limits.max_file_bytes {
         return Err(Error::Blocked("PNG exceeds file-size limit".into()));
     }
@@ -178,9 +201,15 @@ fn parse<'a>(data: &'a [u8], limits: &Limits) -> Result<Parsed<'a>> {
                         RiskLayer::ProvenanceCredential,
                         "PNG/text",
                         "Potential provenance data is present; signature validity was not assessed",
-                        Action::Preserve,
+                        if remove_provenance {
+                            Action::Remove
+                        } else {
+                            Action::Preserve
+                        },
                     ));
-                    result.blockers.push("PNG provenance metadata requires a dedicated offline credential verifier before rewriting".into());
+                    if !remove_provenance {
+                        result.blockers.push("PNG provenance metadata requires a dedicated offline credential verifier before rewriting".into());
+                    }
                 }
                 if contains_ascii(&text, b"orientation") {
                     result.blockers.push(
@@ -237,8 +266,12 @@ fn parse<'a>(data: &'a [u8], limits: &Limits) -> Result<Parsed<'a>> {
             }
             b"caBX" => {
                 result.findings.push(Finding::new("png.provenance", RiskLayer::ProvenanceCredential,
-                    "PNG/caBX", "JUMBF/C2PA provenance container is present; signature validity was not assessed", Action::Preserve));
-                result.blockers.push("PNG provenance container requires a dedicated offline credential verifier before rewriting".into());
+                    "PNG/caBX", "JUMBF/C2PA provenance container is present; signature validity was not assessed", if remove_provenance {Action::Remove}else{Action::Preserve}));
+                if remove_provenance {
+                    remove = true;
+                } else {
+                    result.blockers.push("PNG provenance container requires a dedicated offline credential verifier before rewriting".into());
+                }
             }
             b"acTL" | b"fcTL" | b"fdAT" => {
                 if !result.limited_support {

@@ -3,10 +3,15 @@
 //!
 //! Only fixed status codes, algorithm names and structural counts leave the SDK.
 //! Manifest values, credential subjects, URLs and SDK error messages stay private.
-use std::{collections::BTreeSet, io::Cursor};
+use std::{
+    collections::BTreeSet,
+    fs,
+    io::{Cursor, Read, Write},
+    path::{Path, PathBuf},
+};
 
 use c2pa::{Context, Reader, ValidationState, validation_results::StatusCodes};
-use fileveil_core::{Error, Format, Limits, Result, digest};
+use fileveil_core::{Error, Format, Limits, Policy, Result, SanitizeOptions, digest};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
@@ -151,6 +156,90 @@ impl ProvenanceReport {
 /// A successful absence result means this SDK found no embedded manifest or remote reference.
 pub fn inspect(data: &[u8], format: Format, limits: &Limits) -> Result<Option<ProvenanceReport>> {
     inspect_with_trust(data, format, limits, None)
+}
+
+/// Explicitly removes removable PNG/JPEG credentials from a private snapshot.
+/// The SDK receives only a new private file owned by this operation. The source
+/// file path and every caller-provided destination stay outside its API.
+pub fn remove(data: &[u8], format: Format, limits: &Limits) -> Result<Vec<u8>> {
+    if data.len() as u64 > limits.max_file_bytes {
+        return Err(Error::Blocked(
+            "C2PA removal input exceeds the file size limit".into(),
+        ));
+    }
+    let extension = match format {
+        Format::Png => "png",
+        Format::Jpeg => "jpg",
+        _ => {
+            return Err(Error::Unsupported(
+                "Credential removal supports JPEG and PNG snapshots".into(),
+            ));
+        }
+    };
+    let options = SanitizeOptions {
+        policy: Policy::Deep,
+        remove_provenance: true,
+        ..SanitizeOptions::default()
+    };
+    let hint = format!("snapshot.{extension}");
+    let inspection =
+        fileveil_formats::inspect_with_options(data, Path::new(&hint), limits, &options)?;
+    if inspection.format != format || !inspection.blockers.is_empty() {
+        return Err(Error::Blocked(
+            "Protected image structures prevent credential removal".into(),
+        ));
+    }
+    let mut staging = tempfile::Builder::new();
+    staging.prefix("fileveil-credential-");
+    // Reuse the supervisor-owned helper root so forced worker termination also
+    // removes private credential copies. Standalone callers own the TempDir.
+    let directory = if let Some(root) = std::env::var_os("FILEVEIL_PDF_STAGING") {
+        let root = PathBuf::from(root);
+        if !root.is_absolute() {
+            return Err(Error::Blocked(
+                "Credential staging root must be an absolute trusted directory".into(),
+            ));
+        }
+        staging.tempdir_in(root)
+    } else {
+        staging.tempdir()
+    }
+    .map_err(|_| Error::Io("Could not create private credential workspace".into()))?;
+    let path = directory.path().join(format!("snapshot.{extension}"));
+    let mut file = fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&path)
+        .map_err(|_| Error::Io("Could not create private credential snapshot".into()))?;
+    file.write_all(data)
+        .map_err(|_| Error::Io("Could not write private credential snapshot".into()))?;
+    drop(file);
+    match c2pa::jumbf_io::remove_jumbf_from_file(&path) {
+        Ok(()) | Err(c2pa::Error::JumbfNotFound | c2pa::Error::NotFound) => {}
+        Err(_) => {
+            return Err(Error::Blocked(
+                "The official credential backend could not remove this store".into(),
+            ));
+        }
+    }
+    let file = fs::File::open(&path)
+        .map_err(|_| Error::Io("Could not read the private credential result".into()))?;
+    let mut stripped = Vec::new();
+    file.take(limits.max_file_bytes.saturating_add(1))
+        .read_to_end(&mut stripped)
+        .map_err(|_| Error::Io("Could not read the private credential result".into()))?;
+    if stripped.len() as u64 > limits.max_file_bytes {
+        return Err(Error::Blocked(
+            "Credential removal output exceeds the file size limit".into(),
+        ));
+    }
+    let clean = fileveil_formats::sanitize_with_options(&stripped, format, limits, &options)?;
+    if inspect(&clean, format, limits)?.is_some() {
+        return Err(Error::Verification(
+            "A credential store or provenance reference remains after removal".into(),
+        ));
+    }
+    Ok(clean)
 }
 
 /// Uses an explicitly supplied local PEM trust bundle. The bundle is never fetched.

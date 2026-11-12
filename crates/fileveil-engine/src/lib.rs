@@ -94,6 +94,67 @@ impl Snapshot {
     }
 }
 
+/// Compare already-open file identities without resolving a client path.
+/// A publication artifact must be distinct and have no additional hard links.
+pub(crate) fn ensure_new_artifact(original: &File, artifact: &File) -> Result<()> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        let source_identity = original
+            .metadata()
+            .map_err(|_| Error::Io("Could not inspect the authorized original identity".into()))?;
+        let staged_identity = artifact
+            .metadata()
+            .map_err(|_| Error::Io("Could not inspect staged artifact identity".into()))?;
+        if source_identity.dev() == staged_identity.dev()
+            && source_identity.ino() == staged_identity.ino()
+        {
+            return Err(Error::Blocked(
+                "The staged artifact must be a new copy".into(),
+            ));
+        }
+        if staged_identity.nlink() > 1 {
+            return Err(Error::Blocked(
+                "The staged artifact has multiple filesystem links".into(),
+            ));
+        }
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::io::AsRawHandle;
+        use windows_sys::Win32::Storage::FileSystem::{
+            BY_HANDLE_FILE_INFORMATION, GetFileInformationByHandle,
+        };
+        let mut source_identity: BY_HANDLE_FILE_INFORMATION = unsafe { std::mem::zeroed() };
+        let mut staged_identity: BY_HANDLE_FILE_INFORMATION = unsafe { std::mem::zeroed() };
+        if unsafe {
+            GetFileInformationByHandle(original.as_raw_handle() as _, &mut source_identity)
+        } == 0
+            || unsafe {
+                GetFileInformationByHandle(artifact.as_raw_handle() as _, &mut staged_identity)
+            } == 0
+        {
+            return Err(Error::Blocked(
+                "Could not establish authorized file identities".into(),
+            ));
+        }
+        if source_identity.dwVolumeSerialNumber == staged_identity.dwVolumeSerialNumber
+            && source_identity.nFileIndexHigh == staged_identity.nFileIndexHigh
+            && source_identity.nFileIndexLow == staged_identity.nFileIndexLow
+        {
+            return Err(Error::Blocked(
+                "The staged artifact must be a new copy".into(),
+            ));
+        }
+        if staged_identity.nNumberOfLinks > 1 {
+            return Err(Error::Blocked(
+                "Could not establish a single-link staged artifact".into(),
+            ));
+        }
+    }
+    Ok(())
+}
+
 fn unassessed(format: Format) -> Vec<Finding> {
     let mut findings = vec![Finding::unassessed(
         "watermark.statistical",
@@ -107,6 +168,14 @@ fn unassessed(format: Format) -> Vec<Finding> {
             RiskLayer::ContentWatermark,
             "image_data",
             "Pixel-domain and frequency-domain watermark detection was not performed",
+        ));
+    }
+    if format.is_audio() {
+        findings.push(Finding::unassessed(
+            "audio.signal_watermark",
+            RiskLayer::ContentWatermark,
+            "audio_data",
+            "Audio signal watermark detection was not performed",
         ));
     }
     findings
@@ -181,6 +250,13 @@ fn extension_warning(path: &Path, format: Format) -> Option<String> {
         "txt" | "md" | "markdown" => Format::Text,
         "html" | "htm" => Format::Html,
         "pdf" => Format::Pdf,
+        "heic" | "heif" => Format::Heic,
+        "avif" => Format::Avif,
+        "mp4" => Format::Mp4,
+        "mov" => Format::Mov,
+        "wav" => Format::Wav,
+        "mp3" => Format::Mp3,
+        "flac" => Format::Flac,
         _ => return None,
     };
     (hinted != format).then(|| "Filename extension disagrees with the parsed file format".into())
@@ -558,6 +634,7 @@ pub fn publish_staged(
     }
     let original = Snapshot::open(input, limits)?;
     let artifact = Snapshot::open(staged, limits)?;
+    ensure_new_artifact(&original.file, &artifact.file)?;
     if report.input_sha256.as_deref() != Some(digest(&original.bytes).as_str())
         || report.output_sha256.as_deref() != Some(digest(&artifact.bytes).as_str())
         || original.attributes != artifact.attributes
@@ -590,7 +667,9 @@ pub fn capabilities(limits: &Limits) -> serde_json::Value {
             {"format": "docx_xlsx_pptx", "scan": "available", "safe": "available", "deep":"selective", "verify": "opc_relations_crc_retained_parts_independent_xml", "limitations": ["utf8_xml_only", "signed_macro_encrypted_blocked", "complex_content_dependencies_blocked", "office_application_compatibility_not_assessed"]},
             {"format": "utf8_text_markdown_html", "scan": "available", "safe": "explicit_options", "verify": "selected_transform_and_retained_spans", "limitations":["zwj_zwnj_and_bidi_preserved","complex_html_blocked"]},
             {"format": "pdf", "scan": "requires_qpdf", "safe": "requires_qpdf", "verify": "qpdf_graph_and_optional_independent_poppler"},
-            {"format":"heic_heif_avif_mp4_mov","scan":"structural_audit","safe":"unavailable","verify":"not_assessed","limitations":["codec_payload_not_decoded","unknown_vendor_fields_unattributed"]}
+            {"format":"heic_heif_avif_mp4_mov","scan":"structural_audit","safe":"unavailable","verify":"not_assessed","limitations":["codec_payload_not_decoded","unknown_vendor_fields_unattributed"]},
+            {"format":"wav_flac","scan":"available","safe":"selected_standard_tags","verify":"retained_encoded_audio_bytes","limitations":["audio_signal_not_decoded_during_runtime_verification","technical_gain_and_channel_metadata_preserved"]},
+            {"format":"mp3","scan":"bounded_id3_audit","safe":"unavailable","verify":"not_assessed"}
         ],
         "platform_attributes": if cfg!(windows) { "selective_private_stream_removal_motw_preserved" } else if cfg!(unix) { "selective_privacy_attributes_quarantine_preserved_resource_forks_block_rewrite" } else { "unavailable" },
         "c2pa_signature_verification": "offline_available", "content_watermark_detection": "synthetic_lsb_v1_only", "statistical_watermark_detection": "not_assessed",

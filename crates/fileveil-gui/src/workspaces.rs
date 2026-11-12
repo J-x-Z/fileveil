@@ -42,6 +42,7 @@ pub struct Workspaces {
     trust_roots: Option<PathBuf>,
     active: Option<JobHandle>,
     result: Option<JobResult>,
+    result_workspace: Workspace,
     last_write: Option<(PathBuf, SanitizeOptions)>,
     notice: Option<String>,
 }
@@ -57,6 +58,7 @@ impl Default for Workspaces {
             trust_roots: None,
             active: None,
             result: None,
+            result_workspace: Workspace::Files,
             last_write: None,
             notice: None,
         }
@@ -88,6 +90,7 @@ impl Workspaces {
         ui.separator();
     }
     fn start(&mut self, kind: JobKind, session: &Session, context: &egui::Context) {
+        self.result_workspace = self.selected;
         let mut request = JobRequest::new(kind);
         request.limits = session.limits.clone();
         request.timeout_seconds = session.timeout_seconds;
@@ -272,6 +275,19 @@ impl Workspaces {
             ui.selectable_value(&mut self.options.policy, Policy::Safe, "Safe");
             ui.selectable_value(&mut self.options.policy, Policy::Deep, "Deep");
         });
+        ui.add_enabled_ui(idle && self.options.policy == Policy::Deep, |ui| {
+            ui.checkbox(
+                &mut self.options.remove_provenance,
+                t(
+                    language,
+                    "移除可移除来源凭据及其签名",
+                    "Remove removable source credentials and their signatures",
+                ),
+            );
+        });
+        if self.options.remove_provenance {
+            ui.label(t(language,"输出副本将失去这些来源签名，其他来源关联仍需对应检测器评估。","The copy will lose these source signatures. Other source associations require their corresponding detectors."));
+        }
         ui.add_enabled_ui(idle,|ui| {
             egui::CollapsingHeader::new(t(language,"Office 深度范围","Office content scope")).default_open(true).show(ui,|ui| {
                 ui.add_enabled_ui(self.options.policy==Policy::Deep,|ui| {
@@ -311,6 +327,46 @@ impl Workspaces {
         });
         if self.options.policy == Policy::Safe {
             self.options.deep = Default::default();
+            self.options.pdf = Default::default();
+            self.options.remove_provenance = false;
+        }
+        if let Some(scan) = session.selected_item().and_then(|item| item.scan.as_ref()) {
+            egui::CollapsingHeader::new(t(
+                language,
+                "文件系统属性计划",
+                "Filesystem attribute plan",
+            ))
+            .show(ui, |ui| {
+                for finding in scan
+                    .findings
+                    .iter()
+                    .filter(|finding| finding.layer == fileveil_core::RiskLayer::Filesystem)
+                {
+                    let remove = match finding.code.as_str() {
+                        "filesystem.download_origin" => {
+                            self.options.filesystem.remove_download_origin
+                        }
+                        "filesystem.finder_tags" => self.options.filesystem.remove_finder_tags,
+                        _ => false,
+                    };
+                    let action = if finding.code == "filesystem.resource_fork" {
+                        t(language, "阻断重写", "Blocks rewriting")
+                    } else if remove {
+                        t(language, "移除", "Remove")
+                    } else {
+                        t(
+                            language,
+                            "保留，按所选命名空间进一步判定",
+                            "Preserve or evaluate the selected namespace",
+                        )
+                    };
+                    ui.label(format!(
+                        "{} · {}",
+                        crate::i18n::finding_title(language, finding),
+                        action
+                    ));
+                }
+            });
         }
         if ui
             .add_enabled(
@@ -391,6 +447,9 @@ impl Workspaces {
         }
     }
     fn result_ui(&mut self, ui: &mut egui::Ui, language: Language, idle: bool, session: &Session) {
+        if self.result_workspace != self.selected {
+            return;
+        }
         let Some(result) = &self.result else {
             return;
         };
@@ -424,27 +483,27 @@ impl Workspaces {
                     )
                 ));
             }
-            if let Some(lab) = details.get("lab") {
-                if let Some(samples) = lab["samples"].as_array() {
-                    for sample in samples {
+            if let Some(lab) = details.get("lab")
+                && let Some(samples) = lab["samples"].as_array()
+            {
+                for sample in samples {
+                    ui.label(format!(
+                        "{} · {} × {}",
+                        sample["sample_index"], sample["width"], sample["height"]
+                    ));
+                    if let Some(channels) = sample["channels"].as_array() {
                         ui.label(format!(
-                            "{} · {} × {}",
-                            sample["sample_index"], sample["width"], sample["height"]
+                            "{}  {}",
+                            t(language, "RGB 信息熵", "RGB entropy"),
+                            channels
+                                .iter()
+                                .map(|channel| format!(
+                                    "{:.3}",
+                                    channel["entropy_bits"].as_f64().unwrap_or_default()
+                                ))
+                                .collect::<Vec<_>>()
+                                .join(" / ")
                         ));
-                        if let Some(channels) = sample["channels"].as_array() {
-                            ui.label(format!(
-                                "{}  {}",
-                                t(language, "RGB 信息熵", "RGB entropy"),
-                                channels
-                                    .iter()
-                                    .map(|channel| format!(
-                                        "{:.3}",
-                                        channel["entropy_bits"].as_f64().unwrap_or_default()
-                                    ))
-                                    .collect::<Vec<_>>()
-                                    .join(" / ")
-                            ));
-                        }
                     }
                 }
             }

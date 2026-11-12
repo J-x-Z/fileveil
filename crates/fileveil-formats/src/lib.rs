@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 //! Offline format adapters. Identification uses signatures and validated container structure.
+pub mod audio;
 pub mod bmff;
 pub mod jpeg;
 pub mod ooxml;
@@ -12,6 +13,15 @@ use fileveil_core::{
 use std::path::Path;
 
 pub fn identify(data: &[u8], hint: &Path) -> Format {
+    if data.len() >= 12 && &data[..4] == b"RIFF" && &data[8..12] == b"WAVE" {
+        return Format::Wav;
+    }
+    if data.starts_with(b"fLaC") {
+        return Format::Flac;
+    }
+    if audio::mp3_signature(data) {
+        return Format::Mp3;
+    }
     if data.starts_with(&[0xff, 0xd8]) {
         return Format::Jpeg;
     }
@@ -59,6 +69,7 @@ pub fn inspect(data: &[u8], hint: &Path, limits: &Limits) -> Result<Inspection> 
         ));
     }
     let mut result = match identify(data, hint) {
+        format if format.is_audio() => audio::inspect(data, format, limits),
         Format::Jpeg => jpeg::JpegAdapter.inspect(data, limits),
         Format::Png => png::PngAdapter.inspect(data, limits),
         Format::Text => text::inspect(data, Format::Text, limits),
@@ -83,6 +94,7 @@ pub fn inspect(data: &[u8], hint: &Path, limits: &Limits) -> Result<Inspection> 
 }
 pub fn sanitize(data: &[u8], format: Format, limits: &Limits) -> Result<Vec<u8>> {
     match format {
+        format if format.is_audio() => audio::sanitize(data, format, limits),
         Format::Jpeg => jpeg::JpegAdapter.sanitize(data, limits),
         Format::Png => png::PngAdapter.sanitize(data, limits),
         Format::Docx | Format::Xlsx | Format::Pptx => ooxml::OoxmlAdapter.sanitize(data, limits),
@@ -105,6 +117,18 @@ pub fn inspect_with_options(
     limits: &Limits,
     options: &SanitizeOptions,
 ) -> Result<Inspection> {
+    if options.remove_provenance {
+        if options.policy != Policy::Deep {
+            return Err(Error::Blocked(
+                "Provenance removal requires an explicit Deep selection".into(),
+            ));
+        }
+        match identify(data, hint) {
+            Format::Jpeg => return jpeg::JpegAdapter.inspect_with_options(data, limits, options),
+            Format::Png => return png::PngAdapter.inspect_with_options(data, limits, options),
+            _ => {}
+        }
+    }
     if options.text.remove_control_characters
         && matches!(
             hint.extension()
@@ -133,6 +157,18 @@ pub fn sanitize_with_options(
     limits: &Limits,
     options: &SanitizeOptions,
 ) -> Result<Vec<u8>> {
+    if options.remove_provenance {
+        if options.policy != Policy::Deep {
+            return Err(Error::Blocked(
+                "Provenance removal requires an explicit Deep selection".into(),
+            ));
+        }
+        match format {
+            Format::Jpeg => return jpeg::JpegAdapter.sanitize_with_options(data, limits, options),
+            Format::Png => return png::PngAdapter.sanitize_with_options(data, limits, options),
+            _ => {}
+        }
+    }
     if options.deep.any() && options.policy != Policy::Deep {
         return Err(Error::Blocked(
             "Office content-changing choices require the Deep policy".into(),

@@ -31,6 +31,11 @@ fn retained_attributes(
 }
 
 fn validate_options(options: &SanitizeOptions) -> Result<()> {
+    if options.remove_provenance && options.policy != Policy::Deep {
+        return Err(Error::Input(
+            "Removing provenance credentials requires the Deep policy".into(),
+        ));
+    }
     if options.pdf.any() && options.policy != Policy::Deep {
         return Err(Error::Input(
             "PDF content changes require the Deep policy".into(),
@@ -48,6 +53,11 @@ fn validate_options(options: &SanitizeOptions) -> Result<()> {
 }
 
 fn validate_format_options(format: Format, options: &SanitizeOptions) -> Result<()> {
+    if options.remove_provenance && !format.is_image() {
+        return Err(Error::Unsupported(
+            "Credential removal supports JPEG and PNG files".into(),
+        ));
+    }
     if options.pdf.any() && format != Format::Pdf {
         return Err(Error::Unsupported(
             "Selected PDF content choices require a PDF file".into(),
@@ -64,6 +74,19 @@ fn validate_format_options(format: Format, options: &SanitizeOptions) -> Result<
         ));
     }
     Ok(())
+}
+
+fn inspect_selected(
+    data: &[u8],
+    hint: &Path,
+    limits: &Limits,
+    options: &SanitizeOptions,
+) -> Result<Inspection> {
+    if options.remove_provenance {
+        validate_format_options(fileveil_formats::identify(data, hint), options)?;
+        return fileveil_formats::inspect_with_options(data, hint, limits, options);
+    }
+    inspect_snapshot(data, hint, limits)
 }
 
 fn compare_advanced(
@@ -89,9 +112,14 @@ fn compare_advanced(
             "Resource-fork transformation requires a semantic-preservation backend".into(),
         ));
     }
-    let before = inspect_snapshot(&original.bytes, hint, limits)?;
+    let before = inspect_selected(&original.bytes, hint, limits, options)?;
     let after = inspect_snapshot(&output.bytes, hint, limits)?;
     validate_format_options(before.format, options)?;
+    if !before.blockers.is_empty() || !after.blockers.is_empty() {
+        return Err(Error::Blocked(
+            "Protected input or output structures prevent scoped verification".into(),
+        ));
+    }
     let mut report = Report::new("verify", before.format);
     if before.format != after.format {
         return Err(Error::Verification("Output format changed".into()));
@@ -103,13 +131,23 @@ fn compare_advanced(
         report.integrity = verified.integrity;
         report.result = verified.result;
         report.pdf = Some(verified.details);
-    } else if before.format.is_image() {
+    } else if before.format.is_image() || before.format.is_audio() {
+        if before.content_digest != after.content_digest {
+            return Err(Error::Verification(
+                "Retained encoded image or color structures changed".into(),
+            ));
+        }
+        let retained_bytes = if options.remove_provenance {
+            crate::provenance::remove(&original.bytes, before.format, limits)?
+        } else {
+            original.bytes.clone()
+        };
         let selected_original = Snapshot {
             file: original
                 .file
                 .try_clone()
                 .map_err(|_| Error::Io("Could not retain original image descriptor".into()))?,
-            bytes: original.bytes.clone(),
+            bytes: retained_bytes,
             attributes: expected_attributes.clone(),
         };
         report = compare(&selected_original, output, hint, hint, limits)?;
@@ -117,7 +155,31 @@ fn compare_advanced(
             finding.layer != RiskLayer::Filesystem
                 && finding.code != "watermark.statistical"
                 && finding.code != "image.content_watermark"
+                && finding.code != "audio.signal_watermark"
         });
+        if options.remove_provenance {
+            let original_pixels = decode_pixels(&original.bytes, limits)?;
+            let output_pixels = decode_pixels(&output.bytes, limits)?;
+            if original_pixels.color() != output_pixels.color()
+                || original_pixels.dimensions() != output_pixels.dimensions()
+                || original_pixels.as_bytes() != output_pixels.as_bytes()
+            {
+                return Err(Error::Verification(
+                    "Credential removal changed decoded image samples".into(),
+                ));
+            }
+            for mut finding in before
+                .findings
+                .iter()
+                .filter(|finding| finding.layer == RiskLayer::ProvenanceCredential)
+                .cloned()
+            {
+                finding.action = Action::Remove;
+                finding.state = FindingState::RemovedVerified;
+                finding.confidence = Confidence::Verified;
+                report.findings.push(finding);
+            }
+        }
     } else {
         let verified = fileveil_formats::verify_scoped(
             &original.bytes,
@@ -156,6 +218,20 @@ fn compare_advanced(
         serde_json::json!({"options":options,"selected_scope_verified":true,
         "timestamp_scope":if options.filesystem.normalize_output_timestamps {"output_modification_only_verified"} else {"not_assessed"}}),
     );
+    if options.remove_provenance {
+        let before_credentials =
+            crate::provenance::inspect(&original.bytes, before.format, limits)?;
+        if let Some(details) = report.advanced.as_mut() {
+            details["provenance_removal"] = serde_json::json!({
+                "before": before_credentials,
+                "after": null,
+                "postcondition": "no_sdk_credential_or_reference_found",
+                "signature_effect": "removable_credentials_and_their_signatures_discarded"
+            });
+        }
+        report.result = Outcome::PartiallyVerified;
+        report.warnings.push("User-selected credential removal discards removable Content Credentials and their signatures. Other source associations and unknown content watermarks remain unassessed.".into());
+    }
     if options.filesystem.normalize_output_timestamps {
         let metadata = output
             .file
@@ -200,7 +276,7 @@ pub fn sanitize_with_options_in(
 ) -> Result<Report> {
     validate_options(options)?;
     let snapshot = Snapshot::open(input, limits)?;
-    let inspection = inspect_snapshot(&snapshot.bytes, input, limits)?;
+    let inspection = inspect_selected(&snapshot.bytes, input, limits, options)?;
     validate_format_options(inspection.format, options)?;
     if !inspection.blockers.is_empty() {
         return Err(Error::Blocked(inspection.blockers.join(". ")));
@@ -217,7 +293,9 @@ pub fn sanitize_with_options_in(
     if let Some(path) = output {
         ensure_new_path(path)?;
     }
-    let transformed = if inspection.format == Format::Pdf {
+    let transformed = if options.remove_provenance {
+        crate::provenance::remove(&snapshot.bytes, inspection.format, limits)?
+    } else if inspection.format == Format::Pdf {
         pdf::sanitize_with_options(&snapshot.bytes, limits, &options.pdf)?
     } else {
         fileveil_formats::sanitize_with_options(
@@ -335,47 +413,7 @@ pub fn publish_advanced_staged(
     }
     let original = Snapshot::open(input, limits)?;
     let artifact = Snapshot::open(staged, limits)?;
-    let original_path = fs::canonicalize(input)
-        .map_err(|_| Error::Blocked("Original path is unavailable before publication".into()))?;
-    let staged_path = fs::canonicalize(staged)
-        .map_err(|_| Error::Blocked("Staged path is unavailable before publication".into()))?;
-    if original_path == staged_path {
-        return Err(Error::Blocked(
-            "The staged artifact must be a new copy".into(),
-        ));
-    }
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::MetadataExt;
-        if artifact
-            .file
-            .metadata()
-            .map_err(|_| Error::Io("Could not inspect staged artifact links".into()))?
-            .nlink()
-            != 1
-        {
-            return Err(Error::Blocked(
-                "The staged artifact has multiple filesystem links".into(),
-            ));
-        }
-    }
-    #[cfg(windows)]
-    {
-        use std::os::windows::io::AsRawHandle;
-        use windows_sys::Win32::Storage::FileSystem::{
-            BY_HANDLE_FILE_INFORMATION, GetFileInformationByHandle,
-        };
-        let mut information: BY_HANDLE_FILE_INFORMATION = unsafe { std::mem::zeroed() };
-        if unsafe {
-            GetFileInformationByHandle(artifact.file.as_raw_handle() as _, &mut information)
-        } == 0
-            || information.nNumberOfLinks != 1
-        {
-            return Err(Error::Blocked(
-                "Could not establish a single-link staged artifact".into(),
-            ));
-        }
-    }
+    ensure_new_artifact(&original.file, &artifact.file)?;
     if report.input_sha256.as_deref() != Some(digest(&original.bytes).as_str())
         || report.output_sha256.as_deref() != Some(digest(&artifact.bytes).as_str())
         || artifact.attributes != retained_attributes(&original.attributes, &options.filesystem)

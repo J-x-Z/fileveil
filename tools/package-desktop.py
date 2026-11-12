@@ -10,6 +10,7 @@ import json
 import os
 from pathlib import Path
 import plistlib
+import re
 import shutil
 import stat
 import subprocess
@@ -216,6 +217,15 @@ def create_icon(source: Path | None, resources: Path, temporary: Path) -> str | 
     return icon.name
 
 
+def minimum_macos(paths: list[Path]) -> str:
+    versions = [(11, 0)]
+    for path in paths:
+        listing = subprocess.check_output(["otool", "-l", str(path)], text=True)
+        for value in re.findall(r"^\s*minos\s+([\d.]+)", listing, re.MULTILINE):
+            versions.append(tuple(int(part) for part in value.split(".")))
+    return ".".join(str(part) for part in max(versions))
+
+
 def package_macos(binary: Path, stage: Path, version: str, icon: Path | None, temporary: Path) -> None:
     contents = stage / "Contents"
     executable = contents / "MacOS" / BINARY_NAME
@@ -234,7 +244,7 @@ def package_macos(binary: Path, stage: Path, version: str, icon: Path | None, te
         "CFBundleShortVersionString": version,
         "CFBundleVersion": version,
         "CFBundleInfoDictionaryVersion": "6.0",
-        "LSMinimumSystemVersion": "11.0",
+        "LSMinimumSystemVersion": minimum_macos([binary]),
         "NSHighResolutionCapable": True,
         "NSPrincipalClass": "NSApplication",
         "NSDocumentsFolderUsageDescription": "FileVeil reads the files you select for local privacy auditing.",
@@ -246,6 +256,14 @@ def package_macos(binary: Path, stage: Path, version: str, icon: Path | None, te
         info["CFBundleIconFile"] = icon_name
     with (contents / "Info.plist").open("wb") as stream:
         plistlib.dump(info, stream, sort_keys=True)
+    backends = sorted((resources / "backends").glob("*"))
+    if backends:
+        (resources / "pdf-backend.json").write_text(json.dumps({
+            "backend": "qpdf", "optional": True,
+            "minimum_macos_version": minimum_macos(backends),
+            "gui_minimum_macos_version": info["LSMinimumSystemVersion"],
+            "override": "FILEVEIL_QPDF absolute path",
+        }, indent=2) + "\n")
     (contents / "PkgInfo").write_bytes(b"APPL????")
     run(["codesign", "--force", "--sign", "-", "--timestamp=none", str(stage)], timeout=60)
     run(["codesign", "--verify", "--strict", "--verbose=2", str(stage)], timeout=60)

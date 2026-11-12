@@ -20,6 +20,9 @@ jobs:
       - name: Install audit tools
         run: cargo install --locked cargo-audit cargo-deny
       - name: Vulnerability audit
-        run: cargo audit --file Cargo.lock
+        # c2pa_raw_crypto still pins rsa 0.9. FileVeil uses public-key validation only.
+        # Private RSA operations are outside this application's callable interfaces.
+        # Remove this scoped exception when upstream adopts rsa 0.10 or before adding private RSA use.
+        run: cargo audit --file Cargo.lock --ignore RUSTSEC-2023-0071
       - name: License check
         run: cargo deny --config .github/deny.toml check licenses

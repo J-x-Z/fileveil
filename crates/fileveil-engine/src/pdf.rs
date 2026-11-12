@@ -73,7 +73,10 @@ pub fn capabilities() -> Value {
     ]
     .iter()
     .all(|(variable, name)| executable(variable, name).is_some());
-    json!({"backend":"qpdf", "available":executable("FILEVEIL_QPDF", "qpdf").is_some(),
+    let backend_available = executable("FILEVEIL_QPDF", "qpdf").is_some_and(|program| {
+        run(&program, &args(&["--version"]), 4096, None).is_ok_and(|output| output.status.success())
+    });
+    json!({"backend":"qpdf", "available":backend_available,
         "independent_validation_available": independent_available,
         "signature_validation":"not_assessed", "rewrite":"full_non_incremental", "offline":true})
 }

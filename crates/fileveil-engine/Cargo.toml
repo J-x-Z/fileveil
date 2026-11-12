@@ -12,7 +12,7 @@ image.workspace = true
 tempfile.workspace = true
 serde_json.workspace = true
 serde.workspace = true
-c2pa = { version = "=0.91.11", default-features = false, features = ["rust_native_crypto"] }
+c2pa = { version = "=0.91.11", default-features = false, features = ["rust_native_crypto", "file_io"] }
 x509-parser = "0.18.1"
 [target.'cfg(unix)'.dependencies]
 xattr = "1.6"

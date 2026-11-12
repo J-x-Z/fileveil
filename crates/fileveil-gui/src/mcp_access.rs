@@ -274,11 +274,11 @@ impl AccessPolicy {
         })?;
         root.check_namespace()?;
         let parent_relative = relative.parent().unwrap_or(Path::new(""));
-        let namespace = platform::lock_namespace(
-            path.parent()
-                .ok_or_else(|| denied("Input parent is unavailable"))?,
-        )?;
         let parent = platform::open_directory(&root.directory, parent_relative, &root.path)?;
+        let parent_hint = path
+            .parent()
+            .ok_or_else(|| denied("Input parent is unavailable"))?;
+        let namespace = platform::lock_namespace(&platform::directory_path(&parent, parent_hint)?)?;
         let name = relative
             .file_name()
             .ok_or_else(|| denied("Input must name a regular file"))?;
@@ -306,8 +306,8 @@ impl AccessPolicy {
             denied("The requested output is outside the authorized write directories")
         })?;
         root.check_namespace()?;
-        let namespace = platform::lock_namespace(directory)?;
         let parent = platform::open_directory(&root.directory, &relative, &root.path)?;
+        let namespace = platform::lock_namespace(&platform::directory_path(&parent, directory)?)?;
         let identity = platform::identity(&parent)?;
         let alias = match output {
             Some(_) => {
@@ -559,15 +559,13 @@ impl Drop for PrivateStaging {
         if let Ok(entries) = fs::read_dir(&self.path) {
             for entry in entries.flatten() {
                 let name = entry.file_name();
-                if name == "verified-artifact.png"
-                    || name.to_string_lossy().starts_with(".fileveil-")
-                {
-                    if entry
+                if (name == "verified-artifact.png"
+                    || name.to_string_lossy().starts_with(".fileveil-"))
+                    && entry
                         .file_type()
                         .is_ok_and(|kind| kind.is_file() || kind.is_symlink())
-                    {
-                        let _ = fs::remove_file(entry.path());
-                    }
+                {
+                    let _ = fs::remove_file(entry.path());
                 }
             }
         }
@@ -575,12 +573,11 @@ impl Drop for PrivateStaging {
             &self.parent,
             Path::new(&self.name),
             self.path.parent().unwrap_or(Path::new("")),
-        ) {
-            if platform::identity(&current).ok() == Some(self.identity) {
-                drop(current);
-                drop(self.directory.take());
-                let _ = platform::remove_empty_directory(&self.parent, &self.name);
-            }
+        ) && platform::identity(&current).ok() == Some(self.identity)
+        {
+            drop(current);
+            drop(self.directory.take());
+            let _ = platform::remove_empty_directory(&self.parent, &self.name);
         }
     }
 }
@@ -608,15 +605,14 @@ pub(crate) fn worker_bindings() -> Result<Vec<(PathBuf, File)>> {
         use std::os::fd::FromRawFd;
         let bindings: InheritedBindings = serde_json::from_slice(encoded.as_encoded_bytes())
             .map_err(|_| denied("Invalid inherited input descriptor map"))?;
-        if bindings.inputs.len() > 2 {
+        if bindings.inputs.len() > 8 {
             return Err(denied("Too many inherited input descriptors"));
         }
-        if let Some(descriptor) = bindings.staging_descriptor {
-            if descriptor < 3
-                || unsafe { libc::fcntl(descriptor, libc::F_SETFD, libc::FD_CLOEXEC) } < 0
-            {
-                return Err(denied("Authorized staging descriptor was not inherited"));
-            }
+        if let Some(descriptor) = bindings.staging_descriptor
+            && (descriptor < 3
+                || unsafe { libc::fcntl(descriptor, libc::F_SETFD, libc::FD_CLOEXEC) } < 0)
+        {
+            return Err(denied("Authorized staging descriptor was not inherited"));
         }
         bindings
             .inputs
@@ -913,17 +909,17 @@ mod platform {
     pub(super) fn open_staging(_parent: &File, _name: &OsStr, hint: &Path) -> Result<File> {
         open(hint, true)
     }
-    pub(super) fn open_directory(_root: &File, relative: &Path, hint: &Path) -> Result<File> {
+    pub(super) fn open_directory(root: &File, relative: &Path, hint: &Path) -> Result<File> {
         // Root ancestor handles remain open without SHARE_DELETE for the full task.
-        let path = hint.join(relative);
+        let path = directory_path(root, hint)?.join(relative);
         let (directory, namespace) = open_absolute_directory(&path)?;
         // The caller must retain each derived ancestor too. Opening the final
         // directory without SHARE_DELETE also prevents moving its ancestors.
         drop(namespace);
         Ok(directory)
     }
-    pub(super) fn open_input(_parent: &File, _name: &OsStr, hint: &Path) -> Result<File> {
-        let file = open(hint, false)?;
+    pub(super) fn open_input(parent: &File, name: &OsStr, hint: &Path) -> Result<File> {
+        let file = open(&directory_path(parent, hint)?.join(name), false)?;
         check_regular_input(&file)?;
         Ok(file)
     }
@@ -947,11 +943,29 @@ mod platform {
             file: (u64::from(info.nFileIndexHigh) << 32) | u64::from(info.nFileIndexLow),
         })
     }
-    pub(super) fn directory_path(_directory: &File, hint: &Path) -> Result<PathBuf> {
-        Ok(hint.to_path_buf())
+    pub(super) fn directory_path(directory: &File, _hint: &Path) -> Result<PathBuf> {
+        use std::os::windows::ffi::OsStringExt;
+        use windows_sys::Win32::Storage::FileSystem::{
+            FILE_NAME_NORMALIZED, GetFinalPathNameByHandleW, VOLUME_NAME_GUID,
+        };
+        let mut path = vec![0u16; 32768];
+        let length = unsafe {
+            GetFinalPathNameByHandleW(
+                directory.as_raw_handle(),
+                path.as_mut_ptr(),
+                path.len() as u32,
+                FILE_NAME_NORMALIZED | VOLUME_NAME_GUID,
+            )
+        };
+        if length == 0 || length as usize >= path.len() {
+            return Err(denied(
+                "A stable local volume path is unavailable for the authorized directory",
+            ));
+        }
+        Ok(PathBuf::from(OsString::from_wide(&path[..length as usize])))
     }
-    pub(super) fn child_path(_parent: &File, _name: &OsStr, hint: &Path) -> Result<PathBuf> {
-        Ok(hint.to_path_buf())
+    pub(super) fn child_path(parent: &File, name: &OsStr, hint: &Path) -> Result<PathBuf> {
+        Ok(directory_path(parent, hint)?.join(name))
     }
     pub(super) fn relative(path: &Path, root: &Path) -> Option<PathBuf> {
         let path = fs::canonicalize(path)
@@ -981,23 +995,7 @@ mod platform {
         )
     }
     pub(super) fn remove_empty_directory(parent: &File, name: &OsStr) -> Result<()> {
-        use std::os::windows::ffi::OsStringExt;
-        use windows_sys::Win32::Storage::FileSystem::{
-            FILE_NAME_NORMALIZED, GetFinalPathNameByHandleW,
-        };
-        let mut path = vec![0u16; 32768];
-        let length = unsafe {
-            GetFinalPathNameByHandleW(
-                parent.as_raw_handle(),
-                path.as_mut_ptr(),
-                path.len() as u32,
-                FILE_NAME_NORMALIZED,
-            )
-        };
-        if length == 0 || length as usize >= path.len() {
-            return Err(denied("Staging parent is unavailable"));
-        }
-        let path = PathBuf::from(OsString::from_wide(&path[..length as usize])).join(name);
+        let path = directory_path(parent, Path::new(""))?.join(name);
         fs::remove_dir(path).map_err(|_| denied("Private staging directory could not be removed"))
     }
 }
@@ -1216,5 +1214,67 @@ mod tests {
         fs::rename(&root, &moved).unwrap();
         symlink(outside.path(), &root).unwrap();
         assert!(policy.authorize(scan(&root.join("source.txt"))).is_err());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_bound_inputs_and_ancestors_cannot_be_renamed() {
+        let source = directory();
+        let parent = source.path().join("nested");
+        fs::create_dir(&parent).unwrap();
+        let input = parent.join("source.txt");
+        fs::write(&input, "original").unwrap();
+        let mut policy = AccessPolicy::new(&config(&[source.path()], &[source.path()])).unwrap();
+        let authorized = policy
+            .authorize(sanitize(&input, &parent.join("copy.txt")))
+            .unwrap();
+        let JobKind::Sanitize { input: bound, .. } = &authorized.request.kind else {
+            unreachable!()
+        };
+        assert!(bound.to_string_lossy().starts_with(r"\\?\Volume{"));
+        assert_eq!(fs::read(bound).unwrap(), b"original");
+        assert!(fs::rename(&input, parent.join("moved.txt")).is_err());
+        assert!(fs::rename(&parent, source.path().join("moved-parent")).is_err());
+        assert!(authorized.revalidate().is_ok());
+        drop(authorized);
+        fs::rename(&input, parent.join("moved.txt")).unwrap();
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_directory_junctions_cannot_expand_grants() {
+        use std::process::Stdio;
+        let source = directory();
+        let outside = directory();
+        let junction = source.path().join("redirect");
+        fs::write(outside.path().join("private.txt"), "private").unwrap();
+        let status = Command::new("cmd")
+            .args([
+                OsStr::new("/C"),
+                OsStr::new("mklink"),
+                OsStr::new("/J"),
+                junction.as_os_str(),
+                outside.path().as_os_str(),
+            ])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .unwrap();
+        assert!(
+            status.success(),
+            "Native NTFS junction fixture could not be created"
+        );
+        let mut policy = AccessPolicy::new(&config(&[source.path()], &[source.path()])).unwrap();
+        assert!(
+            policy
+                .authorize(scan(&junction.join("private.txt")))
+                .is_err()
+        );
+        assert!(config(&[&junction], &[]).validate().is_err());
+        fs::remove_dir(&junction).unwrap();
+        assert_eq!(
+            fs::read(outside.path().join("private.txt")).unwrap(),
+            b"private"
+        );
     }
 }

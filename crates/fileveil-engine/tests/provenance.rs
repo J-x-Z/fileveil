@@ -33,6 +33,29 @@ fn provider_availability_matches_configured_backends() {
     );
 }
 
+#[test]
+fn official_private_copy_removal_clears_signed_and_remote_credentials_without_pixel_changes() {
+    for (name, format) in [
+        ("signed.png", Format::Png),
+        ("signed.jpg", Format::Jpeg),
+        ("remote.png", Format::Png),
+    ] {
+        let source = fixture(name);
+        let original_hash = digest(&source);
+        let before = image::load_from_memory(&source).unwrap();
+        let output = provenance::remove(&source, format, &Limits::default()).unwrap();
+        assert!(
+            provenance::inspect(&output, format, &Limits::default())
+                .unwrap()
+                .is_none()
+        );
+        let after = image::load_from_memory(&output).unwrap();
+        assert_eq!(before.color(), after.color());
+        assert_eq!(before.as_bytes(), after.as_bytes());
+        assert_eq!(digest(&source), original_hash);
+    }
+}
+
 fn png(value: u8) -> Vec<u8> {
     let image = DynamicImage::ImageRgb8(image::RgbImage::from_pixel(
         4,

@@ -749,7 +749,7 @@ impl FileVeilApp {
             );
             ui.add_space(32.0);
             ui.label(
-                RichText::new("JPEG · PNG · DOCX · XLSX · PPTX")
+                RichText::new(tr(self.language, "Images · PDF · Office · Text · Media"))
                     .size(12.0)
                     .color(colors.muted),
             );
@@ -1544,6 +1544,13 @@ fn format_label(mime: &str) -> String {
     match mime {
         "image/jpeg" => "JPEG",
         "image/png" => "PNG",
+        "image/heif" => "HEIC / HEIF",
+        "image/avif" => "AVIF",
+        "video/mp4" => "MP4",
+        "video/quicktime" => "MOV",
+        "audio/wav" => "WAV",
+        "audio/flac" => "FLAC",
+        "audio/mpeg" => "MP3",
         "text/plain" => "UTF-8",
         "text/html" => "HTML",
         "application/pdf" => "PDF",

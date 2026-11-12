@@ -35,35 +35,33 @@ pub fn identify(data: &[u8], hint: &Path) -> Option<Format> {
     if payload.len() < 8 || !payload.len().is_multiple_of(4) {
         return None;
     }
-    let brands: Vec<_> = std::iter::once(&payload[..4])
-        .chain(
-            payload[8..]
-                .as_chunks::<4>()
-                .0
-                .iter()
-                .map(|brand| brand.as_slice()),
-        )
-        .collect();
+    let brands = std::iter::once(&payload[..4]).chain(
+        payload[8..]
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .map(|brand| brand.as_slice()),
+    );
     if brands
-        .iter()
-        .any(|brand| matches!(*brand, b"avif" | b"avis"))
+        .clone()
+        .any(|brand| matches!(brand, b"avif" | b"avis"))
     {
         return Some(Format::Avif);
     }
-    if brands.iter().any(|brand| {
+    if brands.clone().any(|brand| {
         matches!(
-            *brand,
+            brand,
             b"heic" | b"heix" | b"hevc" | b"hevx" | b"heim" | b"heis" | b"mif1" | b"msf1"
         )
     }) {
         return Some(Format::Heic);
     }
-    if brands.contains(&b"qt  ".as_slice()) {
+    if brands.clone().any(|brand| brand == b"qt  ") {
         return Some(Format::Mov);
     }
-    if brands.iter().any(|brand| {
+    if brands.clone().any(|brand| {
         matches!(
-            *brand,
+            brand,
             b"isom"
                 | b"iso2"
                 | b"iso3"
@@ -568,6 +566,12 @@ pub fn inspect(data: &[u8], format: Format, limits: &Limits) -> Result<Inspectio
         let header = parser.nodes[index].header.clone();
         let payload = &data[header.payload..header.end];
         match &header.kind {
+            b"ftyp" => {
+                if payload.len() < 8 || !payload.len().is_multiple_of(4) {
+                    return Err(invalid("Invalid file-type brand table"));
+                }
+                parser.metadata(payload.len())?;
+            }
             b"infe" => {
                 parser.metadata(payload.len())?;
                 let parent = parser
@@ -766,7 +770,11 @@ pub fn inspect(data: &[u8], format: Format, limits: &Limits) -> Result<Inspectio
                     crate::jpeg::inspect_exif(tiff, &mut exif)?;
                     for mut entry in exif.findings {
                         entry.code = entry.code.replacen("jpeg.exif", "bmff.exif", 1);
-                        entry.location = format!("{}/{}", header.start, entry.location);
+                        entry.location = format!(
+                            "box@{}/Exif/{}",
+                            header.start,
+                            entry.location.strip_prefix("APP1/Exif/").unwrap_or(&entry.location)
+                        );
                         entry.action = Action::Preserve;
                         result.findings.push(entry);
                     }

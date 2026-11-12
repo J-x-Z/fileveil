@@ -290,7 +290,7 @@ exec /bin/sleep 30
     fs::set_permissions(&executable, fs::Permissions::from_mode(0o700)).unwrap();
     executable
 }
-#[cfg(unix)]
+#[cfg(any(unix, windows))]
 fn wait_for_pid(directory: &Path) -> String {
     let started = Instant::now();
     loop {
@@ -301,6 +301,87 @@ fn wait_for_pid(directory: &Path) -> String {
         }
         assert!(started.elapsed() < Duration::from_secs(5));
         thread::sleep(Duration::from_millis(10));
+    }
+}
+
+#[cfg(windows)]
+fn assert_windows_stopped(pid: &str) {
+    use windows_sys::Win32::{
+        Foundation::{CloseHandle, ERROR_INVALID_PARAMETER, GetLastError, STILL_ACTIVE},
+        System::Threading::{GetExitCodeProcess, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION},
+    };
+    let pid = pid.parse::<u32>().unwrap();
+    let started = Instant::now();
+    loop {
+        let handle = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid) };
+        if handle.is_null() {
+            assert_eq!(unsafe { GetLastError() }, ERROR_INVALID_PARAMETER);
+            return;
+        }
+        let mut code = STILL_ACTIVE as u32;
+        let checked = unsafe { GetExitCodeProcess(handle, &mut code) };
+        unsafe {
+            CloseHandle(handle);
+        }
+        assert_ne!(checked, 0);
+        if code != STILL_ACTIVE as u32 {
+            return;
+        }
+        assert!(
+            started.elapsed() < Duration::from_secs(5),
+            "Owned Windows process remained alive"
+        );
+        thread::sleep(Duration::from_millis(10));
+    }
+}
+
+#[cfg(windows)]
+#[test]
+fn windows_job_object_stops_native_worker_and_grandchild_on_timeout_cancel_and_drop() {
+    let directory = tempfile::tempdir().unwrap();
+    let worker = directory.path().join("process-tree-worker.exe");
+    let status = Command::new("rustc")
+        .arg("--edition=2024")
+        .arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/support/process_tree_worker.rs"))
+        .arg("-o")
+        .arg(&worker)
+        .status()
+        .unwrap();
+    assert!(
+        status.success(),
+        "Native Windows worker fixture compilation failed"
+    );
+    let input = copy_fixture("png_clean.png", directory.path());
+    let original = fs::read(&input).unwrap();
+    for mode in ["timeout", "cancel", "drop"] {
+        let output = directory.path().join(format!("{mode}.png"));
+        let mut request = JobRequest::new(JobKind::Sanitize {
+            input: input.clone(),
+            output: Some(output.clone()),
+        });
+        request.timeout_seconds = if mode == "timeout" { 2 } else { 30 };
+        let handle = JobHandle::spawn_with_executable(request, worker.clone(), Arc::new(|| {}));
+        let pid = wait_for_pid(directory.path());
+        let descendant = fs::read_to_string(directory.path().join("grandchild.pid")).unwrap();
+        if mode == "drop" {
+            drop(handle);
+        } else {
+            if mode == "cancel" {
+                assert!(handle.cancel());
+            }
+            assert_eq!(wait(&handle).exit_code, 6);
+            drop(handle);
+        }
+        assert_windows_stopped(&pid);
+        assert_windows_stopped(&descendant);
+        let scratch = fs::read_to_string(directory.path().join("scratch.path")).unwrap();
+        assert!(!Path::new(&scratch).exists());
+        assert!(!output.exists());
+        assert_no_staging(directory.path());
+        assert_eq!(fs::read(&input).unwrap(), original);
+        for name in ["worker.pid", "grandchild.pid", "scratch.path"] {
+            fs::remove_file(directory.path().join(name)).unwrap();
+        }
     }
 }
 #[cfg(unix)]
