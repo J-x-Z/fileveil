@@ -47,11 +47,25 @@ fn signed_pdf_normal_entry_points_protect_default_and_verify_explicit_removal() 
         .collect();
     assert_eq!(attachments.len(), 1);
     assert_eq!(attachments[0].state, FindingState::RemovedVerified);
-    assert_eq!(report.pdf.as_ref().unwrap()["independent_text_equal"], true);
-    assert_eq!(
-        report.pdf.as_ref().unwrap()["independent_render_equal"],
-        true
-    );
+    if fileveil_engine::pdf::capabilities()["independent_validation_available"] == true {
+        assert_eq!(report.pdf.as_ref().unwrap()["independent_text_equal"], true);
+        assert_eq!(
+            report.pdf.as_ref().unwrap()["independent_render_equal"],
+            true
+        );
+    } else {
+        let checks = [
+            &report.pdf.as_ref().unwrap()["independent_page_count_equal"],
+            &report.pdf.as_ref().unwrap()["independent_text_equal"],
+            &report.pdf.as_ref().unwrap()["independent_render_equal"],
+        ];
+        assert!(
+            checks
+                .iter()
+                .all(|check| check.is_null() || **check == true)
+        );
+        assert!(checks.iter().any(|check| check.is_null()));
+    }
     assert!(
         provenance::inspect_mime(
             &fs::read(&output).unwrap(),

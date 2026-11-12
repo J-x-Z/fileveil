@@ -62,6 +62,18 @@ pub fn identify(data: &[u8], hint: &Path) -> Format {
     Format::Unknown
 }
 
+fn utf8_text_candidate(data: &[u8], hint: &Path) -> bool {
+    !data.starts_with(b"PK")
+        && matches!(
+            hint.extension()
+                .and_then(|extension| extension.to_str())
+                .map(str::to_ascii_lowercase)
+                .as_deref(),
+            Some("txt" | "md" | "markdown")
+        )
+        && std::str::from_utf8(data).is_ok()
+}
+
 pub fn inspect(data: &[u8], hint: &Path, limits: &Limits) -> Result<Inspection> {
     if data.len() as u64 > limits.max_file_bytes {
         return Err(Error::Blocked(
@@ -74,6 +86,9 @@ pub fn inspect(data: &[u8], hint: &Path, limits: &Limits) -> Result<Inspection> 
         Format::Png => png::PngAdapter.inspect(data, limits),
         Format::Text => text::inspect(data, Format::Text, limits),
         Format::Html => text::inspect(data, Format::Html, limits),
+        Format::Unknown if utf8_text_candidate(data, hint) => {
+            text::inspect(data, Format::Text, limits)
+        }
         format if format.is_media_container() => bmff::inspect(data, format, limits),
         _ if data.starts_with(b"PK") => ooxml::OoxmlAdapter.inspect(data, limits),
         format => {
@@ -128,20 +143,6 @@ pub fn inspect_with_options(
             Format::Png => return png::PngAdapter.inspect_with_options(data, limits, options),
             _ => {}
         }
-    }
-    if options.text.remove_control_characters
-        && matches!(identify(data, hint), Format::Unknown | Format::Text)
-        && !data.starts_with(b"PK")
-        && matches!(
-            hint.extension()
-                .and_then(|s| s.to_str())
-                .map(str::to_ascii_lowercase)
-                .as_deref(),
-            Some("txt" | "md" | "markdown")
-        )
-        && std::str::from_utf8(data).is_ok()
-    {
-        return text::inspect_with_options(data, Format::Text, limits, &options.text);
     }
     let inspection = inspect(data, hint, limits)?;
     if inspection.format.is_office() && options.policy == Policy::Deep {

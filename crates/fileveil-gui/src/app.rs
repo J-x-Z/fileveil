@@ -1881,6 +1881,93 @@ mod tests {
     }
 
     #[test]
+    fn normally_scanned_nul_text_exposes_enabled_deep_control_cleanup() {
+        fn click_label(
+            app: &mut FileVeilApp,
+            context: &egui::Context,
+            update: &egui::accesskit::TreeUpdate,
+            label: &str,
+        ) {
+            let bounds = update
+                .nodes
+                .iter()
+                .find_map(|(_, node)| {
+                    (node.label() == Some(label) || node.value() == Some(label))
+                        .then(|| node.bounds())
+                        .flatten()
+                })
+                .unwrap_or_else(|| panic!("Missing visible control {label}"));
+            let position = egui::pos2(
+                ((bounds.x0 + bounds.x1) / 2.0) as f32,
+                ((bounds.y0 + bounds.y1) / 2.0) as f32,
+            );
+            for pressed in [true, false] {
+                render_test_frame(
+                    app,
+                    context,
+                    vec![
+                        egui::Event::PointerMoved(position),
+                        egui::Event::PointerButton {
+                            pos: position,
+                            button: egui::PointerButton::Primary,
+                            pressed,
+                            modifiers: egui::Modifiers::NONE,
+                        },
+                    ],
+                );
+            }
+        }
+
+        let directory = tempfile::tempdir().unwrap();
+        let input = directory.path().join("control.TXT");
+        let source = b"Visible\0 control text";
+        std::fs::write(&input, source).unwrap();
+        let report = fileveil_engine::scan(&input, &fileveil_core::Limits::default()).unwrap();
+        assert_eq!(report.input_format, "text/plain");
+        assert_ne!(report.result, Outcome::Unsupported);
+        let context = egui::Context::default();
+        context.enable_accesskit();
+        let creation = eframe::CreationContext::_new_kittest(context.clone());
+        let mut app = FileVeilApp::new(&creation, Vec::new());
+        app.language = Language::English;
+        app.session.items.push(FileItem {
+            id: 1,
+            path: input.clone(),
+            size: source.len() as u64,
+            scan: Some(report.clone()),
+            latest: Some(report),
+            output_path: None,
+            output_processing: None,
+            status: ItemStatus::Finished,
+        });
+        app.session.selected = Some(1);
+        let mut update = render_test_frame(&mut app, &context, Vec::new());
+        for _ in 0..2 {
+            update = render_test_frame(&mut app, &context, Vec::new());
+        }
+        click_label(&mut app, &context, &update, "Deep clean");
+        assert!(app.workspaces.selected == Workspace::Deep);
+        update = render_test_frame(&mut app, &context, Vec::new());
+        click_label(&mut app, &context, &update, "Office content scope");
+        update = render_test_frame(&mut app, &context, Vec::new());
+        click_label(&mut app, &context, &update, "Text and HTML");
+        for _ in 0..4 {
+            update = render_test_frame(&mut app, &context, Vec::new());
+        }
+        let control = update
+            .nodes
+            .iter()
+            .find_map(|(_, node)| {
+                (node.role() == egui::Role::CheckBox
+                    && node.label() == Some("Abnormal controls and nonlinguistic markers"))
+                .then_some(node)
+            })
+            .expect("Normal text scan exposes the cleanup checkbox");
+        assert!(!control.is_disabled());
+        assert_eq!(std::fs::read(&input).unwrap(), source);
+    }
+
+    #[test]
     fn theme_text_and_action_colors_remain_readable() {
         fn luminance(color: Color32) -> f64 {
             let channel = |value: u8| {
