@@ -438,3 +438,117 @@ fn duplicate_issuer_and_empty_history_states_are_explicit() {
     });
     assert!(sign_record(record.body, &[&a]).is_err());
 }
+
+fn v2_body(key: &SigningKey, content: &[u8]) -> RecordBody {
+    let mut value = body(key, content);
+    value.schema = SCHEMA_V2.into();
+    value.copy_id = Some("edition-copy-001".into());
+    value
+}
+
+#[test]
+fn v1_canonical_bytes_omit_all_v2_fields_and_v2_domain_is_distinct() {
+    let signer = key(41);
+    let original = body(&signer, b"asset");
+    let encoded = canonical(&original).unwrap();
+    let text = std::str::from_utf8(&encoded).unwrap();
+    for name in ["copy_id", "rotation_to_key_id", "transformation"] {
+        assert!(!text.contains(name));
+    }
+    let record = sign_record(original.clone(), &[&signer]).unwrap();
+    let mut upgraded = record.clone();
+    upgraded.body.schema = SCHEMA_V2.into();
+    upgraded.body.copy_id = Some("copy-1".into());
+    assert_eq!(
+        verify_chain(&[upgraded], &digest(b"asset"), &TrustStore::default())
+            .unwrap()
+            .signature,
+        VerificationState::Invalid
+    );
+    let mut invalid = original;
+    invalid.copy_id = Some("must-use-v2".into());
+    assert!(sign_record(invalid, &[&signer]).is_err());
+}
+
+#[test]
+fn v2_transfer_and_rotation_require_both_current_and_successor_signatures() {
+    let creator = key(42);
+    let recipient = key(43);
+    let replacement = key(44);
+    let first = append_record(&[], v2_body(&creator, b"v1"), &[&creator]).unwrap();
+    let mut transfer = v2_body(&creator, b"v1");
+    transfer.kind = RecordKind::Transfer;
+    transfer.transfer_to_key_id = Some(recipient.public_key().key_id);
+    assert!(append_record(std::slice::from_ref(&first), transfer.clone(), &[&creator]).is_err());
+    let transfer = append_record(
+        std::slice::from_ref(&first),
+        transfer,
+        &[&creator, &recipient],
+    )
+    .unwrap();
+    let mut history = vec![first, transfer];
+    let mut rotation = v2_body(&recipient, b"v1");
+    rotation.kind = RecordKind::RotateKey;
+    rotation.rotation_to_key_id = Some(replacement.public_key().key_id);
+    assert!(append_record(&history, rotation.clone(), &[&recipient]).is_err());
+    history.push(append_record(&history, rotation, &[&recipient, &replacement]).unwrap());
+    let mut invalid = v2_body(&recipient, b"v2");
+    invalid.kind = RecordKind::Modify;
+    invalid.version = "2".into();
+    assert!(append_record(&history, invalid, &[&recipient]).is_err());
+    let mut next = v2_body(&replacement, b"v2");
+    next.kind = RecordKind::Modify;
+    next.version = "2".into();
+    next.transformation = Some(Transformation {
+        source_sha256: digest(b"v1"),
+        source_format: "image/png".into(),
+        target_format: "image/jpeg".into(),
+        operation: "jpeg_reencode".into(),
+    });
+    history.push(append_record(&history, next, &[&replacement]).unwrap());
+    let result = verify_chain(&history, &digest(b"v2"), &TrustStore::default()).unwrap();
+    assert_eq!(result.signature, VerificationState::Valid);
+    assert_eq!(result.chain, VerificationState::Valid);
+    assert_eq!(history[3].body.parent_version.as_deref(), Some("1"));
+    let mut downgrade = body(&replacement, b"v3");
+    downgrade.kind = RecordKind::Modify;
+    downgrade.version = "3".into();
+    assert!(append_record(&history, downgrade, &[&replacement]).is_err());
+}
+
+#[test]
+fn v2_issuance_can_create_a_distinct_copy_and_conversion_must_bind_its_source() {
+    let signer = key(45);
+    let first = append_record(&[], v2_body(&signer, b"v1"), &[&signer]).unwrap();
+    let mut issue = v2_body(&signer, b"v1");
+    issue.kind = RecordKind::Issue;
+    issue.copy_id = Some("copy-002".into());
+    let issue = append_record(std::slice::from_ref(&first), issue, &[&signer]).unwrap();
+    let history = vec![first, issue];
+    let mut modify = v2_body(&signer, b"v2");
+    modify.copy_id = Some("copy-002".into());
+    modify.kind = RecordKind::Modify;
+    modify.version = "2".into();
+    modify.transformation = Some(Transformation {
+        source_sha256: digest(b"wrong source"),
+        source_format: "image/png".into(),
+        target_format: "image/jpeg".into(),
+        operation: "convert".into(),
+    });
+    assert!(append_record(&history, modify.clone(), &[&signer]).is_err());
+    modify.transformation.as_mut().unwrap().source_sha256 = digest(b"v1");
+    assert!(append_record(&history, modify, &[&signer]).is_ok());
+}
+
+#[test]
+fn watermark_derivation_matches_independent_hmac_sha256_vector() {
+    let signer = key(1);
+    assert_eq!(
+        hex(signer.derive_watermark_key().as_ref()),
+        "f4df56cc755e5c4b93054af9a591b881c73fd7e791316f09d93efc3e7d3fb135"
+    );
+    assert_ne!(
+        signer.derive_watermark_key().as_ref(),
+        signer.secret_seed().as_ref()
+    );
+}

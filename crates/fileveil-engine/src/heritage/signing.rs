@@ -27,6 +27,7 @@ use std::{
 use zeroize::Zeroizing;
 
 pub const SCHEMA: &str = "fileveil.heritage.signature.v1";
+pub const SCHEMA_V2: &str = "fileveil.provenance.signature.v2";
 pub const ALGORITHM: &str = "Ed25519";
 pub const MAX_RECORDS: usize = 256;
 pub const MAX_SIGNERS: usize = 32;
@@ -51,6 +52,7 @@ pub enum RecordKind {
     Modify,
     Issue,
     Transfer,
+    RotateKey,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -66,6 +68,15 @@ pub struct PublicKey {
 pub struct IssuerPolicy {
     pub threshold: u16,
     pub allowed_key_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct Transformation {
+    pub source_sha256: String,
+    pub source_format: String,
+    pub target_format: String,
+    pub operation: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -89,6 +100,12 @@ pub struct RecordBody {
     pub actor_key_id: String,
     pub transfer_to_key_id: Option<String>,
     pub issuer_policy: Option<IssuerPolicy>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub copy_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rotation_to_key_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transformation: Option<Transformation>,
 }
 
 impl RecordBody {
@@ -117,6 +134,9 @@ impl RecordBody {
             actor_key_id,
             transfer_to_key_id: None,
             issuer_policy: None,
+            copy_id: None,
+            rotation_to_key_id: None,
+            transformation: None,
         }
     }
 }
@@ -214,6 +234,32 @@ impl SigningKey {
         PublicKey {
             key_id: digest(&raw),
             ed25519_hex: hex(&raw),
+        }
+    }
+
+    /// RFC 5869 extract/expand with a fixed domain-separated salt and info.
+    /// A distinct key is used for pixel frames, keeping signing seeds private.
+    pub fn derive_watermark_key(&self) -> Zeroizing<[u8; 32]> {
+        use hmac::{Hmac, KeyInit, Mac};
+        type HmacSha256 = Hmac<sha2_v11::Sha256>;
+        let seed = Zeroizing::new(self.inner.to_bytes());
+        let mut extract = HmacSha256::new_from_slice(b"FileVeil Watermark Engine 2.0 HKDF salt")
+            .expect("HMAC accepts this fixed salt");
+        extract.update(seed.as_ref());
+        let prk = Zeroizing::new(<[u8; 32]>::from(extract.finalize().into_bytes()));
+        let mut expand = HmacSha256::new_from_slice(prk.as_ref())
+            .expect("HMAC accepts the SHA-256 extract output");
+        expand.update(b"FileVeil watermark keyed embedding v2\0\x01");
+        Zeroizing::new(<[u8; 32]>::from(expand.finalize().into_bytes()))
+    }
+
+    pub(crate) fn secret_seed(&self) -> Zeroizing<[u8; 32]> {
+        Zeroizing::new(self.inner.to_bytes())
+    }
+
+    pub(crate) fn from_secret_seed(seed: &[u8; 32]) -> Self {
+        Self {
+            inner: DalekSigningKey::from_bytes(seed),
         }
     }
 
@@ -335,7 +381,11 @@ pub fn record_hash(record: &SignedRecord) -> Result<String> {
     normalized
         .signatures
         .sort_by(|a, b| a.key_id.cmp(&b.key_id));
-    let mut bytes = RECORD_DOMAIN.to_vec();
+    let mut bytes = if record.body.schema == SCHEMA_V2 {
+        b"FileVeil provenance finalized record v2\0".to_vec()
+    } else {
+        RECORD_DOMAIN.to_vec()
+    };
     bytes.extend(canonical(&normalized)?);
     Ok(digest(&bytes))
 }
@@ -414,6 +464,11 @@ pub fn verify_chain(
             if body.kind == RecordKind::Create
                 || body.previous_record_sha256.as_deref() != Some(record_hash(prior)?.as_str())
                 || body.work_id != prior.body.work_id
+                || (body.schema == SCHEMA_V2
+                    && prior.body.schema == SCHEMA_V2
+                    && body.copy_id != prior.body.copy_id
+                    && body.kind != RecordKind::Issue)
+                || (body.schema == SCHEMA && prior.body.schema == SCHEMA_V2)
                 || Some(body.actor_key_id.as_str()) != custodian
             {
                 chain_valid = false;
@@ -452,9 +507,30 @@ pub fn verify_chain(
                 .evidence_codes
                 .push("custody_actor_signature_missing".into());
         }
+        if body.schema == SCHEMA_V2 {
+            let recipient = body
+                .transfer_to_key_id
+                .as_ref()
+                .or(body.rotation_to_key_id.as_ref());
+            if recipient.is_some_and(|id| !result.valid_signer_key_ids.contains(id)) {
+                chain_valid = false;
+                result
+                    .evidence_codes
+                    .push("recipient_acceptance_signature_required_v2".into());
+            }
+            if let Some(change) = &body.transformation
+                && previous.is_none_or(|prior| change.source_sha256 != prior.body.content_sha256)
+            {
+                chain_valid = false;
+                result
+                    .evidence_codes
+                    .push("transformation_source_binding_invalid".into());
+            }
+        }
         custodian = Some(
             body.transfer_to_key_id
                 .as_deref()
+                .or(body.rotation_to_key_id.as_deref())
                 .unwrap_or(&body.actor_key_id),
         );
         if let Some(recipient) = &body.transfer_to_key_id {
@@ -565,6 +641,40 @@ fn verify_record(
     })
 }
 
+pub(crate) fn sign_detached<T: Serialize>(
+    domain: &[u8],
+    body: &T,
+    key: &SigningKey,
+) -> Result<RecordSignature> {
+    let mut bytes = domain.to_vec();
+    bytes.extend(canonical(body)?);
+    let public = key.public_key();
+    Ok(RecordSignature {
+        key_id: public.key_id,
+        public_key_hex: public.ed25519_hex,
+        signature_hex: hex(&key.inner.sign(&bytes).to_bytes()),
+    })
+}
+
+pub(crate) fn verify_detached<T: Serialize>(
+    domain: &[u8],
+    body: &T,
+    signature: &RecordSignature,
+) -> Result<()> {
+    let public = parse_public(&PublicKey {
+        key_id: signature.key_id.clone(),
+        ed25519_hex: signature.public_key_hex.clone(),
+    })?;
+    let mut bytes = domain.to_vec();
+    bytes.extend(canonical(body)?);
+    public
+        .verify_strict(
+            &bytes,
+            &Signature::from_bytes(&unhex::<64>(&signature.signature_hex)?),
+        )
+        .map_err(|_| Error::Verification("Invalid detached Ed25519 signature".into()))
+}
+
 fn state(valid: bool) -> VerificationState {
     if valid {
         VerificationState::Valid
@@ -606,10 +716,60 @@ fn validate_history(records: &[SignedRecord]) -> Result<()> {
 }
 
 fn validate_body(body: &RecordBody) -> Result<()> {
-    if body.schema != SCHEMA || body.algorithm != ALGORITHM {
+    if !matches!(body.schema.as_str(), SCHEMA | SCHEMA_V2) || body.algorithm != ALGORITHM {
         return Err(Error::Unsupported(
             "Unsupported Heritage schema or signature algorithm".into(),
         ));
+    }
+    if body.schema == SCHEMA {
+        if body.copy_id.is_some()
+            || body.rotation_to_key_id.is_some()
+            || body.transformation.is_some()
+            || body.kind == RecordKind::RotateKey
+        {
+            return Err(Error::Input(
+                "Version-one signatures cannot contain version-two fields".into(),
+            ));
+        }
+    } else {
+        if body
+            .copy_id
+            .as_ref()
+            .is_none_or(|id| id.is_empty() || id.len() > 4096)
+        {
+            return Err(Error::Input(
+                "Version-two signatures require a bounded copy identifier".into(),
+            ));
+        }
+        if (body.kind == RecordKind::RotateKey) != body.rotation_to_key_id.is_some()
+            || body.rotation_to_key_id.as_deref() == Some(body.actor_key_id.as_str())
+        {
+            return Err(Error::Input(
+                "Key rotation requires a distinct successor key".into(),
+            ));
+        }
+        if let Some(id) = &body.rotation_to_key_id {
+            validate_digest(id)?;
+        }
+        if let Some(change) = &body.transformation {
+            validate_digest(&change.source_sha256)?;
+            if body.kind != RecordKind::Modify
+                || [
+                    &change.source_format,
+                    &change.target_format,
+                    &change.operation,
+                ]
+                .iter()
+                .any(|text| {
+                    text.is_empty() || text.len() > 256 || text.chars().any(char::is_control)
+                })
+            {
+                return Err(Error::Input(
+                    "A transformation requires a modification and bounded format/operation labels"
+                        .into(),
+                ));
+            }
+        }
     }
     validate_digest(&body.content_sha256)?;
     validate_digest(&body.actor_key_id)?;
@@ -748,12 +908,16 @@ fn unhex<const N: usize>(text: &str) -> Result<[u8; N]> {
 }
 
 fn signing_bytes(body: &RecordBody) -> Result<Vec<u8>> {
-    let mut bytes = SIGNING_DOMAIN.to_vec();
+    let mut bytes = if body.schema == SCHEMA_V2 {
+        b"FileVeil provenance signature v2\0".to_vec()
+    } else {
+        SIGNING_DOMAIN.to_vec()
+    };
     bytes.extend(canonical(body)?);
     Ok(bytes)
 }
 
-fn canonical<T: Serialize + ?Sized>(value: &T) -> Result<Vec<u8>> {
+pub(crate) fn canonical<T: Serialize + ?Sized>(value: &T) -> Result<Vec<u8>> {
     let value = serde_json::to_value(value)
         .map_err(|_| Error::Input("Could not encode Heritage canonical JSON".into()))?;
     let mut bytes = Vec::new();
