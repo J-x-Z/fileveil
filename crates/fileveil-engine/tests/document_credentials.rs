@@ -64,8 +64,16 @@ fn signed_pdf_normal_entry_points_protect_default_and_verify_explicit_removal() 
     );
     advanced::verify_with_options(&input, &output, &Limits::default(), &removal()).unwrap();
     let clean_report = scan(&output, &Limits::default()).unwrap();
-    assert_eq!(clean_report.pdf.as_ref().unwrap()["attachment_structures"], 0);
-    assert!(!clean_report.findings.iter().any(|finding| finding.code == "pdf.attachments"));
+    assert_eq!(
+        clean_report.pdf.as_ref().unwrap()["attachment_structures"],
+        0
+    );
+    assert!(
+        !clean_report
+            .findings
+            .iter()
+            .any(|finding| finding.code == "pdf.attachments")
+    );
     assert_eq!(fs::read(&input).unwrap(), source);
 }
 #[test]

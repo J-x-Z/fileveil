@@ -497,7 +497,10 @@ fn credential_cleanup_keeps_ordinary_attachment_finding_present() {
         "/AF [8 0 R 10 0 R] /Names << /EmbeddedFiles << /Names [(credentials) 8 0 R (ordinary) 10 0 R] >> >>",
         vec![
             b"<< /Type /Filespec /AFRelationship /C2PA_Manifest /EF << /F 9 0 R >> >>".to_vec(),
-            stream("/Type /EmbeddedFile /Subtype /application#2Fc2pa", b"credential payload"),
+            stream(
+                "/Type /EmbeddedFile /Subtype /application#2Fc2pa",
+                b"credential payload",
+            ),
             b"<< /Type /Filespec /F (ordinary.txt) /EF << /F 11 0 R >> >>".to_vec(),
             stream("/Type /EmbeddedFile", b"retained ordinary attachment"),
         ],
