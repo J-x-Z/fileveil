@@ -57,6 +57,31 @@ jobs:
           $binary = Get-ChildItem work/backends/qpdf -Recurse -Filter qpdf.exe | Select-Object -First 1
           if (-not $binary) { throw 'qpdf executable missing' }
           "FILEVEIL_QPDF=$($binary.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
+      - name: Probe Windows PDF backend private paths
+        if: runner.os == 'Windows'
+        shell: python {0}
+        run: |
+          import hashlib
+          import json
+          import os
+          import pathlib
+          import subprocess
+          import tempfile
+          reports = []
+          with tempfile.TemporaryDirectory(prefix='.fileveil-backend-job-') as directory:
+              snapshot = pathlib.Path(directory) / 'snapshot.pdf'
+              snapshot.write_bytes(pathlib.Path('crates/fileveil-engine/tests/fixtures/provenance/signed.pdf').read_bytes())
+              for style in ['dos', 'verbatim']:
+                  program = str(pathlib.Path(os.environ['FILEVEIL_QPDF']).resolve())
+                  path = str(snapshot.resolve())
+                  if style == 'verbatim':
+                      program = '\\\\?\\' + program
+                      path = '\\\\?\\' + path
+                  arguments = [program, '--suppress-recovery', '--json-output=2', '--json-key=qpdf', '--json-key=pages', '--json-stream-data=inline', '--decode-level=none', path]
+                  result = subprocess.run(arguments, capture_output=True, timeout=30)
+                  reports.append({'style':style, 'exit_code':result.returncode, 'stdout_bytes':len(result.stdout), 'stdout_sha256':hashlib.sha256(result.stdout).hexdigest(), 'stderr':result.stderr.decode('utf-8', errors='replace')[:2048]})
+          pathlib.Path('work/pdf-path-probe.json').write_text(json.dumps(reports, indent=2), encoding='utf-8')
+          print(json.dumps(reports))
       - name: Format
         run: cargo fmt --all --check
       - name: Clippy
@@ -77,7 +102,9 @@ jobs:
         if: always()
         with:
           name: test-evidence-${{ matrix.os }}
-          path: work/ci-tests.log
+          path: |
+            work/ci-tests.log
+            work/pdf-path-probe.json
       - name: Generate synthetic samples
         run: cargo run --locked -p fixture-generator -- work/ci-fixtures
       - name: Independent macOS native media decode
