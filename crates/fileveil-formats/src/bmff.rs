@@ -929,3 +929,310 @@ fn known_box(kind: &[u8; 4]) -> bool {
             | b"ssix"
     )
 }
+
+/// Pixel rewriting is limited to one SDR primary image and its referenced tiles.
+/// Additional images and auxiliary/HDR representations require a preserving codec.
+pub fn validate_pixel_rewrite(data: &[u8], format: Format, limits: &Limits) -> Result<()> {
+    if !matches!(format, Format::Heic | Format::Avif) {
+        return Err(Error::Unsupported(
+            "Pixel rewriting requires HEIC or AVIF".into(),
+        ));
+    }
+    inspect_structure(data, format, limits)?;
+    validate_decoder_references(data, format, limits)?;
+    validate_pixel_dimensions(data, format, limits)?;
+    let mut parser = Parser {
+        data,
+        limits,
+        nodes: Vec::new(),
+        items: 0,
+        metadata_bytes: 0,
+        heif: true,
+    };
+    parser.walk(0, data.len(), None, 0)?;
+    if parser
+        .nodes
+        .iter()
+        .filter(|node| node.header.kind == *b"meta")
+        .count()
+        != 1
+    {
+        return Err(Error::Blocked(
+            "Multiple image metadata collections require a preserving pixel backend".into(),
+        ));
+    }
+    let mut images = std::collections::BTreeSet::new();
+    let mut primary = None;
+    let mut edges = Vec::new();
+    for node in &parser.nodes {
+        let h = &node.header;
+        let payload = &data[h.payload..h.end];
+        match &h.kind {
+            b"auxC" | b"mdcv" | b"moov" | b"tmap" => {
+                return Err(Error::Blocked(
+                    "Auxiliary, HDR or sequence media is protected from rendered-pixel rewriting"
+                        .into(),
+                ));
+            }
+            b"pixi" => {
+                let mut fields = Fields::new(payload);
+                if fields.full_box_version()? != 0 {
+                    return Err(invalid("Unknown pixel-information version"));
+                }
+                let channels = fields.number(1)? as usize;
+                if channels == 0 || channels > 4 {
+                    return Err(invalid("Unsupported pixel channel count"));
+                }
+                for _ in 0..channels {
+                    if fields.number(1)? != 8 {
+                        return Err(Error::Blocked(
+                            "High-bit-depth media is protected from 8-bit pixel rewriting".into(),
+                        ));
+                    }
+                }
+                fields.finish()?;
+            }
+            b"av1C" => {
+                if payload.len() < 4 || payload[0] != 0x81 {
+                    return Err(invalid("Invalid AV1 configuration"));
+                }
+                if payload[2] & 0x60 != 0 {
+                    return Err(Error::Blocked(
+                        "High-bit-depth AV1 is protected from 8-bit pixel rewriting".into(),
+                    ));
+                }
+            }
+            b"hvcC" => {
+                if payload.len() < 23 || payload[0] != 1 {
+                    return Err(invalid("Invalid HEVC configuration"));
+                }
+                if payload[17] & 7 != 0 || payload[18] & 7 != 0 {
+                    return Err(Error::Blocked(
+                        "High-bit-depth HEVC is protected from 8-bit pixel rewriting".into(),
+                    ));
+                }
+            }
+            b"colr" if payload.starts_with(b"nclx") && payload.len() >= 10 => {
+                let transfer = u16::from_be_bytes([payload[6], payload[7]]);
+                if matches!(transfer, 16 | 18) {
+                    return Err(Error::Blocked(
+                        "HDR transfer functions are protected from 8-bit pixel rewriting".into(),
+                    ));
+                }
+            }
+            b"infe" => {
+                let (id, kind, _) = item_info(payload)?;
+                if matches!(kind, ItemKind::Image) {
+                    images.insert(id);
+                }
+            }
+            b"pitm" => {
+                if primary.is_some() {
+                    return Err(invalid("Duplicate primary image declaration"));
+                }
+                let mut f = Fields::new(payload);
+                let version = f.full_box_version()?;
+                primary = Some(f.number(if version == 0 {
+                    2
+                } else if version == 1 {
+                    4
+                } else {
+                    return Err(invalid("Unknown primary item version"));
+                })? as u32);
+                f.finish()?;
+            }
+            b"iref" => {
+                let mut f = Fields::new(payload);
+                let version = f.full_box_version()?;
+                let id_size = match version {
+                    0 => 2,
+                    1 => 4,
+                    _ => return Err(invalid("Unknown item reference version")),
+                };
+                let mut offset = h.payload + 4;
+                while offset < h.end {
+                    let reference = Header::read(data, offset, h.end)?;
+                    if &reference.kind == b"auxl" {
+                        return Err(Error::Blocked(
+                            "Auxiliary image references are protected from pixel rewriting".into(),
+                        ));
+                    }
+                    if &reference.kind == b"dimg" {
+                        let mut fields = Fields::new(&data[reference.payload..reference.end]);
+                        let from = fields.number(id_size)? as u32;
+                        let count = fields.number(2)? as usize;
+                        if count > limits.max_members {
+                            return Err(invalid("Too many derived-image references"));
+                        }
+                        for _ in 0..count {
+                            if edges.len() >= limits.max_members {
+                                return Err(invalid(
+                                    "Derived-image graph exceeds the member budget",
+                                ));
+                            }
+                            edges.push((from, fields.number(id_size)? as u32));
+                        }
+                        fields.finish()?;
+                    }
+                    offset = reference.end;
+                }
+            }
+            _ => {}
+        }
+    }
+    let primary = primary.ok_or_else(|| invalid("Missing primary image"))?;
+    let mut adjacency = BTreeMap::<u32, Vec<u32>>::new();
+    let mut indegree: BTreeMap<u32, usize> = images.iter().map(|id| (*id, 0)).collect();
+    for &(from, to) in &edges {
+        if !images.contains(&from) || !images.contains(&to) {
+            return Err(invalid("Derived-image reference has no image item"));
+        }
+        adjacency.entry(from).or_default().push(to);
+        *indegree.get_mut(&to).expect("existing image") += 1;
+    }
+    let mut ready: Vec<u32> = indegree
+        .iter()
+        .filter_map(|(id, count)| (*count == 0).then_some(*id))
+        .collect();
+    let mut visited = 0;
+    while let Some(id) = ready.pop() {
+        visited += 1;
+        for to in adjacency.get(&id).into_iter().flatten() {
+            let count = indegree.get_mut(to).expect("existing image");
+            *count -= 1;
+            if *count == 0 {
+                ready.push(*to);
+            }
+        }
+    }
+    if visited != images.len() {
+        return Err(invalid("Cyclic derived-image references"));
+    }
+    let mut reachable = std::collections::BTreeSet::new();
+    let mut pending = vec![primary];
+    while let Some(id) = pending.pop() {
+        if reachable.insert(id) {
+            pending.extend(adjacency.get(&id).into_iter().flatten().copied());
+        }
+    }
+    if images.is_empty() || !images.contains(&primary) || !images.is_subset(&reachable) {
+        return Err(Error::Blocked(
+            "Multiple independent image items require a collection-preserving pixel backend".into(),
+        ));
+    }
+    Ok(())
+}
+
+/// Bound every declared HEIF image canvas before invoking a native decoder.
+pub fn validate_pixel_dimensions(data: &[u8], format: Format, limits: &Limits) -> Result<()> {
+    if !matches!(format, Format::Heic | Format::Avif) {
+        return Err(Error::Unsupported(
+            "Rendered image dimensions require HEIC or AVIF".into(),
+        ));
+    }
+    if data.len() as u64 > limits.max_file_bytes {
+        return Err(invalid("Input exceeds the byte limit"));
+    }
+    let mut parser = Parser {
+        data,
+        limits,
+        nodes: Vec::new(),
+        items: 0,
+        metadata_bytes: 0,
+        heif: true,
+    };
+    parser.walk(0, data.len(), None, 0)?;
+    let mut count = 0;
+    for node in &parser.nodes {
+        if &node.header.kind == b"ispe" {
+            let mut fields = Fields::new(&data[node.header.payload..node.header.end]);
+            if fields.full_box_version()? != 0 {
+                return Err(invalid("Unknown image-canvas version"));
+            }
+            let width = fields.number(4)?;
+            let height = fields.number(4)?;
+            fields.finish()?;
+            if width == 0 || height == 0 || width.saturating_mul(height) > limits.max_pixels {
+                return Err(Error::Blocked(
+                    "Declared media canvas exceeds the pixel budget".into(),
+                ));
+            }
+            count += 1;
+        }
+    }
+    if count == 0 {
+        return Err(invalid("No bounded image canvas was declared"));
+    }
+    Ok(())
+}
+
+/// Native codecs receive only self-contained media. A file protocol allowlist
+/// alone cannot prevent an external data reference from reading another file.
+pub fn validate_decoder_references(data: &[u8], format: Format, limits: &Limits) -> Result<()> {
+    if data.len() as u64 > limits.max_file_bytes {
+        return Err(invalid("Input exceeds the byte limit"));
+    }
+    if !matches!(
+        format,
+        Format::Heic | Format::Avif | Format::Mp4 | Format::Mov
+    ) {
+        return Err(Error::Unsupported(
+            "Decoder references require a supported media container".into(),
+        ));
+    }
+    let mut parser = Parser {
+        data,
+        limits,
+        nodes: Vec::new(),
+        items: 0,
+        metadata_bytes: 0,
+        heif: matches!(format, Format::Heic | Format::Avif),
+    };
+    parser.walk(0, data.len(), None, 0)?;
+    for node in &parser.nodes {
+        let header = &node.header;
+        let payload = &data[header.payload..header.end];
+        match &header.kind {
+            b"iloc" => {
+                if locations(payload, limits.max_members)?
+                    .iter()
+                    .any(|item| item.external || item.method == 2)
+                {
+                    return Err(Error::Blocked("External or unresolved item references cannot be passed to a native decoder".into()));
+                }
+            }
+            b"dref" => {
+                let mut fields = Fields::new(payload);
+                if fields.full_box_version()? != 0 {
+                    return Err(invalid("Unknown data-reference version"));
+                }
+                let count = fields.number(4)? as usize;
+                if count > limits.max_members {
+                    return Err(invalid("Too many decoder data references"));
+                }
+                let mut offset = header.payload + 8;
+                for _ in 0..count {
+                    let entry = Header::read(data, offset, header.end)?;
+                    // ISO URL flag 1 denotes data contained in this file. URL or
+                    // URN payloads, aliases and unknown reference handlers fail closed.
+                    if entry.kind != *b"url " || data[entry.payload..entry.end] != [0, 0, 0, 1] {
+                        return Err(Error::Blocked(
+                            "External or unknown decoder data references are protected".into(),
+                        ));
+                    }
+                    offset = entry.end;
+                }
+                if offset != header.end {
+                    return Err(invalid("Data-reference entry count does not match its box"));
+                }
+            }
+            b"ipro" | b"sinf" => {
+                return Err(Error::Blocked(
+                    "Protected media requires a preserving authorized decoder".into(),
+                ));
+            }
+            _ => {}
+        }
+    }
+    Ok(())
+}
