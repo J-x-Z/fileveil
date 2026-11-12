@@ -196,3 +196,27 @@ macOS 原生交互完成以下闭环。
 四份带 C2PA 的移动媒体样本分别经 macOS ImageIO/sips 与 AVAssetReader 独立解码。HEIC/AVIF 为 8×6，MP4/MOV 为 64×64 两帧，记录在 `signed-media-native-interop.log`、`signed-image-native-interop.json`。移动媒体当前提供审计与验签，净化重写保持格式矩阵中的限制。
 
 许可清单收敛为 639 个 registry 包、1215 份许可/署名文本，逐文件摘要核对通过。macOS 包同时包含 GUI、CLI、项目许可证、第三方声明、对应源码 ZIP 和 qpdf 后端。打包器已执行随包后端探测和 ad-hoc 签名验证。Gatekeeper 实际评估为 rejected，Developer ID Application 身份数量为零，正式发行签名和公证仍需凭据。
+
+最新产品源码提交为 `e4d9acb`，最终 CI 运行配置提交为 `2660b1e`。三平台原生验收、GUI framebuffer、包内 CLI 与签名状态均已实际通过工作流检查，见 [平台工作流](https://github.com/J-x-Z/fileveil/actions/runs/43153669093)。同一 Cargo.lock 的依赖漏洞与许可审计已通过，见 [安全工作流](https://github.com/J-x-Z/fileveil/actions/runs/43144954833)。安全审计继续保留本文安全说明中的 RSA 限定例外。
+
+含 NUL 的有效 UTF-8 TXT/Markdown 普通扫描提供只读候选审计，GUI 可据此进入 Deep 的显式控制符清理。默认 Safe 改写保护与基于文件签名的 identify 判型继续由各自入口检查。新增格式正反例两项、正常扫描后实际点击 Deep/展开文本范围的 headless GUI 回归一项，均通过，记录在 `text-candidate-tests.log`、`text-candidate-gui-tests.log`，原有 Core 控制符清理回归也通过。
+
+对应 macOS 包的干净源码恢复验收复用现有 target，锁定离线 workspace check 通过。逐文件对照、应用/CLI/源码归档摘要和最终 Gatekeeper 结果位于 `work/v03/` 的恢复收据与 `final-package-receipt.json`，该证据独立于源码归档保存。
+
+### 三平台最终原生 CI
+
+最终工作流的三个原生任务均为 `success`，每个平台执行 32 个 Rust 测试目标。实际测试数量受平台条件编译影响。
+
+| 运行环境 | 通过 | 失败 | 忽略 | 实际 GUI framebuffer | 包内 GUI 与 CLI |
+| --- | --- | --- | --- | --- | --- |
+| macOS Apple Silicon | 233 | 0 | 7 | 1060×700，3 帧 | 构建、打包、后端探测及 CLI 验证通过 |
+| Linux x86_64 | 229 | 0 | 6 | 1280×850，3 帧 | 构建、打包、后端探测及 CLI 验证通过 |
+| Windows x86_64 | 223 | 0 | 6 | 1024×768，3 帧 | 构建、打包、后端探测及 CLI 验证通过 |
+
+三平台均检查最终副本、原件 SHA-256、真实 JSON Schema 与旧报告包络。Windows 原生测试确认授权目录句柄拒绝重命名、junction 无法扩展授权，Job Object 在正常退出、超时、取消及句柄丢弃时结束 worker 与其派生进程。MD、TXT、PDF 经授权 MCP 完成扫描、显式本地根验签、默认保护、Deep 凭据移除及再次验证。
+
+Windows 验收发现 qpdf 12.4.2 会误解 argv 中的 verbatim 绝对路径。后端现在在操作自有私有目录中执行，文件参数使用内部固定名称，绝对路径继续用于受限读写、大小监视和清理。DOS 与私有 canonical cwd 的原生 qpdf 对照输出 SHA-256 相同，MCP 输入权限继续使用卷 GUID 和持有句柄。
+
+Windows GUI CI 使用已校验 SHA-256 的 Mesa 26.2.6 MinGW x64 llvmpipe。三个原生 framebuffer 均已实际查看，使用中性黑灰界面并正确显示中文。Windows 包只包含 qpdf30.dll，不包含 CI 的 Mesa DLL。两份 Windows 可执行文件 Authenticode 状态均为 `NotSigned`。macOS ad-hoc 签名严格验证通过，Gatekeeper 评估为 rejected。正式平台签名与公证继续等待凭据。
+
+最终测试及原生证据保存在 `work/v03/ci-evidence/2660b1e-*`，三平台测试汇总为 `2660b1e-tests-summary.json`。Windows 与 Linux 的 CI 成品保存于 `work/v03/ci-release/`，收据记录下载源、归档摘要、二进制清单匹配及许可证核对。Linux 交付归档采用保留 GUI/CLI 执行权限的 tar.gz，原始 Actions ZIP 单独保留为证据。
