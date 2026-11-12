@@ -1,6 +1,6 @@
 # FileVeil 桌面版
 
-桌面版使用 Rust 原生 egui/eframe 界面，扫描、净化和验证复用 FileVeil Core。运行时无需账号或网络连接，文件处理在后台工作进程执行。
+0.4 桌面版使用 Rust 原生 egui/eframe 界面，扫描、净化和验证复用 FileVeil Core。报告使用 schema 0.4，并可读取 0.1–0.3 报告。运行时无需账号或网络连接，文件处理在后台工作进程执行。
 
 ## 构建与启动
 
@@ -104,11 +104,14 @@ macOS arm64 的实际窗口交互、批量队列检测、报告导出、资源�
 
 服务由客户端按需启动，标准输出用于 MCP 消息。设置中独立选择读取和输出目录，复制配置后重连生效。空授权仅允许能力查询。服务端约束目录范围和文件链接，输出只能新建，每连接默认最多 64 次操作。示例目录必须换成实际选择的绝对路径。
 
+签名密钥默认没有 MCP 授权。在设置中使用“授权签名密钥”逐个选择，或为服务添加可重复的 `--mcp-signing-key /absolute/owner.key`。所选 Ed25519 或 ES256 私钥还须位于授权读取目录内。证书、信任策略和对照文件也受读取授权约束。MCP 提供 Heritage 操作，密钥生成使用 GUI 或 CLI。
+
 扫描、净化、验证和图片处理沿用串行隔离 worker。执行中可通过 MCP 取消通知终止任务，客户端关闭连接时回收任务与暂存目录。输入上限和超时可以在工具参数内设置，默认分别为 64 MiB 和 120 秒。
 
 | MCP 工具 | 主要参数 |
 | --- | --- |
 | `fileveil_capabilities` | 空对象 |
+| `fileveil_heritage` | `path`、`action`，可选 `output`、`options_json` |
 | `fileveil_scan` | `path` |
 | `fileveil_sanitize` | `path`，可选 `output`、`profile`、`options_json` |
 | `fileveil_process_image` | `path`，可选 `output`、`mode`、`low_bits` |
@@ -119,15 +122,38 @@ macOS arm64 的实际窗口交互、批量队列检测、报告导出、资源�
 
 `mode` 可取 `low_bits` 或 `signal`，默认低位处理使用 2 位。文件操作工具可传 `max_file_mib` 与 `timeout_seconds`。图片处理结果含 `image_processing` 参数与误差统计，未知水印检测状态保持 `not_assessed`。
 
+`fileveil_heritage` 的 `action` 可取 `detect`、`mark`、`clean`、`verify`、`trace`、`lab`、`c2pa_mark`。`options_json` 是共享 `HeritageRequest` 的 JSON 字符串，密钥参数使用已授权的本地路径。
+
 macOS 的常规主题使用中性半透明背景和原生窗口模糊，浮层和卡片使用细灰边与低强度阴影。高对比模式保持不透明，其他平台采用不透明中性材质回退。应用内标志与桌面图标使用灰阶。
 
-## 0.3 工作区
+## 工作区
 
-顶部标签切换文件扫描、Deep 净化、图片水印、Diff Lab、AI Provenance 和批量验证。文件队列保持在左侧。Deep 参数按 Office、PDF、文本和文件系统分组，明确选择内容变更项，保存副本后可再次验证。复杂依赖将显示实际阻断原因。
+顶部标签切换文件扫描、Heritage 引擎、Deep 净化、图片水印、Diff Lab、AI Provenance 和批量验证。文件队列保持在左侧。Deep 参数按 Office、PDF、文本和文件系统分组，明确选择内容变更项，保存副本后可再次验证。复杂依赖将显示实际阻断原因。
 
 图片工作区提供公开 LSB、SD1/SDXL 检测器和 Experimental Signal Processing 参数入口。扫描队列后可点击“检测队列图片”，串行检测已扫描的 JPEG/PNG，支持取消、逐项结果和导出全部报告。检测保留原扫描证据及已保存副本的验证配方。扫描失败会暂停该文件的后续改写资格。Diff Lab 选择 2–8 个对照样本后执行实际统计分析并导出报告。AI Provenance 可以选择本地 PEM 信任根，分别查看签名、资产绑定和信任状态。私有检测器未配置时显示真实能力状态。
 
 原生 GUI 自动验收入口为 `fileveil-gui --smoke-test-report work/native-gui.json`。它创建实际窗口，在第三帧请求 eframe 读取渲染后的 framebuffer，保存 PNG 和平台报告后退出。该结果覆盖窗口与渲染路径，人工交互与更广泛设备验收另行记录。
+
+## Heritage 引擎
+
+选择左侧文件后进入“Heritage 引擎”。“添加标记”“清理标记”“验证”“来源链”和“标记实验室”调用共享后台任务，结果显示实际检测、签名、资产绑定、信任与保留风险。添加和清理均要求选择新的输出路径。
+
+添加标记时填写作品 ID、作者、版本与时间声明。“使用当前时间声明”由用户点击填入当前 Unix 时间，可信时间戳状态单独报告。Ed25519 可选择 SELF 本地签名或 NATI 发行策略、多个密钥与阈值，首个密钥对应本条记录的持有人。修改记录可以选择上一版本，转移记录填写接收方公钥 ID。“生成签名密钥”保存未加密二进制 `.key` 文件，默认名为 `FileVeil-signing.key`，应按本地私钥管理。
+
+可选公开图像标记使用 FileVeil 自主扩展的 DCT 协议，会改变像素和 JPEG 编码。清理页可明确选择处理该信号，执行后重新检测。选择 C2PA 证书签名时，填写相同声明并选择 ES256 PEM 证书链和私钥，当前创建入口支持 JPEG、PNG、PDF。
+
+验证与来源链页可选择 Ed25519 信任策略 JSON 和 C2PA 本地根证书 PEM。Ed25519 策略中的公钥字段取自密钥生成报告，示例中的占位值须替换为实际公钥。
+
+```json
+{
+  "trusted_issuers": [
+    {"key_id": "<64位小写十六进制公钥ID>", "ed25519_hex": "<64位小写十六进制公钥>"}
+  ],
+  "minimum_issuer_signatures": 1
+}
+```
+
+报告默认隐藏作者、作品声明值及旧指纹解码标识，可在界面明确选择披露。“标记实验室”可选择最多八个阴性对照，执行实际编码、缩放与裁剪实验，呈现各检测器结果。历史 Red Star、Woolim 与 Pyongyang 结构的真实样本和密码学边界见 [格式支持](FORMAT_SUPPORT.md)。
 
 ## 便携包运行依赖
 

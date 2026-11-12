@@ -119,13 +119,15 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--executable", type=Path, required=True)
     parser.add_argument("--report", type=Path, required=True)
-    parser.add_argument("--fixture", type=Path, default=Path(
-        "crates/fileveil-engine/tests/fixtures/watermark/astronaut-sdxl.png"))
+    parser.add_argument("--scenario", choices=["images", "heritage"], default="images")
+    parser.add_argument("--fixture", type=Path)
     args = parser.parse_args()
     if sys.platform not in ("win32", "linux"):
         parser.error("This pointer driver supports Windows and X11 Linux")
     executable = args.executable.resolve(strict=True)
-    fixture = args.fixture.resolve(strict=True)
+    default_fixture = Path("work/v04-research/preview_bottle_firstuser.jpg") if args.scenario == "heritage" else Path(
+        "crates/fileveil-engine/tests/fixtures/watermark/astronaut-sdxl.png")
+    fixture = (args.fixture or default_fixture).resolve(strict=True)
     report = args.report.resolve()
     report.parent.mkdir(parents=True, exist_ok=True)
     for extension in ["json", "png", "state.json", "controller.json", "stdout.log", "stderr.log"]:
@@ -133,7 +135,7 @@ def main():
             parser.error(f"Evidence path already exists: {report.with_suffix('.' + extension)}")
     original_hash = hashlib.sha256(fixture.read_bytes()).hexdigest()
     environment = dict(os.environ, FILEVEIL_NATIVE_INTERACTION="1")
-    controller = {"platform": sys.platform, "steps": [], "fixture_sha256": original_hash}
+    controller = {"platform": sys.platform, "scenario": args.scenario, "steps": [], "fixture_sha256": original_hash}
     stdout = report.with_suffix(".stdout.log")
     stderr = report.with_suffix(".stderr.log")
     with stdout.open("xb") as output, stderr.open("xb") as errors:
@@ -173,47 +175,103 @@ def main():
                     "pixels_per_point": scale, "native_pointer": event,
                 })
 
-            ready = wait_for(
-                lambda state: state["observations"]["targets"].get("images_tab", {}).get("enabled"),
-                "image-watermark tab",
-            )
-            click_target("images_tab", ready)
-            ready = wait_for(
-                lambda state: state["observations"]["workspace"] == "images"
-                and state["observations"]["targets"].get("run_detector", {}).get("enabled"),
-                "enabled watermark detector",
-            )
-            click_target("run_detector", ready)
-            wait_for(lambda state: state["observations"].get("result") is not None,
-                     "the rendered detector result")
+            if args.scenario == "heritage":
+                ready = wait_for(
+                    lambda state: state["observations"]["targets"].get("heritage_tab", {}).get("enabled"),
+                    "Heritage workspace tab",
+                )
+                click_target("heritage_tab", ready)
+                ready = wait_for(
+                    lambda state: state["observations"]["workspace"] == "heritage"
+                    and state["observations"]["targets"].get("heritage_verify_tab", {}).get("enabled"),
+                    "Heritage Verify tab",
+                )
+                click_target("heritage_verify_tab", ready)
+                ready = wait_for(
+                    lambda state: state["observations"]["workspace"] == "heritage"
+                    and state["observations"]["actions"].get("heritage_verify_tab", 0) >= 1
+                    and state["observations"]["targets"].get("heritage_run", {}).get("enabled"),
+                    "enabled Heritage Verify action",
+                )
+                click_target("heritage_run", ready)
+            else:
+                ready = wait_for(
+                    lambda state: state["observations"]["targets"].get("images_tab", {}).get("enabled"),
+                    "image-watermark tab",
+                )
+                click_target("images_tab", ready)
+                ready = wait_for(
+                    lambda state: state["observations"]["workspace"] == "images"
+                    and state["observations"]["targets"].get("run_detector", {}).get("enabled"),
+                    "enabled watermark detector",
+                )
+                click_target("run_detector", ready)
+            def expected_result_rendered(state):
+                result = state["observations"].get("result") or {}
+                if result.get("original_unchanged") is not True:
+                    return False
+                if args.scenario == "heritage":
+                    heritage = (result.get("advanced") or {}).get("heritage") or {}
+                    legacy = heritage.get("legacy") or {}
+                    return (result.get("operation") == "heritage"
+                            and heritage.get("action") == "verify"
+                            and legacy.get("status") == "detected"
+                            and len(legacy.get("locations", [])) == 1
+                            and len(legacy.get("decoded_records", [])) == 1)
+                return (result.get("operation") == "detect_watermark"
+                        and any(detection.get("method_id") == "stable_diffusion_xl_dwt_dct"
+                                and detection.get("status") == "detected"
+                                for detection in result.get("detections") or []))
+
+            wait_for(expected_result_rendered, "the rendered real processing result")
             process.wait(timeout=max(1, deadline - time.monotonic()))
             if process.returncode != 0:
                 raise RuntimeError(f"GUI exited {process.returncode}")
             evidence = json.loads(report.read_text(encoding="utf-8"))
             interaction = evidence["interaction"]
             observed = interaction["observations"]
-            assert observed["workspace"] == "images", evidence
-            assert observed["actions"].get("images_tab", 0) >= 1, evidence
-            assert observed["actions"].get("run_detector", 0) >= 1, evidence
-            assert len(interaction["pointer_events"]) >= 4, evidence
+            expected_targets = ["heritage_tab", "heritage_verify_tab", "heritage_run"] if args.scenario == "heritage" else ["images_tab", "run_detector"]
+            assert observed["workspace"] == args.scenario, evidence
+            for name in expected_targets:
+                assert observed["actions"].get(name, 0) >= 1, evidence
+            if args.scenario == "heritage":
+                assert len(interaction["pointer_events"]) == 6, evidence
+            else:
+                assert len(interaction["pointer_events"]) >= 4, evidence
             for step in controller["steps"]:
                 x, y = step["logical_center"]
                 assert any(event["pressed"] and abs(event["position"][0] - x) <= 3
                            and abs(event["position"][1] - y) <= 3
                            for event in interaction["pointer_events"]), (step, evidence)
+                if args.scenario == "heritage":
+                    assert any(not event["pressed"] and abs(event["position"][0] - x) <= 3
+                               and abs(event["position"][1] - y) <= 3
+                               for event in interaction["pointer_events"]), (step, evidence)
             result = observed["result"]
-            assert result["operation"] == "detect_watermark", result
             assert result["original_unchanged"] is True, result
-            assert any(detection["method_id"] == "stable_diffusion_xl_dwt_dct"
-                       and detection["status"] == "detected"
-                       for detection in result["detections"]), result
+            if args.scenario == "heritage":
+                assert result["operation"] == "heritage", result
+                heritage = result["advanced"]["heritage"]
+                assert heritage["action"] == "verify", heritage
+                legacy = heritage["legacy"]
+                assert legacy["status"] == "detected", legacy
+                assert len(legacy["locations"]) == 1, legacy
+                assert len(legacy["decoded_records"]) == 1, legacy
+                assert all("identifier" not in record for record in legacy["decoded_records"]), legacy
+                assert heritage["personal_identity_authenticated"] is False, heritage
+                controller["real_heritage_verification_result_rendered"] = True
+            else:
+                assert result["operation"] == "detect_watermark", result
+                assert any(detection["method_id"] == "stable_diffusion_xl_dwt_dct"
+                           and detection["status"] == "detected"
+                           for detection in result["detections"]), result
+                controller["real_watermark_detector_result_rendered"] = True
             screenshot = report.with_suffix(".png").read_bytes()
             assert screenshot.startswith(b"\x89PNG\r\n\x1a\n") and len(screenshot) > 1024
             assert struct.unpack(">II", screenshot[16:24]) == (evidence["width"], evidence["height"])
             assert hashlib.sha256(fixture.read_bytes()).hexdigest() == original_hash
             controller.update({
                 "passed": True, "native_pointer_events_observed": True,
-                "real_watermark_detector_result_rendered": True,
                 "original_unchanged": True,
                 "screenshot_sha256": hashlib.sha256(screenshot).hexdigest(),
             })

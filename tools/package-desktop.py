@@ -23,6 +23,9 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[1]
 BUNDLE_ID = "com.fileveil.desktop"
 BINARY_NAME = "fileveil-gui"
+PRIVATE_KEY_SCAN_CHUNK = 64 * 1024
+PRIVATE_KEY_MAGIC = b"FILEVEIL-ED25519-KEY-V1\n"
+PRIVATE_PEM_HEADER = re.compile(rb"-----BEGIN (?:[A-Z0-9_-]+ )*PRIVATE KEY-----")
 
 
 class PackagingError(Exception):
@@ -105,27 +108,79 @@ def publish(staged: Path, destination: Path, *, replace: bool, platform: str) ->
             print(f"Packaged successfully. Previous package retained at {previous}", file=sys.stderr)
 
 
+def has_private_key(path: Path) -> bool:
+    """Inspect complete files with bounded memory, retaining source literals."""
+    with path.open("rb") as stream:
+        if stream.read(len(PRIVATE_KEY_MAGIC)) == PRIVATE_KEY_MAGIC:
+            return True
+        stream.seek(0)
+        # A supported PEM boundary fits in 128 bytes. Long preamble lines are
+        # discarded, while arbitrarily long indentation and trailing whitespace
+        # consume no additional memory. readline's size cap also bounds binary
+        # and single-line source files.
+        prefix = bytearray()
+        started = False
+        boundary = False
+        rejected = False
+        while fragment := stream.readline(PRIVATE_KEY_SCAN_CHUNK):
+            ended = fragment.endswith(b"\n")
+            content = fragment[:-1] if ended else fragment
+            if not rejected:
+                if not started:
+                    content = content.lstrip(b" \t")
+                    if content.startswith(b"\xef\xbb\xbf"):
+                        content = content[3:].lstrip(b" \t")
+                    started = bool(content)
+                if boundary:
+                    rejected = bool(content.strip(b" \t\r"))
+                elif content:
+                    available = 128 - len(prefix)
+                    prefix.extend(content[:available])
+                    boundary = PRIVATE_PEM_HEADER.fullmatch(prefix.rstrip(b" \t\r")) is not None
+                    if boundary:
+                        rejected = bool(content[available:].strip(b" \t\r"))
+                    elif len(content) > available:
+                        rejected = True
+            if ended:
+                if boundary and not rejected:
+                    return True
+                prefix.clear()
+                started = boundary = rejected = False
+        return boundary and not rejected
+
+
+def private_resource_names(directory: str, names: list[str]) -> list[str]:
+    """Keep operational keys out of recursively copied third-party notices."""
+    return [
+        name for name in names
+        if (Path(directory) / name).is_file() and has_private_key(Path(directory) / name)
+    ]
+
+
 def copy_resources(destination: Path) -> None:
     project_license = ROOT / "LICENSE"
     if not project_license.is_file():
         raise PackagingError("Project LICENSE is required for desktop packaging")
+    if has_private_key(project_license):
+        raise PackagingError("Project LICENSE contains private-key material")
     notices = destination / "THIRD_PARTY_NOTICES"
     notices.mkdir(parents=True)
     shutil.copyfile(project_license, destination / "LICENSE")
     font_notices = notices / "assets" / "fonts"
     font_notices.mkdir(parents=True)
     for source in sorted((ROOT / "assets" / "fonts").glob("*.txt")):
-        shutil.copyfile(source, font_notices / source.name)
+        if not has_private_key(source):
+            shutil.copyfile(source, font_notices / source.name)
     licenses = ROOT / "assets" / "licenses"
     if licenses.is_dir():
-        shutil.copytree(licenses, notices / "assets" / "licenses")
+        shutil.copytree(licenses, notices / "assets" / "licenses", ignore=private_resource_names)
     for name in ("THIRD_PARTY_NOTICES.txt", "LICENSE", "LICENSE-MIT", "LICENSE-APACHE"):
         source = ROOT / name
-        if source.is_file():
+        if source.is_file() and not has_private_key(source):
             shutil.copyfile(source, notices / name)
     for name in ("Cargo.lock", "docs/GUI.md"):
         source = ROOT / name
-        if source.is_file():
+        if source.is_file() and not has_private_key(source):
             shutil.copyfile(source, destination / source.name)
     # Include the corresponding project source for MPL section 3.2 distributions.
     source_paths = None
@@ -151,6 +206,8 @@ def copy_resources(destination: Path) -> None:
                 if path.name == ".DS_Store" or ".clean." in path.name:
                     continue
                 if path.is_file() and not path.is_symlink():
+                    if has_private_key(path):
+                        continue
                     archive.write(path, relative)
 
 

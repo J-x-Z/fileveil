@@ -23,6 +23,7 @@ pub struct HeritagePanel {
     mark: MarkSettings,
     keys: Vec<PathBuf>,
     trust: Option<PathBuf>,
+    c2pa_roots: Option<PathBuf>,
     previous: Option<PathBuf>,
     reference: Option<PathBuf>,
     controls: Vec<PathBuf>,
@@ -44,6 +45,7 @@ impl Default for HeritagePanel {
             mark: MarkSettings::default(),
             keys: Vec::new(),
             trust: None,
+            c2pa_roots: None,
             previous: None,
             reference: None,
             controls: Vec::new(),
@@ -78,7 +80,10 @@ impl HeritagePanel {
                 (Tab::Trace, "来源链", "Trace"),
                 (Tab::Lab, "标记实验室", "Heritage Lab"),
             ] {
-                ui.selectable_value(&mut self.tab, tab, t(language, zh, en));
+                let response = ui.selectable_value(&mut self.tab, tab, t(language, zh, en));
+                if tab == Tab::Verify {
+                    crate::smoke::target(&response, "heritage_verify_tab");
+                }
             }
         });
         ui.add_space(10.0);
@@ -100,12 +105,14 @@ impl HeritagePanel {
                 Tab::Verify => {
                     ui.label(t(language, "离线检查签名、来源记录链和当前内容绑定，单独报告信任状态。", "Check signatures, the provenance chain and current content binding offline, with separate trust results."));
                     pick_path(ui, language, "信任策略 JSON", "Trust policy JSON", &mut self.trust, &["json"]);
+                    pick_path(ui, language, "C2PA 本地根证书 PEM", "Local C2PA trust roots PEM", &mut self.c2pa_roots, &["pem", "crt"]);
                     self.disclosure_ui(ui, language);
                 }
                 Tab::Trace => {
                     ui.label(t(language, "查看签名记录中的创建、修改、发行与转移关系。可用参考文件核对像素标记与作品标识。", "Inspect signed creation, modification, issue and transfer records. A reference file can match the pixel marker to a work identifier."));
                     pick_path(ui, language, "参考文件", "Reference file", &mut self.reference, &[]);
                     pick_path(ui, language, "信任策略 JSON", "Trust policy JSON", &mut self.trust, &["json"]);
+                    pick_path(ui, language, "C2PA 本地根证书 PEM", "Local C2PA trust roots PEM", &mut self.c2pa_roots, &["pem", "crt"]);
                     self.disclosure_ui(ui, language);
                 }
                 Tab::Lab => {
@@ -117,8 +124,12 @@ impl HeritagePanel {
             ui.add_space(12.0);
             let request = self.request();
             let configured = self.configured();
-            if self.tab == Tab::Mark && !self.c2pa_mark && !configured {
-                ui.small(t(language, "作品标识、版本、时间声明和签名密钥必填。", "Work identifier, version, asserted time and signing keys are required."));
+            if self.tab == Tab::Mark && !configured {
+                if self.c2pa_mark {
+                    ui.small(t(language, "作品标识、版本、证书链和证书私钥必填。", "Work identifier, version, certificate chain and certificate private key are required."));
+                } else {
+                    ui.small(t(language, "作品标识、版本、时间声明和签名密钥必填。", "Work identifier, version, asserted time and signing keys are required."));
+                }
             }
             let action_label = match self.tab {
                 Tab::Mark => t(language, "保存标记副本并复验", "Save marked copy and verify"),
@@ -127,7 +138,9 @@ impl HeritagePanel {
                 Tab::Trace => t(language, "检查来源链", "Inspect provenance chain"),
                 Tab::Lab => t(language, "运行标记实验", "Run Heritage Lab"),
             };
-            if ui.add_enabled(input.is_some() && configured && job.is_none(), egui::Button::new(action_label)).clicked()
+            let response = ui.add_enabled(input.is_some() && configured && job.is_none(), egui::Button::new(action_label));
+            crate::smoke::target(&response, "heritage_run");
+            if response.clicked()
                 && let Some(path) = &input
             {
                 if request.writes_file() {
@@ -163,31 +176,6 @@ impl HeritagePanel {
                 "Use C2PA certificate signing",
             ),
         );
-        if self.c2pa_mark {
-            ui.label(t(language, "使用你提供的本地证书与私钥创建标准来源凭据。证书信任和吊销状态由验证结果单独报告。", "Create standard Content Credentials with your local certificate and private key. Verification reports certificate trust and revocation separately."));
-            pick_path(
-                ui,
-                language,
-                "证书链 PEM",
-                "Certificate chain PEM",
-                &mut self.certificate,
-                &["pem", "crt"],
-            );
-            pick_path(
-                ui,
-                language,
-                "证书私钥 PEM",
-                "Certificate private key PEM",
-                &mut self.private_key,
-                &["pem", "key"],
-            );
-            return job;
-        }
-        ui.label(t(
-            language,
-            "为作品添加本地 Ed25519 签名记录，可选择额外的图像像素标记。",
-            "Add a local Ed25519-signed work record, with an optional image pixel marker.",
-        ));
         egui::Grid::new("heritage_claims")
             .num_columns(2)
             .spacing([16.0, 6.0])
@@ -237,6 +225,31 @@ impl HeritagePanel {
             }
         }
         ui.small(t(language, "离线时间属于用户声明，未取得可信时间戳认证。", "Offline time is a user assertion. Trusted timestamp authority validation remains unassessed."));
+        if self.c2pa_mark {
+            ui.label(t(language, "使用你提供的本地证书与私钥创建标准来源凭据。证书信任和吊销状态由验证结果单独报告。", "Create standard Content Credentials with your local certificate and private key. Verification reports certificate trust and revocation separately."));
+            pick_path(
+                ui,
+                language,
+                "证书链 PEM",
+                "Certificate chain PEM",
+                &mut self.certificate,
+                &["pem", "crt"],
+            );
+            pick_path(
+                ui,
+                language,
+                "证书私钥 PEM",
+                "Certificate private key PEM",
+                &mut self.private_key,
+                &["pem", "key"],
+            );
+            return job;
+        }
+        ui.label(t(
+            language,
+            "为作品添加本地 Ed25519 签名记录，可选择额外的图像像素标记。",
+            "Add a local Ed25519-signed work record, with an optional image pixel marker.",
+        ));
         ui.horizontal_wrapped(|ui| {
             ui.label(t(language, "记录类型", "Record type"));
             egui::ComboBox::from_id_salt("heritage_record_kind")
@@ -391,12 +404,13 @@ impl HeritagePanel {
         if self.tab != Tab::Mark {
             return true;
         }
+        if self.mark.work_id.trim().is_empty() || self.mark.version.trim().is_empty() {
+            return false;
+        }
         if self.c2pa_mark {
             return self.certificate.is_some() && self.private_key.is_some();
         }
-        !self.mark.work_id.trim().is_empty()
-            && !self.mark.version.trim().is_empty()
-            && !self.mark.created_at.trim().is_empty()
+        !self.mark.created_at.trim().is_empty()
             && !self.keys.is_empty()
             && (self.mark.mode != SignMode::NatiSign
                 || self.mark.issuer_threshold as usize <= self.keys.len())
@@ -419,9 +433,23 @@ impl HeritagePanel {
         };
         let mut request = HeritageRequest {
             action,
-            trust_store: self.trust.clone(),
             ..Default::default()
         };
+        if matches!(
+            action,
+            HeritageAction::Mark
+                | HeritageAction::Verify
+                | HeritageAction::Trace
+                | HeritageAction::Lab
+        ) {
+            request.trust_store = self.trust.clone();
+        }
+        if matches!(
+            action,
+            HeritageAction::Verify | HeritageAction::Trace | HeritageAction::Lab
+        ) {
+            request.c2pa_trust_roots = self.c2pa_roots.clone();
+        }
         if action == HeritageAction::Mark {
             request.mark = self.mark.clone();
             request.mark.transfer_to_key_id = (self.mark.kind == RecordKind::Transfer)
@@ -430,6 +458,14 @@ impl HeritagePanel {
             request.previous = self.previous.clone();
         }
         if action == HeritageAction::C2paMark {
+            request.mark = MarkSettings {
+                work_id: self.mark.work_id.clone(),
+                author: self.mark.author.clone(),
+                edition: self.mark.edition.clone(),
+                version: self.mark.version.clone(),
+                created_at: self.mark.created_at.clone(),
+                ..Default::default()
+            };
             request.certificate = self.certificate.clone();
             request.private_key = self.private_key.clone();
         }
@@ -615,7 +651,44 @@ mod tests {
         assert!(request.key_paths.is_empty());
         assert_eq!(request.certificate, panel.certificate);
         assert_eq!(request.private_key, panel.private_key);
+        assert!(!panel.configured());
+        let mut panel = panel;
+        panel.mark.work_id = "synthetic-work".into();
         assert!(panel.configured());
+        panel.mark.version.clear();
+        assert!(!panel.configured());
+    }
+
+    #[test]
+    fn c2pa_mark_carries_entered_claims_and_verify_uses_separate_pem_roots() {
+        let mut panel = HeritagePanel {
+            c2pa_mark: true,
+            certificate: Some("certificate.pem".into()),
+            private_key: Some("private.pem".into()),
+            trust: Some("old-modern-policy.json".into()),
+            c2pa_roots: Some("local-root.pem".into()),
+            mark: MarkSettings {
+                work_id: "authored-work".into(),
+                author: "Synthetic author".into(),
+                robust: true,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let request = panel.request();
+        assert_eq!(request.action, HeritageAction::C2paMark);
+        assert_eq!(request.mark.work_id, "authored-work");
+        assert_eq!(request.mark.author, "Synthetic author");
+        assert!(!request.mark.robust);
+        assert!(request.trust_store.is_none());
+        assert!(request.c2pa_trust_roots.is_none());
+        panel.tab = Tab::Verify;
+        let request = panel.request();
+        assert!(request.private_key.is_none());
+        assert_eq!(
+            request.c2pa_trust_roots,
+            Some(PathBuf::from("local-root.pem"))
+        );
     }
 
     #[test]

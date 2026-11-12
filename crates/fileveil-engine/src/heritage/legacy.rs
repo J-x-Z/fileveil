@@ -3,8 +3,9 @@
 //!
 //! Red Star's public samples use DES-ECB records followed by a little-endian
 //! byte count and `EOF`. DOCX stores the same packet in local ZIP padding.
-//! Woolim's published SELFSIGN structure has a 792-byte footer. NATISIGN is
-//! recognized as an unverified structural candidate and is protected from edits.
+//! Woolim's published SELFSIGN structure has a 792-byte footer. A hash-matched
+//! Pyongyang NATISIGN ABI supports scoped 320-byte removal after metadata and
+//! content-boundary checks. Other NATISIGN shapes remain read-only candidates.
 use des::{
     Des,
     cipher::{Block, BlockCipherDecrypt, KeyInit},
@@ -33,6 +34,7 @@ pub enum LegacyKind {
     RedstarDes,
     WoolimSelfsign,
     WoolimNatisignCandidate,
+    PyongyangNatisign,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -52,8 +54,32 @@ pub struct LegacyLocation {
     pub evidence_status: String,
     pub crypto_status: String,
     pub payload_sha256: String,
+    pub layout_variant: String,
+    pub clean_supported: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<NatisignMetadata>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub signature_offset: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub signature_bytes: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub length_field_offset: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub identity_ciphertext_sha256: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NatisignMetadata {
+    pub offset: usize,
+    pub bytes: usize,
+    pub decoded_sha256: String,
+    pub schema_marker_zero: bool,
+    pub declared_base_bytes: u64,
+    pub base_length_matches: bool,
+    pub encoded_content_boundary_matches: bool,
+    pub extension_matches_container: bool,
+    pub key_selector_sha256: String,
+    pub pattern_selector_sha256: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -129,14 +155,19 @@ pub fn verify(before: &[u8], after: &[u8], limits: &Limits) -> Result<LegacyVeri
     let remaining = parse(after, limits, false)?;
     let retained = matches_plan(before, after, &parsed);
     let passed = retained && remaining.report.status == LegacyStatus::NotDetected;
+    let nati = parsed
+        .report
+        .locations
+        .iter()
+        .any(|location| location.kind == LegacyKind::PyongyangNatisign);
     Ok(LegacyVerification {
-        result: if passed { "verified_within_scope" } else { "failed" }.into(),
+        result: if !passed { "failed" } else if nati { "partially_verified" } else { "verified_within_scope" }.into(),
         input_sha256: digest(before),
         output_sha256: digest(after),
         retained_bytes_unchanged: retained,
         removed_locations: parsed.report.locations.len(),
         remaining_status: remaining.report.status,
-        scope: "Exact supported legacy packet removal and byte preservation of every retained region. Signature authenticity, device identity, other watermark families and external copies are outside this scope.".into(),
+        scope: if nati { "Static hash-matched Pyongyang 2407 ABI structure removal, scoped metadata checks and exact preservation of retained bytes. The metadata transform has independent test vectors. Original-device compatibility, RSA authenticity, NV keys, pattern policy and real signed specimens remain unassessed." } else { "Exact supported legacy packet removal and byte preservation of every retained region. Signature authenticity, device identity, other watermark families and external copies are outside this scope." }.into(),
     })
 }
 
@@ -211,6 +242,12 @@ fn parse(data: &[u8], limits: &Limits, disclose: bool) -> Result<Parsed> {
     metadata_bytes += data.len() - end;
     let inspection = fileveil_formats::inspect(&data[..end], Path::new("legacy.docx"), limits)?;
     report.format = inspection.format;
+    for location in &mut report.locations {
+        if let Some(metadata) = &mut location.metadata {
+            metadata.encoded_content_boundary_matches = location.offset == end;
+            location.clean_supported &= metadata.encoded_content_boundary_matches;
+        }
+    }
     if !report.locations.is_empty()
         && !matches!(inspection.format, Format::Jpeg | Format::Png | Format::Docx)
     {
@@ -247,13 +284,20 @@ fn parse(data: &[u8], limits: &Limits, disclose: bool) -> Result<Parsed> {
         report.status = if report
             .locations
             .iter()
-            .any(|location| location.kind == LegacyKind::WoolimNatisignCandidate)
+            .any(|location| !location.clean_supported)
         {
             LegacyStatus::Indeterminate
         } else {
             LegacyStatus::Detected
         };
         report.warnings.push("Legacy markers can be forged. Decoded serials are unauthenticated claims and do not establish a person, device or distribution history.".into());
+        if report
+            .locations
+            .iter()
+            .any(|location| location.kind == LegacyKind::PyongyangNatisign)
+        {
+            report.warnings.push("Pyongyang 2407 NATISIGN parsing follows a reconstructed library whose SHA-256 matches the authors' published original-library hash. The ABI has a variable total length capped at 320 bytes, a 48-byte scrambled header, a four-byte pattern selector and a 12-byte footer. Only the 320-byte layout with validated header and base-container boundary is removable. Original signed specimens, RSA/NV-key validation and Woolim ABI equivalence remain unassessed.".into());
+        }
         if report
             .decoded_records
             .iter()
@@ -267,7 +311,7 @@ fn parse(data: &[u8], limits: &Limits, disclose: bool) -> Result<Parsed> {
         .iter()
         .any(|location| location.kind != LegacyKind::RedstarDes)
     {
-        report.warnings.push("Woolim RSA signatures and encrypted identity blocks were not cryptographically verified or decrypted. Removing their footer can prevent opening the copy on devices that enforce these signatures. SELFSIGN has a published structure but no original device specimen was available in this research set.".into());
+        report.warnings.push("Historical RSA authenticity and encrypted SELFSIGN identity remain unassessed. Removing a footer can prevent opening the copy on devices that enforce these signatures. SELFSIGN has a published structure and lacks an original device specimen in this research set.".into());
     }
     Ok(Parsed {
         report,
@@ -373,6 +417,17 @@ fn add_redstar(
         }
         .into(),
         payload_sha256: digest(&data[packet.start..cipher_end]),
+        layout_variant: if placement == LegacyPlacement::Trailer {
+            "redstar_image_footer_v1"
+        } else {
+            "redstar_docx_local_padding_v1"
+        }
+        .into(),
+        clean_supported: true,
+        metadata: None,
+        signature_offset: None,
+        signature_bytes: None,
+        length_field_offset: Some(cipher_end),
         identity_ciphertext_sha256: None,
     });
     Ok(())
@@ -400,6 +455,14 @@ fn serial_length(plaintext: &[u8; RECORD_BYTES]) -> Option<usize> {
 }
 
 fn woolim_footer(data: &[u8], report: &mut LegacyReport) -> Result<usize> {
+    if data.ends_with(b"NATISIGN")
+        && let Some(length_at) = data.len().checked_sub(12)
+    {
+        let total = le32(data, length_at)?;
+        if (64..=320).contains(&total) && total <= data.len() {
+            return pyongyang_footer(data, total, report);
+        }
+    }
     let total = if data.ends_with(b"SELFSIGN") {
         792
     } else {
@@ -428,17 +491,117 @@ fn woolim_footer(data: &[u8], report: &mut LegacyReport) -> Result<usize> {
         evidence_status: if selfsign {
             "structure_confirmed"
         } else {
-            "candidate_unverified"
+            "deprecated_candidate_unverified"
         }
         .into(),
         crypto_status: "not_assessed".into(),
         payload_sha256: digest(&data[start..data.len() - 16]),
+        layout_variant: if selfsign {
+            "woolim_selfsign_792_v1"
+        } else {
+            "deprecated_natisign_272_padding_hypothesis"
+        }
+        .into(),
+        clean_supported: selfsign,
+        metadata: None,
+        signature_offset: Some(start),
+        signature_bytes: Some(256),
+        length_field_offset: Some(data.len() - 16),
         identity_ciphertext_sha256: selfsign.then(|| digest(&data[start + 256..start + 776])),
     });
     if !selfsign {
-        report.warnings.push("NATISIGN's 272-byte geometry is a narrow structural candidate derived from RSA-2048 and its trailer. A matching original specimen and authoritative fixed-length specification are unavailable. Cleaning this candidate is blocked.".into());
+        report.warnings.push("The 272-byte NATISIGN plus reserved-padding shape was an earlier unverified hypothesis. It conflicts with the hash-matched Pyongyang ABI's length-at-minus-12 geometry and is deprecated. Cleaning this shape is blocked.".into());
     }
     Ok(start)
+}
+
+fn pyongyang_footer(data: &[u8], total: usize, report: &mut LegacyReport) -> Result<usize> {
+    let start = data.len() - total;
+    let mut metadata = natisign_descramble(&data[start..start + 48]);
+    let declared_base_bytes = u64::from_le_bytes(
+        metadata[40..48]
+            .try_into()
+            .map_err(|_| Error::Input("Invalid NATISIGN content length".into()))?,
+    );
+    let schema_marker_zero = metadata[..4] == [0; 4];
+    let extension_matches_container = natisign_extension(&metadata[32..40], &data[..start]);
+    let base_length_matches = declared_base_bytes == start as u64;
+    let evidence = NatisignMetadata {
+        offset: start,
+        bytes: 48,
+        decoded_sha256: digest(&metadata),
+        schema_marker_zero,
+        declared_base_bytes,
+        base_length_matches,
+        encoded_content_boundary_matches: false,
+        extension_matches_container,
+        key_selector_sha256: digest(&metadata[4..8]),
+        pattern_selector_sha256: digest(&data[start + 48..start + 52]),
+    };
+    metadata.zeroize();
+    report.locations.push(LegacyLocation {
+        kind: LegacyKind::PyongyangNatisign,
+        placement: LegacyPlacement::Trailer,
+        offset: start,
+        bytes: total,
+        record_count: 1,
+        evidence_status: "hash_matched_static_abi".into(),
+        crypto_status: "not_assessed".into(),
+        payload_sha256: digest(&data[start..data.len() - 12]),
+        layout_variant: "pyongyang2407_natisign_v1".into(),
+        clean_supported: total == 320
+            && schema_marker_zero
+            && base_length_matches
+            && extension_matches_container,
+        metadata: Some(evidence),
+        signature_offset: Some(start + 52),
+        signature_bytes: Some(total - 64),
+        length_field_offset: Some(data.len() - 12),
+        identity_ciphertext_sha256: None,
+    });
+    Ok(start)
+}
+
+// Independent implementation of the public self-synchronizing x^17+x^14+1
+// bit transform. The original decoder primes its state with byte EA, LSB first.
+// This reversible obfuscation supplies no cryptographic authenticity.
+fn natisign_descramble(input: &[u8]) -> [u8; 48] {
+    let mut history = 0x57u32;
+    let mut ones = 3u8;
+    let mut output = [0u8; 48];
+    for (byte, decoded) in input.iter().zip(&mut output) {
+        for bit in 0..8 {
+            let incoming = u32::from((byte >> bit) & 1);
+            let mut plain = (incoming ^ (history >> 16) ^ (history >> 13)) & 1;
+            if ones > 63 {
+                plain ^= 1;
+                ones = 0;
+            }
+            history = (history << 1) | incoming;
+            ones = if incoming == 0 { 0 } else { ones + 1 };
+            *decoded |= (plain as u8) << bit;
+        }
+    }
+    output
+}
+
+fn natisign_extension(extension: &[u8], base: &[u8]) -> bool {
+    let end = extension
+        .iter()
+        .position(|byte| *byte == 0)
+        .unwrap_or(extension.len());
+    if !extension[end..].iter().all(|byte| *byte == 0) {
+        return false;
+    }
+    let extension = &extension[..end];
+    match fileveil_formats::identify(base, Path::new("legacy.docx")) {
+        Format::Jpeg => {
+            extension.eq_ignore_ascii_case(b".jpg") || extension.eq_ignore_ascii_case(b".jpeg")
+        }
+        Format::Png => extension.eq_ignore_ascii_case(b".png"),
+        Format::Unknown if base.starts_with(b"PK") => extension.eq_ignore_ascii_case(b".docx"),
+        _ => false,
+    }
 }
 
 fn docx_packets(

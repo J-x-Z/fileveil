@@ -36,7 +36,8 @@ impl McpSettings {
         let mut remove_key = None;
         for (index, key) in self.access.signing_keys.iter().enumerate() {
             ui.horizontal(|ui| {
-                ui.label(key.file_name().unwrap_or(key.as_os_str()).to_string_lossy());
+                ui.label(key.file_name().unwrap_or(key.as_os_str()).to_string_lossy())
+                    .on_hover_text(key.to_string_lossy());
                 if ui.small_button(tr(language, "Remove")).clicked() {
                     remove_key = Some(index);
                 }

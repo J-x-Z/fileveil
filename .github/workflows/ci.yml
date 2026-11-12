@@ -248,6 +248,14 @@ jobs:
       - name: Native Windows pointer interaction
         if: runner.os == 'Windows'
         run: python tools/native-interaction.py --executable target/release/fileveil-gui.exe --report work/native-interaction.json
+      - name: Native Linux Heritage pointer interaction
+        if: runner.os == 'Linux'
+        run: timeout 120s xvfb-run -a python tools/native-interaction.py --scenario heritage --executable target/release/fileveil-gui --report work/native-heritage.json
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+      - name: Native Windows Heritage pointer interaction
+        if: runner.os == 'Windows'
+        run: python tools/native-interaction.py --scenario heritage --executable target/release/fileveil-gui.exe --report work/native-heritage.json
       - name: Validate native framebuffer evidence
         shell: python {0}
         run: |
@@ -337,6 +345,7 @@ jobs:
           path: |
             work/native-gui.*
             work/native-interaction.*
+            work/native-heritage.*
             work/native-media-interop.log
             work/heritage-legacy-reference.log
             work/heritage-c2pa-creation.log

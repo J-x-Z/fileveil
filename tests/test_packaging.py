@@ -149,6 +149,55 @@ class PackagingTests(unittest.TestCase):
         self.assertEqual(manifest["pdf_backend"], backend)
         self.assert_sources(destination / "resources")
 
+    def test_operational_signing_keys_are_excluded_from_source_archives(self) -> None:
+        secrets = {
+            "assets/owner.bin": b"FILEVEIL-ED25519-KEY-V1\n" + bytes(range(32)),
+            "tests/operator-secret.pem": b"-----BEGIN EC PRIVATE KEY-----\nSYNTHETIC PRIVATE MATERIAL\n",
+            "tests/prefaced-private.pem": b"Bag Attributes\r\n    friendlyName: FileVeil test\r\n" + b"x" * 16000 + b"\r\n-----BEGIN PRIVATE KEY-----\r\nSYNTHETIC\r\n",
+            "assets/bom-private.pem": b"\xef\xbb\xbf-----BEGIN PRIVATE KEY-----\r\nSYNTHETIC\r\n",
+            "tests/rsa-private.pem": b"-----BEGIN RSA PRIVATE KEY-----\nSYNTHETIC\n",
+            "tests/encrypted-private.pem": b"-----BEGIN ENCRYPTED PRIVATE KEY-----\nSYNTHETIC\n",
+            "tests/openssh-private.pem": b"-----BEGIN OPENSSH PRIVATE KEY-----\nSYNTHETIC\n",
+            "tests/late-private.pem": b"A" * (packaging.PRIVATE_KEY_SCAN_CHUNK + 73) + b"\n-----BEGIN EC PRIVATE KEY-----\nSYNTHETIC\n",
+            "tests/indented-private.pem": b" " * (packaging.PRIVATE_KEY_SCAN_CHUNK + 5) + b"-----BEGIN PRIVATE KEY-----" + b" " * 500 + b"\r\nSYNTHETIC\r\n",
+            "assets/licenses/local-owner.pem": b"Bag Attributes\n-----BEGIN PRIVATE KEY-----\nSYNTHETIC\n",
+            "assets/fonts/operator-private.txt": b"-----BEGIN EC PRIVATE KEY-----\nSYNTHETIC\n",
+            "LICENSE-MIT": b"-----BEGIN OPENSSH PRIVATE KEY-----\nSYNTHETIC\n",
+        }
+        for name, data in secrets.items():
+            path = self.root / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(data)
+        destination = self.temporary / "private-key-source-check"
+        literals = {
+            "crates/fileveil-gui/src/key_literals.rs": b'const PEM: &str = "-----BEGIN PRIVATE KEY-----";\nconst ED: &str = "FILEVEIL-ED25519-KEY-V1\\n";\n',
+            "tools/header-example.py": b'HEADER = b"-----BEGIN EC PRIVATE KEY-----"\n',
+            "assets/public.pem": b"-----BEGIN PUBLIC KEY-----\nSYNTHETIC PUBLIC DATA\n",
+            "assets/certificate.pem": b"-----BEGIN CERTIFICATE-----\nSYNTHETIC PUBLIC DATA\n",
+        }
+        for name, data in literals.items():
+            path = self.root / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(data)
+        with (
+            mock.patch.object(packaging.subprocess, "run", side_effect=FileNotFoundError),
+            # Every actual header is split across scan fragments. This also
+            # exercises long lines without accumulating their entire contents.
+            mock.patch.object(packaging, "PRIVATE_KEY_SCAN_CHUNK", 11),
+        ):
+            packaging.copy_resources(destination)
+        with zipfile.ZipFile(destination / "FileVeil-source.zip") as archive:
+            self.assertFalse(set(secrets).intersection(archive.namelist()))
+            self.assertIn("crates/fileveil-gui/src/main.rs", archive.namelist())
+            for name, data in literals.items():
+                self.assertEqual(archive.read(name), data)
+        for name in (
+            "assets/licenses/local-owner.pem",
+            "assets/fonts/operator-private.txt",
+            "LICENSE-MIT",
+        ):
+            self.assertFalse((destination / "THIRD_PARTY_NOTICES" / name).exists())
+
     def test_macos_dylib_aliases_rewrite_to_copied_versioned_filenames(self) -> None:
         self.assert_macos_versioned_aliases()
 

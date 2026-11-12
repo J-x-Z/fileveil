@@ -1,6 +1,6 @@
 # 格式支持
 
-此矩阵适用于 0.3 GUI、CLI 与本地 MCP。运行时后端可用性以 `fileveil capabilities --json` 为准。
+此矩阵适用于 0.4 GUI、CLI 与本地 MCP。报告使用 schema 0.4，并可读取 0.1–0.3 报告。运行时后端可用性以 `fileveil capabilities --json` 为准。
 
 | 格式 | 扫描 | Safe | Deep | 验证及限制 |
 | --- | --- | --- | --- | --- |
@@ -36,11 +36,21 @@ Research 的 Experimental Signal Processing 提供 RGB 低 1–3 位清理和固
 
 Diff Lab 接受 2–8 张显式图像，提供像素差分、RGB 直方图、低位分布、信息熵、固定采样 DCT/DFT、原分辨率块 DCT/Haar、LSB χ²/相邻相关、JPEG 量化/采样结构、低位/残差/差分预览和配对残差 NCC。参考组支持留一法对照，重复相同输入从参考中排除。实验需要干净、编码和传感器噪声对照，统计异常仅构成研究线索。
 
+## Heritage 来源记录
+
+现代 Ed25519 来源记录支持 JPEG APP15、PNG 私有附属块、PDF 注释载体及 DOCX/XLSX/PPTX 的 ZIP 注释。Mark、Detect、Verify、Clean 使用共享核心，默认结构载体可逆，清理后核对保留内容与原件哈希。来源链支持创建、修改、发行和持有人转移，首个签名密钥对应本条记录的持有人。发行信任采用本地 Ed25519 公钥 JSON，C2PA 信任采用独立的 X.509 PEM 根证书。
+
+C2PA 创建的正常 GUI、CLI 与 MCP 入口支持 JPEG、PNG、PDF，使用显式提供的 ES256 证书链与私钥。离线签名验证、资产绑定和本地信任分别报告，可信时间戳及在线吊销状态保持各自范围。
+
+可选 JPEG/PNG 像素标记使用 FileVeil 自主扩展的公开 DCT 协议，会改变像素并重编码 JPEG。对应清理有处理后复检。小于 256×256 的图像跳过该信号步骤，结构签名仍可验证。公开作品引用消息可以复制，身份和发行信任由签名验证单独评估。
+
+Red Star 检测和清理已有真实 JPEG/DOCX 样本对照，支持两种公开 DES 密钥配置。Woolim SELFSIGN 仅确认公开结构，RSA 与身份密文解密保持未评估。Pyongyang NATISIGN 使用哈希匹配原库的静态 ABI，320B 结构须通过 schema、基础长度、扩展名和已解析编码内容终点四项检查后才允许显式清理，并报告部分验证。其他长度与旧 272B 假设受到保护。真实设备签名样本和跨设备 ABI 兼容性待验证，细节见 [历史格式研究](LEGACY_RESEARCH.md)。
+
 ## 平台属性与工作流
 
 可选移除 macOS 下载来源及下载日期、最近使用时间属性、Finder 标签、Unix user.* 属性和 NTFS 私有流。Quarantine、Mark-of-the-Web、未知受保护属性默认保留，资源叉阻断重写。修改时间与创建时间采用独立选项。macOS/Windows 可显式将新副本创建时间规范化至 2000-01-01 UTC 并在发布前复验，Linux 对此选项报告不支持并停止输出。访问时间、文件系统变更时间、日志、快照和备份历史有独立范围限制。
 
-GUI 工作区覆盖文件、Deep、图片、Diff Lab、AI Provenance 与批量验证。语言、MCP 授权与资源预算集中在设置，中性黑灰和灰白主题保持一致。实际平台运行状态见验证记录。
+GUI 工作区覆盖文件、Heritage、Deep、图片、Diff Lab、AI Provenance 与批量验证。语言、MCP 授权与资源预算集中在设置，中性黑灰和灰白主题保持一致。实际平台运行状态见 [验证记录](VALIDATION.md)。
 
 ## 官方检测接口核对
 

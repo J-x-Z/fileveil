@@ -44,16 +44,32 @@ encrypted identity is represented by its hash.
 [Authors' article](https://insinuator.net/2016/12/woolim-lifting-the-fog-on-dprks-latest-tablet-pc/),
 [Authors' Android appendix, pages 7–8](https://www.nktechlab.org/wp-content/uploads/2025/05/2022-Reveal-Android-Code-Section-ENG.pdf)
 
-NATISIGN's 272-byte shape is an explicitly unverified candidate, derived from a
-256-byte RSA block and the trailer geometry. No authoritative fixed-length
-specification or original specimen was obtained. Detection reports
-`candidate_unverified` and cleaning is blocked. Synthetic nested trailers exercise
-bounds handling and provide no evidence of their historical deployment.
+Pyongyang 2407 uses a distinct NATISIGN ABI. Restoring the researchers' three
+documented patched instructions yields SHA-256
+`5ce3bbd3c0c16b7e3c1b70f7dd5d0e278a3cabe4f5c248ec7f61be893306894a`,
+matching the original-library hash in Project Reveal's Android appendix. Static
+Thumb analysis establishes a total-length u32 at EOF minus 12, an eight-byte
+suffix, a variable packet length capped at 320, a 48-byte scrambled metadata
+prefix, a four-byte selector and RSA input beginning at packet offset 52.
+The reader independently implements the public bit obfuscation transform and
+checks its zero schema marker, declared base length and encoded-format extension.
+An independently written inverse encoder and Python vector validate that transform.
+[Researchers' published library and original instruction listing](https://github.com/hackerhouse-opensource/pyongyang_2407/tree/3ec5b7a2f252b83fae459cafc2555cc4e3139c3e),
+[Published original-library hashes, page 13](https://www.nktechlab.org/wp-content/uploads/2025/05/2022-Reveal-Android-Code-Section-ENG.pdf)
+
+Explicit cleaning supports the 320-byte form only when every known metadata check
+passes and its start equals the independently parsed encoded-content end. The
+result is `partially_verified`, with exact retained-byte verification. RSA/NV-key
+validation, pattern policy, original signed specimens and Woolim ABI equivalence
+remain unassessed. Other lengths are decoded structurally and protected. The
+earlier 272-byte plus reserved-padding hypothesis is now explicitly deprecated,
+reported as `deprecated_candidate_unverified` and protected from cleaning.
+Synthetic nested trailers test bounds without asserting historical deployment.
 
 ## Validation and boundaries
 
-The focused Rust suite has 14 passing tests when pinned samples are available.
-Default CI runs 13 synthetic/control tests and leaves the external specimen test
+The focused Rust suite has 18 passing tests when pinned samples are available.
+Default CI runs 17 synthetic/control tests and leaves the external specimen test
 explicitly ignored. OpenSSL, Python `zipfile`, `python-docx` and Pillow independently
 check decode hashes, archive content, visible text/styles and image pixels.
 

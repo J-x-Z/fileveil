@@ -235,3 +235,35 @@ fn dash_prefixed_heritage_inputs_keep_the_option_terminator_across_workers() {
     assert_eq!(detected["operation"], "heritage");
     assert_eq!(detected["integrity"]["original_unchanged"], true);
 }
+
+#[test]
+fn human_trace_prints_signature_binding_and_custody_records() {
+    let directory = tempfile::tempdir().unwrap();
+    let input = png(directory.path());
+    let key = directory.path().join("owner.key");
+    let marked = directory.path().join("marked.png");
+    successful(&run(&[
+        "heritage-keygen",
+        "-o",
+        key.to_str().unwrap(),
+        "--json",
+    ]));
+    successful(&run(&[
+        "heritage",
+        "mark",
+        input.to_str().unwrap(),
+        "--key",
+        key.to_str().unwrap(),
+        "--work-id",
+        "human-trace-work",
+        "-o",
+        marked.to_str().unwrap(),
+        "--json",
+    ]));
+    let output = run(&["heritage", "trace", marked.to_str().unwrap()]);
+    assert_eq!(output.status.code(), Some(4));
+    let text = String::from_utf8(output.stdout).unwrap();
+    assert!(text.contains("signature · valid"));
+    assert!(text.contains("content_binding · valid"));
+    assert!(text.contains("Signed record 0 · create · version 1"));
+}

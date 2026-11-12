@@ -69,6 +69,7 @@ pub struct HeritageRequest {
     pub mark: MarkSettings,
     pub key_paths: Vec<PathBuf>,
     pub trust_store: Option<PathBuf>,
+    pub c2pa_trust_roots: Option<PathBuf>,
     pub previous: Option<PathBuf>,
     pub reference: Option<PathBuf>,
     pub controls: Vec<PathBuf>,
@@ -106,6 +107,7 @@ impl HeritageRequest {
         self.key_paths
             .iter_mut()
             .chain(self.trust_store.iter_mut())
+            .chain(self.c2pa_trust_roots.iter_mut())
             .chain(self.previous.iter_mut())
             .chain(self.reference.iter_mut())
             .chain(self.controls.iter_mut())
@@ -313,6 +315,42 @@ pub fn run(
     report.policy = request.policy();
     report.input_sha256 = Some(digest(&snapshot.bytes));
     let mut details = json!({"action":request.action,"request_sha256":request.digest()?,"carrier":extracted.carrier,"legacy":legacy_before,"manifest_present":extracted.manifest.is_some(),"offline":true,"personal_identity_authenticated":false});
+    if !request.writes_file() {
+        let mut root_limits = limits.clone();
+        root_limits.max_file_bytes = root_limits.max_file_bytes.min(256 * 1024);
+        let roots = request
+            .c2pa_trust_roots
+            .as_ref()
+            .map(|path| Snapshot::open(path, &root_limits))
+            .transpose()?;
+        let pem = roots
+            .as_ref()
+            .map(|snapshot| {
+                std::str::from_utf8(&snapshot.bytes)
+                    .map_err(|_| Error::Input("C2PA trust roots must be UTF-8 PEM".into()))
+            })
+            .transpose()?;
+        let credentials =
+            crate::provenance::inspect_with_trust(&snapshot.bytes, format, limits, pem)?;
+        report.provenance = credentials
+            .map(serde_json::to_value)
+            .transpose()
+            .map_err(|_| Error::Io("Could not serialize Heritage C2PA verification".into()))?;
+        if report.provenance.as_ref().is_some_and(|value| {
+            ["signature", "asset_binding", "manifest_validation"]
+                .iter()
+                .any(|field| value[field] == "invalid")
+        }) {
+            report.result = Outcome::Failed;
+        }
+        if let Some((roots, path)) = roots.as_ref().zip(request.c2pa_trust_roots.as_ref())
+            && !roots.unchanged(path, &root_limits)?
+        {
+            return Err(Error::Blocked(
+                "C2PA trust roots changed during verification".into(),
+            ));
+        }
+    }
     if request.action == HeritageAction::Lab {
         details["lab"] = attack_lab(&snapshot.bytes, format, request, limits)?;
     } else if !request.writes_file() {
@@ -358,7 +396,29 @@ pub fn run(
         }
         let mut base = extracted.base;
         if request.remove_c2pa {
-            base = crate::provenance::remove(&base, format, limits)?;
+            let present = crate::provenance::inspect(&base, format, limits)?.is_some();
+            details["c2pa_present_before"] = json!(present);
+            if present {
+                base = match format {
+                    Format::Pdf => crate::pdf::sanitize_with_provenance_removal(
+                        &base,
+                        limits,
+                        &fileveil_core::PdfOptions::default(),
+                    )?,
+                    Format::Jpeg | Format::Png => crate::provenance::remove(&base, format, limits)?,
+                    _ => {
+                        return Err(Error::Unsupported(
+                            "C2PA removal is unavailable for this Heritage carrier".into(),
+                        ));
+                    }
+                };
+                if crate::provenance::inspect(&base, format, limits)?.is_some() {
+                    return Err(Error::Verification(
+                        "C2PA structures remain after explicit removal".into(),
+                    ));
+                }
+                details["c2pa_removed"] = json!(true);
+            }
         }
         check_write_safety(&base, format, input, limits)?;
         let transformed = match request.action {
@@ -704,8 +764,13 @@ fn attack_lab(
     let mut rows = vec![
         json!({"operation":"original","robust":source_detection,"pixel_mse_rgba8":0.0,"dimensions":[width,height],"file_sha256":digest(data)}),
     ];
+    rows[0]
+        .as_object_mut()
+        .expect("Lab row")
+        .extend(lab_structural_fields(data)?);
     let mut operations = vec![
         "structure_clean",
+        "safe_metadata_clean",
         "jpeg_90",
         "jpeg_70",
         "resize_75_percent",
@@ -718,6 +783,29 @@ fn attack_lab(
         // Each variant is encoded, assessed and released before the next one.
         let bytes = match name {
             "structure_clean" => old_clean(&stripped, format, limits)?,
+            "safe_metadata_clean" => {
+                let cleaned = inspect_snapshot(data, Path::new("heritage-lab"), limits).and_then(
+                    |inspection| {
+                        if !inspection.blockers.is_empty() {
+                            return Err(Error::Blocked(inspection.blockers.join(". ")));
+                        }
+                        fileveil_formats::sanitize(data, format, limits)
+                    },
+                );
+                match cleaned {
+                    Ok(bytes) => bytes,
+                    Err(error @ (Error::Blocked(_) | Error::Unsupported(_))) => {
+                        let status = if matches!(error, Error::Blocked(_)) {
+                            "blocked"
+                        } else {
+                            "not_assessed"
+                        };
+                        rows.push(json!({"operation":name,"result":status,"reason":error.to_string(),"variant_generated":false,"structural_manifest_present":null,"signature":"not_assessed","content_binding":"not_assessed","robust":{"status":"not_assessed"}}));
+                        continue;
+                    }
+                    Err(error) => return Err(error),
+                }
+            }
             "jpeg_90" => encode(&image, Format::Jpeg, 90, data, limits)?,
             "jpeg_70" => encode(&image, Format::Jpeg, 70, data, limits)?,
             "resize_75_percent" => encode(
@@ -765,7 +853,11 @@ fn attack_lab(
                 .sum::<f64>()
                 / original.as_raw().len().max(1) as f64
         });
-        rows.push(json!({"operation":name,"robust":detection,"pixel_mse_rgba8":mse,"dimensions":[decoded.width(),decoded.height()],"file_sha256":digest(&bytes)}));
+        let mut row = json!({"operation":name,"robust":detection,"pixel_mse_rgba8":mse,"dimensions":[decoded.width(),decoded.height()],"file_sha256":digest(&bytes)});
+        row.as_object_mut()
+            .expect("Lab row")
+            .extend(lab_structural_fields(&bytes)?);
+        rows.push(row);
     }
     drop(image);
     drop(stripped);
@@ -811,6 +903,36 @@ fn attack_lab(
     Ok(
         json!({"rows":rows,"detected_variants":survived,"same_work_variants":same_work,"tested_variants":rows.len(),"assessed_variants":assessed_variants,"indeterminate_variants":indeterminate_variants,"controls":controls,"control_positive_count":positives,"control_count":request.controls.len(),"assessed_controls":assessed_controls,"indeterminate_controls":indeterminate_controls,"scope":"Observed outcomes on these explicit variants and user-supplied controls. Positive counts mean an executed named detector recovered a valid public frame. Assessed denominators include detected and not_detected only. These samples do not estimate population-wide false-positive rates."}),
     )
+}
+
+fn lab_structural_fields(data: &[u8]) -> Result<serde_json::Map<String, Value>> {
+    let format = fileveil_formats::identify(data, Path::new("heritage-lab"));
+    let extracted = container::extract(data, format)?;
+    let mut fields = serde_json::Map::new();
+    fields.insert(
+        "structural_manifest_present".into(),
+        json!(extracted.manifest.is_some()),
+    );
+    let checked = history(extracted.manifest.as_deref()).and_then(|records| {
+        signing::verify_chain(&records, &digest(&extracted.base), &TrustStore::default())
+    });
+    match checked {
+        Ok(verification) => {
+            fields.insert("signature".into(), json!(verification.signature));
+            fields.insert(
+                "content_binding".into(),
+                json!(verification.content_binding),
+            );
+            fields.insert("trust".into(), json!(verification.trust));
+        }
+        Err(_) => {
+            fields.insert("signature".into(), json!("invalid"));
+            fields.insert("content_binding".into(), json!("not_assessed"));
+            fields.insert("trust".into(), json!("not_assessed"));
+            fields.insert("structural_error".into(), json!("The structural record could not be parsed or verified within the supported contract"));
+        }
+    }
+    Ok(fields)
 }
 
 fn detect_pixels(image: &DynamicImage, limits: &Limits) -> Result<Value> {

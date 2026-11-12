@@ -284,6 +284,71 @@ fn print_report(report: &Report, json: bool) {
             finding.state, finding.code, finding.location, finding.summary
         );
     }
+    if let Some(details) = report
+        .advanced
+        .as_ref()
+        .and_then(|value| value.get("heritage"))
+    {
+        if let Some(key) = details.get("public_key") {
+            println!(
+                "  Ed25519 public key · {}",
+                key["key_id"].as_str().unwrap_or_default()
+            );
+            println!(
+                "  Public bytes · {}",
+                key["ed25519_hex"].as_str().unwrap_or_default()
+            );
+        }
+        if let Some(legacy) = details.get("legacy") {
+            println!(
+                "  Legacy structures · {}",
+                legacy["status"].as_str().unwrap_or("not_assessed")
+            );
+            if let Some(locations) = legacy["locations"].as_array() {
+                for location in locations {
+                    println!(
+                        "    {} · offset {} · bytes {} · records {}",
+                        location["kind"].as_str().unwrap_or_default(),
+                        location["offset"],
+                        location["bytes"],
+                        location["record_count"]
+                    );
+                }
+            }
+        }
+        for section in ["verification", "reference_verification"] {
+            if let Some(verification) = details.get(section) {
+                for field in ["signature", "content_binding", "chain", "trust"] {
+                    println!(
+                        "  {section} {field} · {}",
+                        verification[field].as_str().unwrap_or("not_assessed")
+                    );
+                }
+            }
+        }
+        for section in ["records", "reference_records"] {
+            if let Some(records) = details[section].as_array() {
+                for record in records {
+                    println!(
+                        "  Signed record {} · {} · version {} · actor {}",
+                        record["sequence"],
+                        record["kind"].as_str().unwrap_or_default(),
+                        record["version"].as_str().unwrap_or_default(),
+                        record["actor_key_id"].as_str().unwrap_or_default()
+                    );
+                }
+            }
+        }
+        if let Some(value) = details["trace_reference_match"].as_bool() {
+            println!("  Signed reference match · {value}");
+        }
+        if let Some(lab) = details.get("lab") {
+            println!(
+                "  Lab detected variants · {} / {}",
+                lab["detected_variants"], lab["tested_variants"]
+            );
+        }
+    }
     if let Some(credentials) = &report.provenance {
         for field in ["signature", "asset_binding", "trust"] {
             if let Some(value) = credentials[field].as_str() {

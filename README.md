@@ -1,6 +1,6 @@
 # FileVeil
 
-离线文件隐私审计与净化工具，提供 Rust 原生桌面 GUI 与 CLI。当前版本为 0.3.0，报告 schema 为 0.3，可读取旧版 0.1 和 0.2 报告。
+离线文件隐私审计与净化工具，提供 Rust 原生桌面 GUI、CLI 与本地 MCP。当前版本为 0.4.0，报告 schema 为 0.4，可读取旧版 0.1–0.3 报告。
 
 桌面版支持中文和英文界面、文件拖放、多文件队列、文件夹导入、发现信息搜索与分类筛选、处理计划、批量保存净化副本、二次验证与脱敏 JSON 报告导出。默认使用深色外观，侧栏可切换深色和中性浅色，设置内提供语言与高对比外观选项。任务支持取消与超时。
 
@@ -8,7 +8,7 @@ JPEG、PNG、HEIC/HEIF、AVIF、MP4/MOV、WAV、FLAC 和 DOCX/XLSX/PPTX 支持�
 
 ## 启动桌面版
 
-macOS 本机构建已打包为 `dist/FileVeil.app`，可以双击启动。
+macOS 打包后生成 `dist/FileVeil.app`，可以双击启动。
 
 ```sh
 open /Volumes/WINDOWS/work/fileveil/dist/FileVeil.app
@@ -42,9 +42,41 @@ Windows 下使用 `target\release\fileveil.exe`。省略 `--output` 时自动选
 
 `safe` 为默认策略。`deep` 使用 `--options-json` 指定可改变内容的清理项，GUI 提供对应参数。`research` 执行默认两位 RGB 低位处理，`process-image` 提供明确的模式与位数参数。扫描与报告省略作者、GPS 等字段值和输入绝对路径。Deep 与 Research 的验证范围在报告中单独记录。
 
+## Heritage 来源记录与历史标记
+
+Heritage 提供历史指纹检测与清理、本地 Ed25519 签名、版本与持有人转移链、公开图像作品引用标记及处理实验室。现代签名载体支持 JPEG、PNG、PDF、DOCX/XLSX/PPTX，默认添加可逆结构并验证保留内容。
+
+```sh
+./target/release/fileveil heritage-keygen --output owner.key --json
+./target/release/fileveil heritage mark sample.png --key owner.key --work-id work-001 --author "Example Author" --created-at 2026-11-12T00:00:00Z --output sample.marked.png --json
+./target/release/fileveil heritage detect sample.marked.png --json
+./target/release/fileveil heritage verify sample.marked.png --json
+./target/release/fileveil heritage trace sample.marked.png --json
+./target/release/fileveil heritage lab sample.marked.png --json
+./target/release/fileveil heritage clean sample.marked.png --output sample.clean.png --json
+```
+
+`--key` 可重复，首个密钥对应本条记录的持有人。`--options-json` 接受共享 `HeritageRequest`，例如 `{"mark":{"kind":"modify","version":"2"},"previous":"previous.marked.png"}` 可继承前一资产的来源链。转移记录使用 `mark.kind = "transfer"` 与接收方 `mark.transfer_to_key_id`，后续记录由接收方密钥签署。来源链的完整历史需要外部已知检查点。
+
+Ed25519 发行信任使用 `trust_store` 指定本地 JSON，其中 `trusted_issuers` 保存 `heritage-keygen` 报告的公钥对象，`minimum_issuer_signatures` 指定阈值。NATI 发行模式使用 `mark.mode = "nati_sign"`、`mark.issuer_threshold` 与多个 `--key`。验证分别记录签名、内容绑定、链和信任状态。作者和离线时间属于签名声明。
+
+```sh
+./target/release/fileveil heritage verify sample.marked.png --options-json '{"trust_store":"heritage-trust.json"}' --json
+./target/release/fileveil heritage c2pa-mark sample.png --work-id work-001 --author "Example Author" --options-json '{"certificate":"es256-chain.pem","private_key":"es256-private.pem"}' --output sample.c2pa.png --json
+./target/release/fileveil heritage verify sample.c2pa.png --options-json '{"c2pa_trust_roots":"roots.pem"}' --json
+```
+
+C2PA 创建入口支持 JPEG、PNG、PDF，使用用户提供的 ES256 PEM 证书链与私钥。C2PA 根信任采用 `c2pa_trust_roots` PEM 文件。签名过程离线执行，可信时间戳及在线吊销状态保留单独范围。
+
+生成的 `.key` 为未加密二进制 Ed25519 私钥。Unix 新建权限为 `0600`，Windows 使用当前用户的受保护 DACL。现有 Ed25519/ES256 私钥必须满足所有者、权限及单链接检查，macOS 扩展 ACL 也受检查。私钥数据在内存中尽力清零，报告输出公钥与摘要。
+
+可选 `mark.robust = true` 在 JPEG/PNG 嵌入 FileVeil 自主扩展的公开 DCT 作品引用协议，会改变像素并重编码 JPEG。`clean_signal = true` 执行对应协议清理及复检。公开像素消息可以复制，检测结果的身份与来源认证由签名和本地信任单独评估。
+
+历史检测覆盖真实 Red Star JPEG/DOCX 样本及两种公开 DES 密钥配置。Pyongyang NATISIGN 按哈希匹配原库 ABI 解析，320B 形式经过 schema、基础长度、扩展名和编码内容终点四项检查后可显式清理，结果为部分验证。RSA 验签、真实设备签名样本及 Woolim ABI 等价性保持未评估，其他长度和旧 272B 假设受到保护。详细边界见 [历史格式研究](docs/LEGACY_RESEARCH.md)。
+
 ## 结果与退出码
 
-报告使用独立版本号 `schema_version = "0.3"`，格式定义见 [JSON Schema](docs/report.schema.json)。`findings` 包含稳定发现编码、证据位置、处理动作与状态。
+报告使用独立版本号 `schema_version = "0.4"`，格式定义见 [JSON Schema](docs/report.schema.json)。`findings` 包含稳定发现编码、证据位置、处理动作与状态。
 
 | 结果 | 含义 |
 | --- | --- |
@@ -53,6 +85,7 @@ Windows 下使用 `target\release\fileveil.exe`。省略 `--output` 时自动选
 | `failed` | 文件或内容对照未通过 |
 | `unsupported` | 格式或请求能力不可用 |
 | `blocked` | 检测到损坏、资源超限或需要保护的结构 |
+| `not_assessed` | 请求能力或相应检查未执行 |
 
 | 退出码 | 含义 |
 | --- | --- |
@@ -63,13 +96,13 @@ Windows 下使用 `target\release\fileveil.exe`。省略 `--output` 时自动选
 | 5 | 损坏、安全阻断或资源上限 |
 | 6 | 取消或超时 |
 
-`sanitize` 返回 4 且结果为 `partially_verified` 时，输出副本已保存，保留项见报告。
+写入操作返回 4 且结果为 `partially_verified` 时，输出副本已保存，保留项见报告。
 
 报告中的 `not_assessed` 用于内容级水印、统计水印等未运行检查。C2PA 验证分别报告 COSE 签名、文件绑定、本地根信任、嵌入吊销证据和未完成的检查。来源凭据默认保护并阻断改写。Office 签名、宏和加密输入同样采用保守阻断。
 
 ## 合成样本与验证
 
-全部样本使用虚构内容，生成器默认输出至 `tests/fixtures`，拒绝覆盖已有文件。
+合成样本生成器使用虚构内容，默认输出至 `tests/fixtures`，拒绝覆盖已有文件。
 
 ```sh
 cargo run -p fixture-generator -- work/generated-fixtures
@@ -115,9 +148,9 @@ MPL-2.0 采用文件级 Copyleft。对外分发受覆盖源码及其修改时，
 /Volumes/WINDOWS/work/fileveil/dist/FileVeil.app/Contents/MacOS/fileveil-gui --mcp
 ```
 
-服务提供八个工具，覆盖能力查询、扫描、Safe/Deep、验证、图片处理、公开图像水印检测、差异实验室与 AI 来源。读取与输出目录分开授权，每连接默认最多 64 次操作，原件只读，输出只能新建。路径、链接、目录替换与资源限制由服务端验证。连接方式与示例见 [桌面版指南](docs/GUI.md)。
+服务提供九个工具，覆盖能力查询、扫描、Safe/Deep、验证、图片处理、公开图像水印检测、差异实验室、AI 来源与 `fileveil_heritage`。读取与输出目录独立授权，每连接默认最多 64 次操作，原件只读，输出只能新建。签名另需逐文件 `--mcp-signing-key` 白名单，默认没有签名权限，密钥还须位于读取范围。MCP 密钥生成受到阻断。连接方式与示例见 [桌面版指南](docs/GUI.md)。
 
-## 0.3 高级入口与限制
+## 高级入口与限制
 
 ```sh
 ./target/release/fileveil sanitize draft.docx --profile deep --options-json '{"deep":{"remove_comments":true,"accept_revisions":true}}' --output draft.deep.docx --json
@@ -127,11 +160,11 @@ MPL-2.0 采用文件级 Copyleft。对外分发受覆盖源码及其修改时，
 ./target/release/fileveil lab control.png processed.png --json
 ```
 
-GUI 工作区提供文件扫描、Deep 净化、图片处理、Diff Lab、AI Provenance 和批量验证，MCP 授权和资源上限集中在设置。主题沿用中性黑灰与灰白。
+GUI 工作区提供文件扫描、Heritage 引擎、Deep 净化、图片处理、Diff Lab、AI Provenance 和批量验证，MCP 授权和资源上限集中在设置。主题沿用中性黑灰与灰白。
 
 PDF 需要 qpdf。独立完整验证需要另行安装 Poppler 的 pdfinfo、pdftotext 和 pdftoppm，缺少这些工具时准确报告部分验证。支持可信的绝对路径环境配置 FILEVEIL_QPDF、FILEVEIL_PDFINFO、FILEVEIL_PDFTOTEXT、FILEVEIL_PDFTOPPM。已签名或加密的 PDF、Office 宏和签名包继续保护。
 
-HEIC/AVIF/MP4/MOV 当前提供结构与元数据审计，净化重写和编码内容验证尚未提供。未知 OEM 字段仅报告结构线索。MP3 净化、音频信号水印、私有密钥统计水印、厂商专有水印及 CAWG 身份校验仍待实现或授权检测能力。Deep 支持无依赖的简单隐藏工作表清理。复杂 Office 修订、公式或共享字符串依赖的隐藏表和复杂 HTML 结构会明确阻断。
+HEIC/AVIF/MP4/MOV 已支持可识别隐私元数据清理、容器重写和保留编码负载对照。运行时解码保真仍有独立范围，未知 OEM 字段仅报告结构线索。MP3 净化、音频信号水印、私有密钥统计水印、厂商专有水印及 CAWG 身份校验仍待实现或授权检测能力。Deep 支持无依赖的简单隐藏工作表清理。复杂 Office 修订、公式或共享字符串依赖的隐藏表和复杂 HTML 结构会明确阻断。
 
 公开检测器覆盖 FileVeil LSB 包、Stable Diffusion 1 的 136 位公开消息及 SDXL 的 48 位公开消息，包含逐方法处理后复检。正反样本使用独立上游编码器和解码器验证。公开消息可被复制，身份或模型来源认证仍需独立证据。Diff Lab 提供低位、DCT/Haar、JPEG 编码、残差及差分预览，可输入参考组进行留一法残差关联比较。手机 OEM 归因与专有水印保持未评估。
 
@@ -143,9 +176,9 @@ WAV/FLAC 标准隐私标签清理保留编码音频负载，技术声道和增�
 
 ### Rust 调用方迁移
 
-原有 scan/sanitize/verify 和图片处理函数继续保留。新范围参数使用 SanitizeOptions 与 advanced 模块，默认 Safe 行为保持原契约。新增格式和 not_assessed 结果需要同步更新调用方的穷尽 match。Report 新增可选字段后，直接构造完整结构体的调用方可改用 Report::new 并设置所需字段。0.3 读取器兼容旧 JSON，严格 schema 校验器应采用本仓库更新后的 0.3 schema。is_image 继续表示现有 JPEG/PNG 像素处理范围，媒体容器与音频通过独立能力分类判断。FilesystemOptions 新增默认关闭的 normalize_creation_time 与 remove_usage_metadata，Rust 结构体字面量可通过 ..Default::default() 保留默认选项。
+原有 scan/sanitize/verify 和图片处理函数继续保留。新范围参数使用 SanitizeOptions 与 advanced 模块，默认 Safe 行为保持原契约。新增格式和 not_assessed 结果需要同步更新调用方的穷尽 match。Report 新增可选字段后，直接构造完整结构体的调用方可改用 Report::new 并设置所需字段。0.4 读取器兼容 0.1–0.3 JSON，严格 schema 校验器应采用本仓库的 0.4 schema。Heritage 结果位于可选 advanced.heritage，旧命令与字段继续可用。is_image 继续表示现有 JPEG/PNG 像素处理范围，媒体容器与音频通过独立能力分类判断。FilesystemOptions 新增默认关闭的 normalize_creation_time 与 remove_usage_metadata，Rust 结构体字面量可通过 ..Default::default() 保留默认选项。
 
-## 本轮审计修正
+## 0.3 审计修正记录
 
 补齐队列图片水印检测、像素与归档资源设置、大报告分页和搜索缓存。修复 MCP 目录身份授权、手机媒体嵌套元数据、Office 历史隐藏属性、极端预算计算与 Markdown 候选扫描性能问题。复现记录与测量见 [审计记录](docs/AUDIT_2026-11-12.md)。
 

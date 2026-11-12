@@ -141,6 +141,9 @@ impl Workspaces {
                 if workspace == Workspace::Images {
                     crate::smoke::target(&response, "images_tab");
                 }
+                if workspace == Workspace::Heritage {
+                    crate::smoke::target(&response, "heritage_tab");
+                }
                 if self.busy() && self.result_workspace == workspace {
                     ui.spinner();
                 }
@@ -151,10 +154,10 @@ impl Workspaces {
         }
         crate::smoke::workspace(
             ui.ctx(),
-            if self.selected == Workspace::Images {
-                "images"
-            } else {
-                "other"
+            match self.selected {
+                Workspace::Images => "images",
+                Workspace::Heritage => "heritage",
+                _ => "other",
             },
         );
         ui.separator();
@@ -1635,6 +1638,10 @@ fn heritage_report_ui(ui: &mut egui::Ui, language: Language, details: &serde_jso
             "not_detected" => "未检测到",
             "indeterminate" => "无法判断",
             "unsupported" => "不支持",
+            "blocked" => "已阻止",
+            "verified_within_scope" => "范围内验证通过",
+            "partially_verified" => "部分验证",
+            "failed" => "验证失败",
             _ => "未评估",
         }
         .into()
@@ -1642,7 +1649,11 @@ fn heritage_report_ui(ui: &mut egui::Ui, language: Language, details: &serde_jso
     if let Some(legacy) = details.get("legacy") {
         ui.label(format!(
             "{} · {}",
-            t(language, "历史结构", "Legacy structures"),
+            if details["action"] == "clean" {
+                t(language, "输入历史结构", "Input legacy structures")
+            } else {
+                t(language, "历史结构", "Legacy structures")
+            },
             label(&legacy["status"])
         ));
         if let Some(locations) = legacy["locations"].as_array() {
@@ -1659,7 +1670,29 @@ fn heritage_report_ui(ui: &mut egui::Ui, language: Language, details: &serde_jso
                         location["record_count"]
                     ));
                 });
-                ui.small(location["evidence_status"].as_str().unwrap_or_default());
+                let evidence = location["evidence_status"].as_str().unwrap_or_default();
+                ui.small(if language == Language::Chinese {
+                    match evidence {
+                        "reference_sample_confirmed_format" => "真实参考样本确认的结构",
+                        "structure_confirmed" => "公开结构匹配，尚缺设备原样本",
+                        "candidate_unverified" => "尚未确认的结构候选",
+                        _ => evidence,
+                    }
+                } else {
+                    evidence
+                });
+                ui.small(format!(
+                    "{} · {}",
+                    t(language, "历史密码学状态", "Legacy cryptographic state"),
+                    label(&location["crypto_status"])
+                ));
+            }
+        }
+        if let Some(warnings) = legacy["warnings"].as_array() {
+            for warning in warnings {
+                if let Some(text) = warning.as_str() {
+                    ui.small(crate::i18n::tr(language, text));
+                }
             }
         }
         if let Some(records) = legacy["decoded_records"].as_array() {
@@ -1671,21 +1704,31 @@ fn heritage_report_ui(ui: &mut egui::Ui, language: Language, details: &serde_jso
             }
         }
     }
-    if let Some(verification) = details.get("verification") {
-        egui::Grid::new("heritage_verification")
-            .num_columns(2)
-            .show(ui, |ui| {
-                for (key, zh, en) in [
-                    ("signature", "密码学签名", "Cryptographic signature"),
-                    ("content_binding", "当前文件绑定", "Current asset binding"),
-                    ("chain", "传播记录链", "Custody chain"),
-                    ("trust", "本地发行者信任", "Local issuer trust"),
-                ] {
-                    ui.label(t(language, zh, en));
-                    ui.label(label(&verification[key]));
-                    ui.end_row();
-                }
-            });
+    for (section, zh, en) in [
+        ("verification", "当前载体记录", "Current carrier records"),
+        (
+            "reference_verification",
+            "参考记录对当前内容的验证",
+            "Reference records against current content",
+        ),
+    ] {
+        if let Some(verification) = details.get(section) {
+            ui.strong(t(language, zh, en));
+            egui::Grid::new(("heritage_verification", section))
+                .num_columns(2)
+                .show(ui, |ui| {
+                    for (key, zh, en) in [
+                        ("signature", "密码学签名", "Cryptographic signature"),
+                        ("content_binding", "当前文件绑定", "Current asset binding"),
+                        ("chain", "传播记录链", "Custody chain"),
+                        ("trust", "本地发行者信任", "Local issuer trust"),
+                    ] {
+                        ui.label(t(language, zh, en));
+                        ui.label(label(&verification[key]));
+                        ui.end_row();
+                    }
+                });
+        }
     }
     for key in ["robust", "robust_recheck"] {
         if let Some(signal) = details.get(key) {
@@ -1755,32 +1798,94 @@ fn heritage_report_ui(ui: &mut egui::Ui, language: Language, details: &serde_jso
         }
     }
     if let Some(lab) = details.get("lab") {
-        ui.label(format!(
-            "{} {} / {}",
-            t(language, "已检出变体", "Detected variants"),
-            lab["detected_variants"],
-            lab["tested_variants"]
-        ));
         if let Some(rows) = lab["rows"].as_array() {
+            ui.label(format!(
+                "{} {} / {}",
+                t(language, "已检出变体", "Detected variants"),
+                lab["detected_variants"],
+                lab["tested_variants"]
+            ));
             for row in rows {
                 ui.label(format!(
                     "{} · {}",
                     row["operation"].as_str().unwrap_or_default(),
-                    label(&row["robust"]["status"])
+                    label(row.get("result").unwrap_or(&row["robust"]["status"]))
                 ));
+                if let Some(present) = row["structural_manifest_present"].as_bool() {
+                    ui.small(if present {
+                        t(
+                            language,
+                            "结构记录仍在当前变体中",
+                            "Structural record remains in this variant",
+                        )
+                    } else {
+                        t(
+                            language,
+                            "当前变体未包含结构记录",
+                            "Structural record absent from this variant",
+                        )
+                    });
+                    if present {
+                        ui.small(format!(
+                            "{} · {}  {} · {}  {} · {}",
+                            t(language, "签名", "Signature"),
+                            label(&row["signature"]),
+                            t(language, "当前文件绑定", "Current asset binding"),
+                            label(&row["content_binding"]),
+                            t(language, "本地信任", "Local trust"),
+                            label(&row["trust"])
+                        ));
+                    }
+                }
+                if let Some(reason) = row["reason"].as_str() {
+                    ui.small(crate::i18n::tr(language, reason));
+                }
             }
+            ui.label(format!(
+                "{} {} / {}",
+                t(language, "阴性对照检出数", "Negative-control positives"),
+                lab["control_positive_count"],
+                lab["control_count"]
+            ));
+            ui.small(t(
+                language,
+                "统计仅覆盖这些输入、操作与声明为阴性的对照。",
+                "Measurements cover these inputs, operations and user-declared negative controls.",
+            ));
+        } else {
+            ui.label(t(
+                language,
+                "当前格式不支持像素标记实验。",
+                "Pixel watermark experiments are unsupported for this format.",
+            ));
         }
+    }
+    if let Some(verification) = details.get("legacy_verification").filter(|v| v.is_object()) {
         ui.label(format!(
-            "{} {} / {}",
-            t(language, "阴性对照检出数", "Negative-control positives"),
-            lab["control_positive_count"],
-            lab["control_count"]
+            "{} · {}",
+            t(language, "历史清理后复验", "Legacy post-clean verification"),
+            label(&verification["result"])
         ));
-        ui.small(t(
-            language,
-            "统计仅覆盖这些输入、操作与声明为阴性的对照。",
-            "Measurements cover these inputs, operations and user-declared negative controls.",
+        ui.label(format!(
+            "{} {} · {} {}",
+            t(language, "已移除结构", "Removed structures"),
+            verification["removed_locations"].as_u64().unwrap_or(0),
+            t(language, "剩余检测", "Remaining detection"),
+            label(&verification["remaining_status"])
         ));
+        ui.label(if verification["retained_bytes_unchanged"] == true {
+            t(
+                language,
+                "保留区域逐字节一致",
+                "Retained regions are byte-for-byte identical",
+            )
+        } else {
+            t(
+                language,
+                "保留区域一致性未通过",
+                "Retained-region equality did not pass",
+            )
+        });
     }
     if details["modern_manifest_removed"] == true {
         ui.label(t(
@@ -2129,6 +2234,80 @@ mod tests {
             }
             output.drop_without_applying_deltas();
         }
+    }
+
+    #[test]
+    fn heritage_nonpixel_lab_explains_unsupported_scope_without_null_statistics() {
+        for language in [Language::Chinese, Language::English] {
+            let context = egui::Context::default();
+            context.enable_accesskit();
+            let details = serde_json::json!({"legacy":{"status":"unsupported","locations":[]},"lab":{"pixel_protocol":"unsupported","scope":"legacy_structure_comparison"}});
+            let output = context.run_ui(egui::RawInput::default(), |ui| {
+                heritage_report_ui(ui, language, &details);
+            });
+            let texts: Vec<_> = output
+                .platform_output
+                .accesskit_update
+                .as_ref()
+                .unwrap()
+                .nodes
+                .iter()
+                .flat_map(|(_, node)| {
+                    [node.label(), node.value()]
+                        .into_iter()
+                        .flatten()
+                        .map(str::to_owned)
+                })
+                .collect();
+            let expected = t(
+                language,
+                "当前格式不支持像素标记实验。",
+                "Pixel watermark experiments are unsupported for this format.",
+            );
+            output.drop_without_applying_deltas();
+            assert!(texts.iter().any(|text| text == expected), "{texts:?}");
+            assert!(texts.iter().all(|text| !text.contains("null")));
+        }
+    }
+
+    #[test]
+    fn heritage_clean_reports_input_detection_and_post_clean_verification_separately() {
+        let context = egui::Context::default();
+        context.enable_accesskit();
+        let details = serde_json::json!({"action":"clean","legacy":{"status":"detected","locations":[]},"legacy_verification":{"result":"verified_within_scope","removed_locations":1,"remaining_status":"not_detected","retained_bytes_unchanged":true}});
+        let output = context.run_ui(egui::RawInput::default(), |ui| {
+            heritage_report_ui(ui, Language::Chinese, &details);
+        });
+        let texts: Vec<_> = output
+            .platform_output
+            .accesskit_update
+            .as_ref()
+            .unwrap()
+            .nodes
+            .iter()
+            .flat_map(|(_, node)| {
+                [node.label(), node.value()]
+                    .into_iter()
+                    .flatten()
+                    .map(str::to_owned)
+            })
+            .collect();
+        output.drop_without_applying_deltas();
+        assert!(
+            texts.iter().any(|s| s == "输入历史结构 · 检测到"),
+            "{texts:?}"
+        );
+        assert!(
+            texts.iter().any(|s| s == "历史清理后复验 · 范围内验证通过"),
+            "{texts:?}"
+        );
+        assert!(
+            texts
+                .iter()
+                .any(|s| s.contains("已移除结构 1") && s.contains("未检测到")),
+            "{texts:?}"
+        );
+        assert!(texts.iter().any(|s| s == "保留区域逐字节一致"), "{texts:?}");
     }
 
     #[test]

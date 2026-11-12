@@ -254,8 +254,182 @@ fn natisign_candidates_are_reported_and_protected() {
     marked.extend_from_slice(&woolim(false));
     let report = legacy::detect(&marked, &Limits::default()).unwrap();
     assert_eq!(report.status, LegacyStatus::Indeterminate);
-    assert_eq!(report.locations[0].evidence_status, "candidate_unverified");
+    assert_eq!(
+        report.locations[0].evidence_status,
+        "deprecated_candidate_unverified"
+    );
     assert!(legacy::clean(&marked, &Limits::default()).is_err());
+}
+
+// Independently formulated inverse encoder using a chronological bit history.
+// Production decoding uses a bounded shift register. No original library runs.
+fn scramble_nati_metadata(plain: &[u8; 48]) -> Vec<u8> {
+    let mut history = vec![0u8; 17];
+    history.extend((0..8).map(|bit| (0xea >> bit) & 1));
+    let mut encoded = Vec::new();
+    for byte in plain {
+        let mut output = 0u8;
+        for bit in 0..8 {
+            let run = history
+                .iter()
+                .rev()
+                .take_while(|value| **value == 1)
+                .count();
+            let invert = u8::from(run != 0 && run % 64 == 0);
+            let value = ((byte >> bit) & 1)
+                ^ history[history.len() - 17]
+                ^ history[history.len() - 14]
+                ^ invert;
+            history.push(value);
+            output |= value << bit;
+        }
+        encoded.push(output);
+    }
+    encoded
+}
+
+fn nati_metadata(base: &[u8], png: bool) -> [u8; 48] {
+    let mut plain = [0u8; 48];
+    plain[4..8].copy_from_slice(&7u32.to_le_bytes());
+    plain[24..28].copy_from_slice(&17u32.to_le_bytes());
+    plain[28..32].copy_from_slice(&23u32.to_le_bytes());
+    plain[32..36].copy_from_slice(if png { b".png" } else { b".jpg" });
+    plain[40..48].copy_from_slice(&(base.len() as u64).to_le_bytes());
+    plain
+}
+
+fn nati_packet(base: &[u8], plain: &[u8; 48], total: usize) -> Vec<u8> {
+    let mut bytes = base.to_vec();
+    bytes.extend_from_slice(&scramble_nati_metadata(plain));
+    bytes.extend_from_slice(&17u32.to_le_bytes());
+    bytes.resize(base.len() + total - 12, 0xa5);
+    bytes.extend_from_slice(&(total as u32).to_le_bytes());
+    bytes.extend_from_slice(b"NATISIGN");
+    bytes
+}
+
+#[test]
+fn pyongyang_320_structure_with_validated_metadata_cleans_with_partial_scope() {
+    for png in [false, true] {
+        let base = image(png);
+        let plain = nati_metadata(&base, png);
+        let marked = nati_packet(&base, &plain, 320);
+        let report = legacy::decode(&marked, &Limits::default(), false).unwrap();
+        assert_eq!(report.status, LegacyStatus::Detected);
+        let location = &report.locations[0];
+        assert_eq!(location.kind, LegacyKind::PyongyangNatisign);
+        assert_eq!(location.layout_variant, "pyongyang2407_natisign_v1");
+        assert_eq!(location.signature_offset, Some(base.len() + 52));
+        assert_eq!(location.signature_bytes, Some(256));
+        assert_eq!(location.length_field_offset, Some(marked.len() - 12));
+        assert_eq!(location.crypto_status, "not_assessed");
+        let metadata = location.metadata.as_ref().unwrap();
+        assert_eq!(metadata.decoded_sha256, digest(&plain));
+        assert!(
+            metadata.schema_marker_zero
+                && metadata.base_length_matches
+                && metadata.encoded_content_boundary_matches
+                && metadata.extension_matches_container
+        );
+        let clean = legacy::clean(&marked, &Limits::default()).unwrap();
+        assert_eq!(clean, base);
+        let verified = legacy::verify(&marked, &clean, &Limits::default()).unwrap();
+        assert_eq!(verified.result, "partially_verified");
+        assert!(verified.retained_bytes_unchanged);
+        let directory = tempfile::tempdir().unwrap();
+        let input = directory
+            .path()
+            .join(if png { "marked.png" } else { "marked.jpg" });
+        let output = directory
+            .path()
+            .join(if png { "clean.png" } else { "clean.jpg" });
+        std::fs::write(&input, &marked).unwrap();
+        let result = fileveil_engine::heritage::run(
+            &input,
+            Some(&output),
+            &fileveil_engine::heritage::HeritageRequest {
+                action: fileveil_engine::heritage::HeritageAction::Clean,
+                ..Default::default()
+            },
+            &Limits::default(),
+        )
+        .unwrap();
+        assert_eq!(
+            result.advanced.unwrap()["heritage"]["legacy_verification"]["result"],
+            "partially_verified"
+        );
+        assert_eq!(std::fs::read(output).unwrap(), base);
+        assert_eq!(std::fs::read(input).unwrap(), marked);
+    }
+}
+
+#[test]
+fn pyongyang_variable_length_and_invalid_metadata_remain_read_only() {
+    let base = image(false);
+    let plain = nati_metadata(&base, false);
+    let smaller = nati_packet(&base, &plain, 192);
+    let report = legacy::detect(&smaller, &Limits::default()).unwrap();
+    assert_eq!(report.status, LegacyStatus::Indeterminate);
+    assert_eq!(report.locations[0].signature_bytes, Some(128));
+    assert!(legacy::clean(&smaller, &Limits::default()).is_err());
+    for offset in [0, 32, 40] {
+        let mut changed = plain;
+        changed[offset] ^= 1;
+        let marked = nati_packet(&base, &changed, 320);
+        assert_eq!(
+            legacy::detect(&marked, &Limits::default()).unwrap().status,
+            LegacyStatus::Indeterminate
+        );
+        assert!(legacy::clean(&marked, &Limits::default()).is_err());
+    }
+}
+
+#[test]
+fn pyongyang_metadata_matches_an_independent_python_bitstream_vector() {
+    let base = image(false);
+    let plain: [u8; 48] = std::array::from_fn(|index| index as u8);
+    let mut marked = nati_packet(&base, &plain, 320);
+    let vector = "80efe3273b83bea11ae2b9b7910fc95370a26eff1254376afb1712b17c5338ad1ed018b7d3a635038eafd51f729596a0";
+    let encoded: Vec<_> = vector
+        .as_bytes()
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .map(|pair| u8::from_str_radix(std::str::from_utf8(pair).unwrap(), 16).unwrap())
+        .collect();
+    marked[base.len()..base.len() + 48].copy_from_slice(&encoded);
+    let report = legacy::decode(&marked, &Limits::default(), false).unwrap();
+    assert_eq!(
+        report.locations[0]
+            .metadata
+            .as_ref()
+            .unwrap()
+            .decoded_sha256,
+        "4dbdc2b2b62cb00749785bc84202236dbc3777d74660611b8e58812f0cfde6c3"
+    );
+    assert_eq!(report.status, LegacyStatus::Indeterminate);
+}
+
+#[test]
+fn pyongyang_cleaning_requires_the_exact_parsed_content_boundary() {
+    let mut base = image(false);
+    base.extend_from_slice(&packet(&["INNER-LEGACY-CONTROL"]));
+    let marked = nati_packet(&base, &nati_metadata(&base, false), 320);
+    let report = legacy::detect(&marked, &Limits::default()).unwrap();
+    assert_eq!(report.status, LegacyStatus::Indeterminate);
+    assert!(
+        !report.locations[0]
+            .metadata
+            .as_ref()
+            .unwrap()
+            .encoded_content_boundary_matches
+    );
+    assert!(legacy::clean(&marked, &Limits::default()).is_err());
+    let image = image(false);
+    let mut invalid = nati_packet(&image, &nati_metadata(&image, false), 320);
+    let length_offset = invalid.len() - 12;
+    invalid[length_offset..length_offset + 4].copy_from_slice(&321u32.to_le_bytes());
+    assert!(legacy::detect(&invalid, &Limits::default()).is_err());
 }
 
 #[test]

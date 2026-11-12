@@ -14,6 +14,44 @@ pub fn tr(language: Language, english: &str) -> &str {
         return english;
     }
     match english {
+        "Historical DES records and public DCT work references do not authenticate a device or author. Modern signatures validate keys and content within their separately reported chain and trust scopes. Offline dates are user assertions." => {
+            "历史 DES 记录和公开 DCT 摘要不能认证设备或作者。现代签名分别验证密钥、当前内容、所提供的记录链及本地信任策略。离线时间属于用户声明。"
+        }
+        "Legacy markers can be forged. Decoded serials are unauthenticated claims and do not establish a person, device or distribution history." => {
+            "历史标记可以伪造。解码的序列号属于未经认证的声明，不能据此确定个人、设备或完整传播历史。"
+        }
+        "Some structurally matched Red Star records could not be decoded to a plausible serial using the two published keys. Their identities remain unresolved. Removal covers only the bounded packet structure." => {
+            "部分红星结构记录无法通过两套公开密钥解出符合格式的序列号，身份仍无法判断。清理范围仅覆盖已定位的数据包。"
+        }
+        "Woolim RSA signatures and encrypted identity blocks were not cryptographically verified or decrypted. Removing their footer can prevent opening the copy on devices that enforce these signatures. SELFSIGN has a published structure but no original device specimen was available in this research set." => {
+            "Woolim RSA 签名及身份密文尚未完成密码学验证或解密。移除尾部可能导致副本无法在强制检查签名的设备上打开。SELFSIGN 的结构已有公开资料，本次尚未取得设备原始样本。"
+        }
+        "NATISIGN's 272-byte geometry is a narrow structural candidate derived from RSA-2048 and its trailer. A matching original specimen and authoritative fixed-length specification are unavailable. Cleaning this candidate is blocked." => {
+            "NATISIGN 的 272 字节形状仅为依据 RSA-2048 和尾部字段推导的结构候选。缺少匹配原始样本及权威定长规格，当前禁止清理该候选。"
+        }
+        "Pyongyang 2407 NATISIGN parsing follows a reconstructed library whose SHA-256 matches the authors' published original-library hash. The ABI has a variable total length capped at 320 bytes, a 48-byte scrambled header, a four-byte pattern selector and a 12-byte footer. Only the 320-byte layout with validated header and base-container boundary is removable. Original signed specimens, RSA/NV-key validation and Woolim ABI equivalence remain unassessed." => {
+            "Pyongyang 2407 NATISIGN 解析依据重建库，其 SHA-256 与研究者公布的原库一致。该 ABI 总长度可变且最多 320 字节，含 48 字节混淆头、4 字节模式选择字段和 12 字节尾部。仅允许清理头字段与原始容器边界均通过校验的 320 字节结构。真实签名样本、RSA/NV 密钥验证及 Woolim ABI 等价性尚未验证。"
+        }
+        "The 272-byte NATISIGN plus reserved-padding shape was an earlier unverified hypothesis. It conflicts with the hash-matched Pyongyang ABI's length-at-minus-12 geometry and is deprecated. Cleaning this shape is blocked." => {
+            "272 字节 NATISIGN 加保留填充属于早期未验证假设，与已核对原库的尾部偏移 -12 长度字段冲突，已弃用并禁止清理。"
+        }
+        "Historical RSA authenticity and encrypted SELFSIGN identity remain unassessed. Removing a footer can prevent opening the copy on devices that enforce these signatures. SELFSIGN has a published structure and lacks an original device specimen in this research set." => {
+            "历史 RSA 真实性与加密 SELFSIGN 身份尚未验证。移除尾部可能导致副本无法在强制检查签名的设备上打开。SELFSIGN 依据公开结构，本次缺少原始设备签名样本。"
+        }
+        "Targeted DCT cleaning requires a detected FileVeil work-reference frame" => {
+            "定向 DCT 清理需要先检出 FileVeil 作品摘要帧。"
+        }
+        "DCT work-reference marking supports RGB8 and RGBA8 samples" => {
+            "DCT 作品标记支持 RGB8 和 RGBA8 图片。"
+        }
+        "DCT work-reference operation requires both dimensions at least 512 pixels" => {
+            "DCT 标记要求图片的宽、高均至少为 512 像素。"
+        }
+        "DCT work-reference operation requires both dimensions at least 256 pixels" => {
+            "DCT 检测要求图片的宽、高均至少为 256 像素。"
+        }
+        "Heritage original changed" => "Heritage 原件在操作期间发生变化，副本未提交。",
+        "Heritage input changed during operation" => "Heritage 输入在操作期间发生变化。",
         "Image exceeds the pixel budget" => "图片超过像素预算，请在设置中调整或选择更小的图片。",
         "PNG pixel-count limit exceeded" => {
             "PNG 图片超过像素预算，请在设置中调整或选择更小的图片。"

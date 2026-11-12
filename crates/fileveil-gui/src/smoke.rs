@@ -63,7 +63,8 @@ pub(crate) fn result(context: &egui::Context, report: &fileveil_core::Report) {
             .result = Some(serde_json::json!({
                 "operation":report.operation, "result":report.result,
                 "original_unchanged":report.integrity.original_unchanged,
-                "detections":report.advanced.as_ref().and_then(|details| details.get("detections"))
+                "detections":report.advanced.as_ref().and_then(|details| details.get("detections")),
+                "advanced":{"heritage":report.advanced.as_ref().and_then(|details| details.get("heritage"))}
             }));
         }
     });
