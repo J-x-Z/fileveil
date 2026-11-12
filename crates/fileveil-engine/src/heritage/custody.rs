@@ -688,7 +688,7 @@ mod tests {
         let script =
             std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tools/verify-evidence.py");
         let run = |path: &std::path::Path| {
-            std::process::Command::new("python3")
+            std::process::Command::new(if cfg!(windows) { "python" } else { "python3" })
                 .arg(&script)
                 .arg(path)
                 .arg("--asset")

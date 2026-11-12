@@ -554,7 +554,21 @@ mod tests {
         ]);
         fs::write(path.join("serial"), "01\n").unwrap();
         fs::write(path.join("tsa.cnf"),"[tsa]\ndefault_tsa=local\n[local]\nserial=serial\ncrypto_device=builtin\nsigner_cert=tsa.pem\nsigner_key=tsa.key\ncerts=root.pem\nsigner_digest=sha256\ndefault_policy=1.3.6.1.4.1.55555.1\nother_policies=1.3.6.1.4.1.55555.2\ndigests=sha256\naccuracy=secs:1\nordering=yes\ntsa_name=yes\ness_cert_id_chain=no\ness_cert_id_alg=sha256\n").unwrap();
-        let hash = digest(b"signed record checkpoint");
+        let owner = crate::heritage::signing::SigningKey::generate().unwrap();
+        let asset = b"independently verified copyright evidence asset";
+        let mut declaration = crate::heritage::signing::RecordBody::new(
+            digest(asset),
+            "timestamped-work".into(),
+            "Synthetic timestamp author".into(),
+            "1".into(),
+            "2026-11-13T00:00:00Z".into(),
+            owner.public_key().key_id,
+        );
+        declaration.schema = crate::heritage::signing::SCHEMA_V2.into();
+        declaration.copy_id = Some("copy-tsa-1".into());
+        let history =
+            vec![crate::heritage::signing::append_record(&[], declaration, &[&owner]).unwrap()];
+        let hash = crate::heritage::signing::record_hash(&history[0]).unwrap();
         let query = create_query(&hash).unwrap();
         fs::write(path.join("query.der"), &query).unwrap();
         run(&[
@@ -573,6 +587,65 @@ mod tests {
         assert_eq!(verified.verification, VerificationState::Valid);
         assert!(verified.nonce_checked);
         assert!(verified.certificate_validation_time.is_some());
+        {
+            use crate::heritage::custody::{
+                self, AttachedTimestamp, EvidenceAsset, TimestampSubject,
+            };
+            use base64::{Engine, engine::general_purpose::STANDARD};
+            let evidence = custody::create_evidence(
+                &history,
+                vec![EvidenceAsset {
+                    version: "1".into(),
+                    sha256: digest(asset),
+                    size_bytes: asset.len() as u64,
+                    media_type: "application/octet-stream".into(),
+                }],
+                vec![],
+                vec![AttachedTimestamp {
+                    subject: TimestampSubject::Record,
+                    subject_sha256: hash.clone(),
+                    response_der_base64: STANDARD.encode(&response),
+                }],
+                &owner,
+            )
+            .unwrap();
+            let checked = custody::verify_evidence(
+                &evidence,
+                &crate::heritage::signing::TrustStore::default(),
+                &[],
+                Some(&roots),
+            )
+            .unwrap();
+            assert_eq!(checked.timestamps[0].verification, VerificationState::Valid);
+            fs::write(
+                path.join("evidence.json"),
+                custody::canonical_evidence(&evidence).unwrap(),
+            )
+            .unwrap();
+            fs::write(path.join("asset.bin"), asset).unwrap();
+            let script =
+                Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tools/verify-evidence.py");
+            let python = if cfg!(windows) { "python" } else { "python3" };
+            let independent = Command::new(python)
+                .arg(script)
+                .arg(path.join("evidence.json"))
+                .arg("--asset")
+                .arg(path.join("asset.bin"))
+                .arg("--tsa-roots")
+                .arg(path.join("root.pem"))
+                .arg("--openssl")
+                .arg(&program)
+                .output()
+                .unwrap();
+            assert!(
+                independent.status.success(),
+                "{}",
+                String::from_utf8_lossy(&independent.stderr)
+            );
+            let report: serde_json::Value = serde_json::from_slice(&independent.stdout).unwrap();
+            assert_eq!(report["trusted_timestamps"], 1);
+            assert_eq!(report["provided_assets_verified"], 1);
+        }
         let no_root = verify_timestamp(&response, &hash, None, Some(&query)).unwrap();
         assert_eq!(no_root.verification, VerificationState::NotAssessed);
         assert_eq!(
