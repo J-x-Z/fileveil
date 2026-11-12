@@ -1,0 +1,273 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:fileveil:report:0.3",
+  "title": "FileVeil report 0.3 with legacy 0.1 and 0.2 support",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "tool",
+    "version",
+    "operation",
+    "input_format",
+    "policy",
+    "result",
+    "findings",
+    "integrity",
+    "warnings"
+  ],
+  "properties": {
+    "schema_version": {
+      "enum": [
+        "0.1",
+        "0.2",
+        "0.3"
+      ]
+    },
+    "tool": {
+      "const": "FileVeil"
+    },
+    "version": {
+      "type": "string"
+    },
+    "operation": {
+      "enum": [
+        "scan",
+        "sanitize",
+        "verify",
+        "detect_watermark",
+        "lab",
+        "provenance"
+      ]
+    },
+    "input_format": {
+      "type": "string"
+    },
+    "policy": {
+      "enum": [
+        "safe",
+        "deep",
+        "research"
+      ]
+    },
+    "result": {
+      "enum": [
+        "verified_within_scope",
+        "partially_verified",
+        "failed",
+        "unsupported",
+        "blocked",
+        "not_assessed"
+      ]
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/finding"
+      }
+    },
+    "integrity": {
+      "$ref": "#/$defs/integrity"
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "input_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "output_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "output_name": {
+      "type": "string"
+    },
+    "image_processing": {
+      "$ref": "#/$defs/image_processing"
+    },
+    "pdf": {
+      "type": "object"
+    },
+    "provenance": {
+      "type": "object"
+    },
+    "advanced": {
+      "type": "object"
+    }
+  },
+  "$defs": {
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "layer",
+        "location",
+        "summary",
+        "confidence",
+        "action",
+        "state"
+      ],
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "layer": {
+          "enum": [
+            "embedded_metadata",
+            "container_structure",
+            "filesystem",
+            "provenance_credential",
+            "content_watermark",
+            "statistical_watermark"
+          ]
+        },
+        "location": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "confidence": {
+          "enum": [
+            "verified",
+            "strong_evidence",
+            "heuristic",
+            "unknown"
+          ]
+        },
+        "action": {
+          "enum": [
+            "preserve",
+            "remove",
+            "normalize",
+            "rebuild",
+            "ask_user",
+            "unsupported"
+          ]
+        },
+        "state": {
+          "enum": [
+            "present",
+            "removed_verified",
+            "remains",
+            "not_assessed",
+            "blocked",
+            "applied_verified"
+          ]
+        },
+        "impact": {
+          "type": "string"
+        }
+      }
+    },
+    "integrity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parseable"
+      ],
+      "properties": {
+        "parseable": {
+          "type": "boolean"
+        },
+        "decodeable": {
+          "type": "boolean"
+        },
+        "pixel_equal": {
+          "type": "boolean"
+        },
+        "content_equal": {
+          "type": "boolean"
+        },
+        "original_unchanged": {
+          "type": "boolean"
+        },
+        "security_markers_preserved": {
+          "type": "boolean"
+        }
+      }
+    },
+    "image_processing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "input_dimensions",
+        "output_dimensions",
+        "changed_samples",
+        "max_delta",
+        "mse",
+        "detector_status"
+      ],
+      "properties": {
+        "mode": {
+          "enum": [
+            "low_bits",
+            "signal"
+          ]
+        },
+        "low_bits": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3
+        },
+        "resize_scale": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1
+        },
+        "blur_sigma": {
+          "type": "number",
+          "minimum": 0
+        },
+        "jpeg_quality": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "input_dimensions": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "output_dimensions": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "changed_samples": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_delta": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        },
+        "mse": {
+          "type": "number",
+          "minimum": 0
+        },
+        "verified_low_bits": {
+          "type": "boolean"
+        },
+        "detector_status": {
+          "const": "not_assessed"
+        }
+      }
+    }
+  }
+}

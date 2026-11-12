@@ -1,0 +1,4 @@
+Inter font from https://github.com/google/fonts/tree/main/ofl/inter
+Noto Sans SC font from https://github.com/google/fonts/tree/main/ofl/notosanssc
+Inter is unmodified. Noto Sans SC is a static weight-400 instance made with fontTools from the official variable TTF. Both are embedded with their SIL Open Font License notices.
+epaint default fonts from epaint_default_fonts 0.37.0, with included font-specific licenses.

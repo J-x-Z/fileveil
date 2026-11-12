@@ -1,0 +1,19 @@
+[package]
+name = "fileveil-formats"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+[dependencies]
+html5gum = { version = "=0.9.1", default-features = false }
+roxmltree = "=0.21.1"
+fileveil-core.workspace = true
+crc32fast.workspace = true
+quick-xml.workspace = true
+zip.workspace = true
+flate2.workspace = true
+sha2.workspace = true
+unicode-normalization = "0.1"
+[dev-dependencies]
+image.workspace = true

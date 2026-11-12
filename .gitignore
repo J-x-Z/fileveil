@@ -1,0 +1,7 @@
+/target/
+/work/
+*.clean.*
+.DS_Store
+__pycache__/
+*.py[cod]
+/dist/

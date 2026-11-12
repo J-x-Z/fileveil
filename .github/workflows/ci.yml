@@ -1,0 +1,158 @@
+name: CI
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Linux desktop dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y libx11-dev libxi-dev libxcursor-dev libxrandr-dev libxinerama-dev libxkbcommon-dev libwayland-dev libegl1-mesa-dev libgl1-mesa-dev qpdf poppler-utils xvfb xauth
+      - name: macOS PDF backends
+        if: runner.os == 'macOS'
+        run: brew install qpdf poppler
+      - name: Windows PDF backend
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force work/backends | Out-Null
+          $base = 'https://github.com/qpdf/qpdf/releases/download/v12.4.2'
+          $asset = 'qpdf-12.4.2-msvc64.zip'
+          Invoke-WebRequest "$base/$asset" -OutFile "work/backends/$asset"
+          Invoke-WebRequest "$base/qpdf-12.4.2.sha256" -OutFile work/backends/checksums.txt
+          $actual = (Get-FileHash "work/backends/$asset" -Algorithm SHA256).Hash.ToLower()
+          $entry = Get-Content work/backends/checksums.txt | Where-Object { $_ -match [regex]::Escape($asset) + '$' }
+          if (-not $entry -or -not $entry.StartsWith($actual)) { throw 'qpdf checksum mismatch' }
+          Expand-Archive "work/backends/$asset" work/backends/qpdf
+          $binary = Get-ChildItem work/backends/qpdf -Recurse -Filter qpdf.exe | Select-Object -First 1
+          if (-not $binary) { throw 'qpdf executable missing' }
+          "FILEVEIL_QPDF=$($binary.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
+      - name: Format
+        run: cargo fmt --all --check
+      - name: Clippy
+        run: cargo clippy --locked --all-targets -- -D warnings
+      - name: Test
+        run: cargo test --locked --workspace
+      - name: Generate synthetic samples
+        run: cargo run --locked -p fixture-generator -- work/ci-fixtures
+      - name: CLI capabilities
+        run: cargo run --locked -p fileveil-cli -- capabilities --json
+      - name: Scan synthetic JPEG
+        run: cargo run --locked -p fileveil-cli -- scan work/ci-fixtures/jpeg_exif_gps_author.jpg --json
+      - name: Build CLI
+        run: cargo build --locked -p fileveil-cli
+      - name: Verify synthetic copies
+        shell: python {0}
+        run: |
+          import json
+          import os
+          import pathlib
+          import subprocess
+          executable = pathlib.Path("target/debug/fileveil" + (".exe" if os.name == "nt" else ""))
+          root = pathlib.Path("work/ci-fixtures")
+          fixtures = [
+              "jpeg_exif_gps_author.jpg",
+              "png_itxt_exif_icc.png",
+              "docx_author_comments_rels.docx",
+              "xlsx_author_custom_formula.xlsx",
+              "pptx_author_media.pptx",
+          ]
+          for name in fixtures:
+              original = root / name
+              output = original.with_name(original.stem + ".clean" + original.suffix)
+              for arguments in [
+                  ["sanitize", str(original), "--output", str(output), "--json"],
+                  ["verify", str(original), str(output), "--json"],
+              ]:
+                  process = subprocess.run([str(executable), *arguments], capture_output=True, text=True)
+                  assert process.returncode in (0, 4), (name, process.stdout, process.stderr)
+                  report = json.loads(process.stdout)
+                  assert report["result"] in ("verified_within_scope", "partially_verified"), report
+                  assert report["integrity"]["original_unchanged"] is True, report
+                  assert report["integrity"]["content_equal"] is True, report
+                  if original.suffix in (".jpg", ".png"):
+                      assert report["integrity"]["pixel_equal"] is True, report
+                  print(name, arguments[0], report["result"])
+      - name: Build desktop release
+        run: cargo build --locked --release -p fileveil-gui
+      - name: Windows CI software OpenGL renderer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $asset = 'mesa3d-26.2.6-release-msvc.7z'
+          Invoke-WebRequest "https://github.com/pal1000/mesa-dist-win/releases/download/26.2.6/$asset" -OutFile "work/$asset"
+          $actual = (Get-FileHash "work/$asset" -Algorithm SHA256).Hash.ToLower()
+          if ($actual -ne 'b2e00615feaba45942343c265cc8c5f576142ca682c1ac6661922d4b72492877') { throw 'Mesa checksum mismatch' }
+          7z x "work/$asset" '-owork/mesa' -y | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw 'Mesa extraction failed' }
+          $driver = Get-ChildItem work/mesa -Recurse -Filter opengl32.dll | Where-Object { $_.FullName -match '[\\/]x64[\\/]' } | Select-Object -First 1
+          if (-not $driver) { throw 'Mesa x64 driver missing' }
+          Get-ChildItem $driver.DirectoryName -Filter '*.dll' | Copy-Item -Destination target/release
+          'GALLIUM_DRIVER=llvmpipe' | Out-File -FilePath $env:GITHUB_ENV -Append
+          'LIBGL_ALWAYS_SOFTWARE=1' | Out-File -FilePath $env:GITHUB_ENV -Append
+      - name: Native Linux GUI framebuffer
+        if: runner.os == 'Linux'
+        run: timeout 90s xvfb-run -a target/release/fileveil-gui --smoke-test-report work/native-gui.json
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+      - name: Native macOS GUI framebuffer
+        if: runner.os == 'macOS'
+        shell: python {0}
+        run: |
+          import subprocess
+          subprocess.run(['target/release/fileveil-gui', '--smoke-test-report', 'work/native-gui.json'], check=True, timeout=90)
+      - name: Native Windows GUI framebuffer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $process = Start-Process target/release/fileveil-gui.exe -ArgumentList '--smoke-test-report', 'work/native-gui.json' -PassThru
+          if (-not $process.WaitForExit(60000)) { Stop-Process -Id $process.Id; throw 'GUI timeout' }
+          if ($process.ExitCode -ne 0) { throw "GUI exit $($process.ExitCode)" }
+          if (-not (Test-Path work/native-gui.json)) { throw 'GUI framebuffer report missing' }
+          $evidence = Get-Content work/native-gui.json -Raw | ConvertFrom-Json
+          $evidence | Add-Member -NotePropertyName ci_renderer -NotePropertyValue 'Mesa 26.2.6 llvmpipe software OpenGL'
+          $evidence | ConvertTo-Json -Depth 20 | Set-Content work/native-gui.json
+      - name: Validate native framebuffer evidence
+        shell: python {0}
+        run: |
+          import json
+          import pathlib
+          import struct
+          root = pathlib.Path('work/native-gui')
+          report = json.loads(root.with_suffix('.json').read_text(encoding='utf-8-sig'))
+          pixels = root.with_suffix('.png').read_bytes()
+          assert report['native_window_rendered'] is True, report
+          assert report['frames_before_capture'] >= 3, report
+          assert pixels.startswith(b'\x89PNG\r\n\x1a\n') and len(pixels) > 1024
+          width, height = struct.unpack('>II', pixels[16:24])
+          assert (width, height) == (report['width'], report['height']), report
+          assert width >= 320 and height >= 240, report
+          print(json.dumps(report))
+      - name: Package desktop application
+        run: python tools/package-desktop.py --skip-build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FileVeil-${{ matrix.os }}
+          path: dist/
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: native-evidence-${{ matrix.os }}
+          path: |
+            work/native-gui.*

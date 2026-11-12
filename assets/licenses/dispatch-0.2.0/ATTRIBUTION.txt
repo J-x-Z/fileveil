@@ -1,0 +1,9 @@
+dispatch 0.2.0
+
+The published package manifest declares MIT and attributes authorship to Steven Sheldon.
+Package source https://crates.io/crates/dispatch/0.2.0
+Upstream source https://github.com/SSheldon/rust-dispatch/tree/82d6c7a5b75dc0c71c3f46f87bb6c16a476f7748
+
+The published archive and upstream commit contain no separate license text.
+MIT-standard-license.txt preserves the standard MIT terms from SPDX license-list-data v3.27.0.
+The copyright placeholder in the standard text is retained verbatim.

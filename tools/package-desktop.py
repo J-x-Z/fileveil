@@ -1,0 +1,373 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: MPL-2.0
+"""Build and package the native FileVeil desktop app on the current host."""
+from __future__ import annotations
+
+import argparse
+import ctypes
+import hashlib
+import json
+import os
+from pathlib import Path
+import plistlib
+import shutil
+import stat
+import subprocess
+import sys
+import tempfile
+import tomllib
+import uuid
+import zipfile
+
+ROOT = Path(__file__).resolve().parents[1]
+BUNDLE_ID = "com.fileveil.desktop"
+BINARY_NAME = "fileveil-gui"
+
+
+class PackagingError(Exception):
+    """An actionable build or package failure."""
+
+
+def run(command: list[str], *, timeout: int = 900) -> None:
+    try:
+        subprocess.run(command, cwd=ROOT, check=True, timeout=timeout)
+    except FileNotFoundError as error:
+        raise PackagingError(f"Required command is unavailable ({command[0]})") from error
+    except subprocess.CalledProcessError as error:
+        raise PackagingError(f"Command failed with exit code {error.returncode} ({command[0]})") from error
+    except subprocess.TimeoutExpired as error:
+        raise PackagingError(f"Command exceeded its time budget ({command[0]})") from error
+
+
+def no_clobber_rename(source: Path, destination: Path) -> None:
+    """Publish a same-filesystem directory while atomically protecting collisions."""
+    if sys.platform == "win32":
+        os.rename(source, destination)
+        return
+    library = ctypes.CDLL(None, use_errno=True)
+    if sys.platform == "darwin":
+        rename = library.renamex_np
+        rename.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_uint]
+        rename.restype = ctypes.c_int
+        result = rename(os.fsencode(source), os.fsencode(destination), 4)  # RENAME_EXCL
+    elif sys.platform.startswith("linux"):
+        try:
+            rename = library.renameat2
+        except AttributeError as error:
+            raise PackagingError("This libc does not expose atomic no-clobber directory publication") from error
+        rename.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint]
+        rename.restype = ctypes.c_int
+        result = rename(-100, os.fsencode(source), -100, os.fsencode(destination), 1)  # RENAME_NOREPLACE
+    else:
+        raise PackagingError("Desktop packaging supports macOS, Windows and Linux")
+    if result != 0:
+        error = ctypes.get_errno()
+        raise OSError(error, os.strerror(error), destination)
+
+
+def verify_owned_package(destination: Path, platform: str) -> None:
+    if destination.is_symlink() or not destination.is_dir():
+        raise PackagingError("Existing output is not a FileVeil package directory")
+    try:
+        if platform == "macos":
+            with (destination / "Contents" / "Info.plist").open("rb") as stream:
+                identifier = plistlib.load(stream).get("CFBundleIdentifier")
+        else:
+            identifier = json.loads((destination / "fileveil-package.json").read_text()).get("bundle_id")
+    except (OSError, ValueError, plistlib.InvalidFileException) as error:
+        raise PackagingError("Existing output has no readable FileVeil package identity") from error
+    if identifier != BUNDLE_ID:
+        raise PackagingError("Existing output belongs to a different package")
+
+
+def publish(staged: Path, destination: Path, *, replace: bool, platform: str) -> None:
+    previous = None
+    if os.path.lexists(destination):
+        if not replace:
+            raise PackagingError(f"Output already exists ({destination}). Use --replace to update a FileVeil package")
+        verify_owned_package(destination, platform)
+        previous = destination.with_name(f".{destination.name}.previous-{uuid.uuid4().hex}")
+        no_clobber_rename(destination, previous)
+    try:
+        no_clobber_rename(staged, destination)
+    except OSError as error:
+        if previous is not None:
+            try:
+                no_clobber_rename(previous, destination)
+            except OSError as restore_error:
+                raise PackagingError(f"Publication failed. The previous package is preserved at {previous}") from restore_error
+        raise PackagingError("Output appeared concurrently or could not be published") from error
+    if previous is not None:
+        try:
+            shutil.rmtree(previous)
+        except OSError:
+            print(f"Packaged successfully. Previous package retained at {previous}", file=sys.stderr)
+
+
+def copy_resources(destination: Path) -> None:
+    project_license = ROOT / "LICENSE"
+    if not project_license.is_file():
+        raise PackagingError("Project LICENSE is required for desktop packaging")
+    notices = destination / "THIRD_PARTY_NOTICES"
+    notices.mkdir(parents=True)
+    shutil.copyfile(project_license, destination / "LICENSE")
+    font_notices = notices / "assets" / "fonts"
+    font_notices.mkdir(parents=True)
+    for source in sorted((ROOT / "assets" / "fonts").glob("*.txt")):
+        shutil.copyfile(source, font_notices / source.name)
+    licenses = ROOT / "assets" / "licenses"
+    if licenses.is_dir():
+        shutil.copytree(licenses, notices / "assets" / "licenses")
+    for name in ("THIRD_PARTY_NOTICES.txt", "LICENSE", "LICENSE-MIT", "LICENSE-APACHE"):
+        source = ROOT / name
+        if source.is_file():
+            shutil.copyfile(source, notices / name)
+    for name in ("Cargo.lock", "docs/GUI.md"):
+        source = ROOT / name
+        if source.is_file():
+            shutil.copyfile(source, destination / source.name)
+    # Include the corresponding project source for MPL section 3.2 distributions.
+    with zipfile.ZipFile(destination / "FileVeil-source.zip", "w", zipfile.ZIP_DEFLATED) as archive:
+        for base in ["Cargo.toml", "Cargo.lock", "LICENSE", "README.md", ".github", "crates", "tools", "docs", "tests", "assets", "THIRD_PARTY_NOTICES.txt"]:
+            source = ROOT / base
+            paths = source.rglob("*") if source.is_dir() else [source]
+            for path in sorted(paths):
+                if path.is_file() and not path.is_symlink() and "__pycache__" not in path.parts:
+                    archive.write(path, path.relative_to(ROOT))
+
+
+def bundle_macos_qpdf(resources: Path) -> None:
+    configured = os.environ.get("FILEVEIL_QPDF")
+    source = Path(configured) if configured else Path("/opt/homebrew/bin/qpdf")
+    if not source.is_file():
+        print("PDF full rewrite requires a separately configured qpdf backend", file=sys.stderr)
+        return
+    source = source.resolve()
+    destination = resources / "backends"
+    destination.mkdir()
+    pending = [source]
+    copied: dict[Path, Path] = {}
+    dependencies: dict[Path, list[str]] = {}
+    while pending:
+        current = pending.pop()
+        if current in copied:
+            continue
+        target = destination / current.name
+        if target.exists():
+            raise PackagingError("Bundled PDF backend library names collide")
+        shutil.copy2(current, target)
+        target.chmod(target.stat().st_mode | 0o200)
+        copied[current] = target
+        listing = subprocess.check_output(["otool", "-L", str(current)], text=True)
+        linked = [line.strip().split(" (", 1)[0] for line in listing.splitlines()[1:]]
+        dependencies[current] = linked
+        for dependency in linked:
+            if dependency.startswith(("/usr/lib/", "/System/Library/")):
+                continue
+            if dependency.startswith("@rpath/"):
+                candidate = current.parent.parent / "lib" / Path(dependency).name
+            elif dependency.startswith("@loader_path/"):
+                candidate = current.parent / dependency.removeprefix("@loader_path/")
+            else:
+                candidate = Path(dependency)
+            resolved = candidate.resolve()
+            if resolved != current:
+                if not resolved.is_file():
+                    raise PackagingError(f"Cannot resolve PDF backend library ({dependency})")
+                pending.append(resolved)
+    for current, target in copied.items():
+        if target.suffix == ".dylib":
+            run(["install_name_tool", "-id", f"@loader_path/{target.name}", str(target)])
+        for dependency in dependencies[current]:
+            if dependency.startswith(("/usr/lib/", "/System/Library/")) or Path(dependency).name == current.name:
+                continue
+            run(["install_name_tool", "-change", dependency, f"@loader_path/{Path(dependency).name}", str(target)])
+        run(["codesign", "--force", "--sign", "-", "--timestamp=none", str(target)])
+        # Homebrew formulae preserve their applicable attribution files at this root.
+        formula = current.parent.parent
+        texts = [path for path in formula.iterdir() if path.is_file() and path.name.upper().startswith(("LICENSE", "LICENCE", "COPYING", "NOTICE", "README"))]
+        if not texts:
+            raise PackagingError(f"PDF backend license texts are missing ({formula.name})")
+        notices = resources / "THIRD_PARTY_NOTICES" / "pdf-backends" / formula.parent.name
+        notices.mkdir(parents=True, exist_ok=True)
+        for text in texts:
+            shutil.copy2(text, notices / text.name)
+
+
+def create_icon(source: Path | None, resources: Path, temporary: Path) -> str | None:
+    if source is None:
+        return None
+    if not source.is_file():
+        raise PackagingError(f"Icon input does not exist ({source})")
+    icon = resources / "FileVeil.icns"
+    if source.suffix.lower() == ".icns":
+        shutil.copyfile(source, icon)
+        return icon.name
+    if source.suffix.lower() != ".png":
+        raise PackagingError("The macOS icon input must be PNG or ICNS")
+    iconset = temporary / "FileVeil.iconset"
+    iconset.mkdir()
+    for size in (16, 32, 128, 256, 512):
+        for scale in (1, 2):
+            suffix = "@2x" if scale == 2 else ""
+            output = iconset / f"icon_{size}x{size}{suffix}.png"
+            run(["sips", "-z", str(size * scale), str(size * scale), str(source), "--out", str(output)], timeout=30)
+    run(["iconutil", "--convert", "icns", str(iconset), "--output", str(icon)], timeout=30)
+    return icon.name
+
+
+def package_macos(binary: Path, stage: Path, version: str, icon: Path | None, temporary: Path) -> None:
+    contents = stage / "Contents"
+    executable = contents / "MacOS" / BINARY_NAME
+    executable.parent.mkdir(parents=True)
+    resources = contents / "Resources"
+    copy_resources(resources)
+    bundle_macos_qpdf(resources)
+    shutil.copyfile(binary, executable)
+    executable.chmod(stat.S_IMODE(binary.stat().st_mode) | 0o111)
+    info = {
+        "CFBundleName": "FileVeil",
+        "CFBundleDisplayName": "FileVeil",
+        "CFBundleIdentifier": BUNDLE_ID,
+        "CFBundleExecutable": BINARY_NAME,
+        "CFBundlePackageType": "APPL",
+        "CFBundleShortVersionString": version,
+        "CFBundleVersion": version,
+        "CFBundleInfoDictionaryVersion": "6.0",
+        "LSMinimumSystemVersion": "11.0",
+        "NSHighResolutionCapable": True,
+        "NSPrincipalClass": "NSApplication",
+        "NSDocumentsFolderUsageDescription": "FileVeil reads the files you select for local privacy auditing.",
+        "NSDownloadsFolderUsageDescription": "FileVeil reads the files you select for local privacy auditing.",
+        "NSRemovableVolumesUsageDescription": "FileVeil reads selected files and saves copies in your chosen location.",
+    }
+    icon_name = create_icon(icon, resources, temporary)
+    if icon_name is not None:
+        info["CFBundleIconFile"] = icon_name
+    with (contents / "Info.plist").open("wb") as stream:
+        plistlib.dump(info, stream, sort_keys=True)
+    (contents / "PkgInfo").write_bytes(b"APPL????")
+    run(["codesign", "--force", "--sign", "-", "--timestamp=none", str(stage)], timeout=60)
+    run(["codesign", "--verify", "--strict", "--verbose=2", str(stage)], timeout=60)
+
+
+def package_portable(binary: Path, stage: Path, version: str, platform: str) -> None:
+    stage.mkdir()
+    executable = stage / binary.name
+    shutil.copyfile(binary, executable)
+    executable.chmod(stat.S_IMODE(binary.stat().st_mode) | 0o111)
+    copy_resources(stage / "resources")
+    pdf_backend = portable_pdf_backend(stage, platform)
+    manifest = {
+        "bundle_id": BUNDLE_ID,
+        "name": "FileVeil",
+        "version": version,
+        "platform": platform,
+        "executable": executable.name,
+        "sha256": hashlib.sha256(executable.read_bytes()).hexdigest(),
+        "pdf_backend": pdf_backend,
+    }
+    (stage / "fileveil-package.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+
+
+def portable_pdf_backend(stage: Path, platform: str) -> dict:
+    """Bundle the configured Windows qpdf pair and probe the actual runtime."""
+    configured = os.environ.get("FILEVEIL_QPDF")
+    source = Path(configured) if configured else Path("/usr/bin/qpdf")
+    if platform == "windows" and not configured:
+        return {"mode": "external", "available_at_build": False,
+                "runtime_requirement": "Configure an absolute FILEVEIL_QPDF path"}
+    if not source.is_absolute() or not source.is_file():
+        return {"mode": "external", "available_at_build": False,
+                "runtime_requirement": "Install qpdf or configure an absolute FILEVEIL_QPDF path"}
+    probe = source
+    if platform == "windows":
+        source = source.resolve()
+        library = source.parent / "qpdf30.dll"
+        if not library.is_file():
+            raise PackagingError("Configured Windows qpdf requires its matching qpdf30.dll")
+        destination = stage / "backends"
+        destination.mkdir()
+        probe = destination / "qpdf.exe"
+        shutil.copy2(source, probe)
+        shutil.copy2(library, destination / library.name)
+        notices = stage / "resources" / "THIRD_PARTY_NOTICES" / "pdf-backends" / "qpdf"
+        notices.mkdir(parents=True)
+        for name in ("LICENSE.txt", "NOTICE.md"):
+            license_file = ROOT / "assets" / "licenses" / "external-qpdf" / name
+            if not license_file.is_file():
+                raise PackagingError(f"qpdf distribution notice is missing ({name})")
+            shutil.copy2(license_file, notices / name)
+    try:
+        result = subprocess.run([str(probe), "--version"], capture_output=True, text=True,
+                                check=True, timeout=30)
+    except (OSError, subprocess.SubprocessError) as error:
+        raise PackagingError("The packaged PDF backend runtime probe failed") from error
+    return {
+        "mode": "bundled" if platform == "windows" else "system",
+        "available_at_build": True,
+        "version": result.stdout.splitlines()[0][:200] if result.stdout else "unknown",
+        "runtime_requirement": "Microsoft Visual C++ 2015-2022 x64 runtime" if platform == "windows"
+                               else "A compatible system qpdf installation and its shared-library dependencies",
+        "independent_pdf_validation": "Requires separately configured Poppler pdfinfo, pdftotext and pdftoppm",
+    }
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--skip-build", action="store_true", help="Package an existing release binary")
+    parser.add_argument("--target-directory", type=Path, default=ROOT / "target", help="Cargo target directory")
+    parser.add_argument("--output-directory", type=Path, default=ROOT / "dist", help="Destination for the app or portable directory")
+    parser.add_argument("--replace", action="store_true", help="Update an existing package with the FileVeil identity")
+    parser.add_argument("--icon", type=Path, help="macOS PNG or ICNS icon. Defaults to assets/FileVeil.icns")
+    arguments = parser.parse_args()
+    target = arguments.target_directory.expanduser().resolve()
+    output = arguments.output_directory.expanduser().resolve()
+    version = tomllib.loads((ROOT / "Cargo.toml").read_text())["workspace"]["package"]["version"]
+    platform = "macos" if sys.platform == "darwin" else "windows" if sys.platform == "win32" else "linux"
+    executable_name = BINARY_NAME + (".exe" if platform == "windows" else "")
+    binary = target / "release" / executable_name
+    name = "FileVeil.app" if platform == "macos" else f"FileVeil-{version}-{platform}"
+    destination = output / name
+    if os.path.lexists(destination):
+        if not arguments.replace:
+            raise PackagingError(f"Output already exists ({destination}). Use --replace to update a FileVeil package")
+        verify_owned_package(destination, platform)
+    if not arguments.skip_build:
+        run(["cargo", "build", "--locked", "--release", "-p", "fileveil-gui", "--target-dir", str(target)])
+    if not binary.is_file():
+        raise PackagingError(f"Release binary is missing ({binary})")
+    try:
+        probe = subprocess.run([str(binary), "--version"], cwd=ROOT, text=True, capture_output=True, timeout=60)
+    except subprocess.TimeoutExpired as error:
+        raise PackagingError("Desktop binary version probe exceeded 60 seconds") from error
+    except OSError as error:
+        raise PackagingError(f"Could not start the desktop binary version probe ({error})") from error
+    if probe.returncode != 0:
+        detail = probe.stderr.strip()[-2048:]
+        raise PackagingError(f"Desktop binary version probe returned exit code {probe.returncode}. {detail}")
+    actual = probe.stdout.strip()
+    if actual.split()[-1:] != [version]:
+        raise PackagingError(f"Release binary version disagrees with workspace version ({actual})")
+    output.mkdir(parents=True, exist_ok=True)
+    icon = arguments.icon
+    if icon is None and (ROOT / "assets" / "FileVeil.icns").is_file():
+        icon = ROOT / "assets" / "FileVeil.icns"
+    with tempfile.TemporaryDirectory(prefix=".fileveil-package-", dir=output) as directory:
+        temporary = Path(directory)
+        staged = temporary / name
+        if platform == "macos":
+            package_macos(binary, staged, version, icon, temporary)
+        else:
+            package_portable(binary, staged, version, platform)
+        publish(staged, destination, replace=arguments.replace, platform=platform)
+    print(destination)
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main())
+    except (PackagingError, OSError) as error:
+        print(f"FileVeil packaging failed. {error}", file=sys.stderr)
+        raise SystemExit(1)
