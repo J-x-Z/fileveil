@@ -62,7 +62,22 @@ jobs:
       - name: Clippy
         run: cargo clippy --locked --all-targets -- -D warnings
       - name: Test
-        run: cargo test --locked --workspace
+        shell: python {0}
+        run: |
+          import pathlib
+          import subprocess
+          import sys
+          result = subprocess.run(['cargo', 'test', '--locked', '--workspace'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding='utf-8', errors='replace')
+          pathlib.Path('work').mkdir(exist_ok=True)
+          pathlib.Path('work/ci-tests.log').write_text(result.stdout, encoding='utf-8')
+          print(result.stdout, end='', flush=True)
+          sys.exit(result.returncode)
+      - name: Save native test evidence
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-evidence-${{ matrix.os }}
+          path: work/ci-tests.log
       - name: Generate synthetic samples
         run: cargo run --locked -p fixture-generator -- work/ci-fixtures
       - name: Independent macOS native media decode

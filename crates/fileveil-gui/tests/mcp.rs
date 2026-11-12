@@ -536,7 +536,7 @@ fn signed_documents_preserve_format_hints_through_authorized_mcp_workers() {
         let scanned = client.call("fileveil_scan", json!({"path":input}));
         assert_eq!(
             scanned["result"]["structuredContent"]["provenance"]["signature"], "valid",
-            "{extension}"
+            "{extension}: {scanned}"
         );
         let trusted = client.call(
             "fileveil_provenance",
