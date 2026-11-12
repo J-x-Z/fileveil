@@ -357,9 +357,9 @@ def summarize(records, metadata):
                 indeterminate=0,
                 different_work_reference_matches=0,
                 different_copy_reference_matches=0,
-                cpu_seconds=0.0,
-                wall_seconds=0.0,
-                peak_rss_bytes=0,
+                cpu=[],
+                wall=[],
+                rss=[],
                 psnr=[],
                 psnr_infinite_count=0,
                 ssim=[],
@@ -385,11 +385,14 @@ def summarize(records, metadata):
         group["psnr_infinite_count"] += bool(
             row.get("quality", {}).get("psnr_infinite")
         )
-        group["cpu_seconds"] += row.get("algorithm_cpu_seconds") or 0
-        group["wall_seconds"] += row.get("algorithm_wall_seconds") or 0
-        group["peak_rss_bytes"] = max(
-            group["peak_rss_bytes"], row.get("process_peak_rss_bytes") or 0
-        )
+        for field, accumulator in (
+            ("algorithm_cpu_seconds", "cpu"),
+            ("algorithm_wall_seconds", "wall"),
+            ("process_peak_rss_bytes", "rss"),
+        ):
+            value = row.get(field)
+            if value is not None:
+                group[accumulator].append(value)
         if row.get("quality", {}).get("psnr_db") is not None:
             group["psnr"].append(row["quality"]["psnr_db"])
         if row.get("quality", {}).get("ssim") is not None:
@@ -397,6 +400,12 @@ def summarize(records, metadata):
         if row.get("raw_ber", {}).get("ber") is not None:
             group["ber"].append(row["raw_ber"]["ber"])
     for name, group in attacks.items():
+        cpu = group.pop("cpu")
+        wall = group.pop("wall")
+        rss = group.pop("rss")
+        group["cpu_seconds"] = sum(cpu) if cpu else None
+        group["wall_seconds"] = sum(wall) if wall else None
+        group["peak_rss_bytes"] = max(rss) if rss else None
         group["detection_rate"] = (
             group["detected"] / group["assessed"] if group["assessed"] else None
         )
@@ -435,6 +444,21 @@ def summarize(records, metadata):
     }
 
 
+def bind_run(path, metadata, has_records):
+    """Keep a resumed journal bound to one compiled runner and metric implementation."""
+    if path.exists():
+        previous = json.loads(path.read_text())
+        if previous != metadata:
+            raise ValueError("Run identity changed. Use a new output directory")
+    elif has_records:
+        raise ValueError(
+            "Existing records lack their run identity. Use a new output directory"
+        )
+    else:
+        with path.open("x") as stream:
+            stream.write(json.dumps(metadata, indent=2) + "\n")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -448,7 +472,7 @@ def main():
     parser.add_argument(
         "--output", type=Path, default=ROOT / "work/v05-benchmark/results"
     )
-    parser.add_argument("--protocol", choices=["v1"], default="v1")
+    parser.add_argument("--protocol", choices=["v1", "v2"], default="v1")
     parser.add_argument("--profile", choices=["quick", "full"], default="full")
     parser.add_argument("--strength", type=int, default=32)
     parser.add_argument("--limit", type=int, default=200)
@@ -469,6 +493,16 @@ def main():
         else []
     )
     done = {(r["source_id"], r["attack"]) for r in records}
+    fingerprint_process = subprocess.run(
+        [str(args.executable)],
+        input=json.dumps(dict(action="fingerprint", input=".")) + "\n",
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    fingerprint = json.loads(fingerprint_process.stdout)
+    if not fingerprint.get("ok"):
+        raise RuntimeError("Rebuild benchmark_engine to capture compiled source hashes")
     metadata = {
         "schema": "fileveil.watermark.benchmark.results.v1",
         "protocol": args.protocol,
@@ -481,19 +515,15 @@ def main():
         },
         "manifest_sha256": hashlib.sha256(args.manifest.read_bytes()).hexdigest(),
         "runner_sha256": hashlib.sha256(args.executable.read_bytes()).hexdigest(),
-        "algorithm_source_sha256": hashlib.sha256(
-            (
-                ROOT
-                / "crates/fileveil-engine/src/heritage"
-                / ("robust_v2.rs" if args.protocol == "v2" else "robust.rs")
-            ).read_bytes()
-        ).hexdigest(),
+        "algorithm_source_sha256": fingerprint[
+            "v2_source_sha256" if args.protocol == "v2" else "baseline_source_sha256"
+        ],
+        "geometry_source_sha256": fingerprint["geometry_source_sha256"],
+        "runner_source_sha256": fingerprint["runner_source_sha256"],
         "harness_source_sha256": hashlib.sha256(
             Path(__file__).read_bytes()
         ).hexdigest(),
-        "baseline_source_sha256": hashlib.sha256(
-            (ROOT / "crates/fileveil-engine/src/heritage/robust.rs").read_bytes()
-        ).hexdigest(),
+        "baseline_source_sha256": fingerprint["baseline_source_sha256"],
         "platform": platform.platform(),
         "python": platform.python_version(),
         "pillow": Image.__version__,
@@ -508,6 +538,7 @@ def main():
             "screenshot": "screen_resample is a screenshot-style resampling simulation; source screenshot stratum contains real software screenshots",
         },
     }
+    bind_run(args.output / (prefix + "-run.json"), metadata, bool(records))
     runner = Runner(args.executable)
     started = time.time()
     try:

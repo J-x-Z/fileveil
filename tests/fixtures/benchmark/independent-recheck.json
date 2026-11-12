@@ -1,0 +1,951 @@
+{
+  "schema": "fileveil.watermark.independent_recheck.v1",
+  "scope": "Real source files center-cropped to a 512-square interoperability subset. OpenCV full DCT, independent CRC or complete BCH t<=3 syndrome table and standard HMAC. V2 searches native dimensions, quarter turns and pixel/tile phases. FFT deskew and resized-grid searches are outside this oracle's scope.",
+  "manifest_sha256": "23199d037fc65144b594029d35cb9dab75fe72013c60bc5dd4c257a8dc5a6618",
+  "runner_sha256": "cc0f81b566353df296e7fa34be2b0bc29f9dfbc90d159b4148d5a495069b76e8",
+  "oracle_source_sha256": {
+    "v1": "6fac1b63da910a4727b53f7e69ff3d59931e89337a82f76d9b48b78bec46c0e4",
+    "v2": "8c88cf2eb709752720115383aa3f5aa9abdbf3e8b848ee20c00e0453a069a491"
+  },
+  "opencv": "4.12.0",
+  "samples_per_stratum": 2,
+  "cases": [
+    {
+      "source_id": 3562701,
+      "stratum": "illustration",
+      "source_sha256": "603d81afd58ef8d7f4382c6188cf9cc47cedef5b8b68394b69ea7016597215ae",
+      "protocol": "v1",
+      "strength": 32,
+      "marked_sha256": "31da01b332b4a81db7850b273843321d2ece0308e9eb3a66374b83ffaab8f198",
+      "cleaned_sha256": "697a3fae1906821ae9b509399021940edec296a104f7282d49f311f6793308ef",
+      "reports": {
+        "marked": {
+          "status": "detected",
+          "work_id_digest": "eb3107a38288698b02c53323239e102f",
+          "dimensions": [
+            512,
+            512
+          ],
+          "pixel_phase": [
+            0,
+            0
+          ],
+          "tile_phase": [
+            0,
+            0
+          ],
+          "minimum_repetitions": 16,
+          "candidate_count": 1,
+          "expected_payload_matches": true
+        },
+        "jpeg70": {
+          "status": "detected",
+          "work_id_digest": "eb3107a38288698b02c53323239e102f",
+          "dimensions": [
+            512,
+            512
+          ],
+          "pixel_phase": [
+            0,
+            0
+          ],
+          "tile_phase": [
+            0,
+            0
+          ],
+          "minimum_repetitions": 16,
+          "candidate_count": 1,
+          "expected_payload_matches": true
+        },
+        "cleaned": {
+          "status": "not_detected",
+          "candidate_count": 17664,
+          "expected_payload_matches": false
+        }
+      },
+      "clean_quality": {
+        "mse": 19.890695571899414,
+        "psnr_db": 35.144303903248854,
+        "psnr_infinite": false,
+        "ssim": 0.8470950126647949,
+        "quality_scope": "RGB8_Wang_Gaussian11_sigma1.5_valid_interior"
+      }
+    },
+    {
+      "source_id": 3562701,
+      "stratum": "illustration",
+      "source_sha256": "603d81afd58ef8d7f4382c6188cf9cc47cedef5b8b68394b69ea7016597215ae",
+      "protocol": "v2",
+      "strength": 12,
+      "marked_sha256": "82b6df5d78203add084fb5603deb7b9e03fc8800aa605b74619c255da49e4467",
+      "cleaned_sha256": "a2f9412ad941d29115285cc99934c1fe153b9f05a41961781173efba5c2802b7",
+      "reports": {
+        "marked": {
+          "status": "detected",
+          "work_id_digest": "eb3107a38288698b02c53323",
+          "copy_id_digest": "1fe1db13b13fbf51",
+          "corrected_bits": 0,
+          "rotation": 0,
+          "pixel_phase": [
+            0,
+            0
+          ],
+          "tile_phase": [
+            0,
+            0
+          ],
+          "pilot_correlation": 1.0,
+          "expected_payload_matches": true
+        },
+        "jpeg70": {
+          "status": "detected",
+          "work_id_digest": "eb3107a38288698b02c53323",
+          "copy_id_digest": "1fe1db13b13fbf51",
+          "corrected_bits": 0,
+          "rotation": 0,
+          "pixel_phase": [
+            0,
+            0
+          ],
+          "tile_phase": [
+            0,
+            0
+          ],
+          "pilot_correlation": 1.0,
+          "expected_payload_matches": true
+        },
+        "cleaned": {
+          "status": "not_detected",
+          "expected_payload_matches": false
+        }
+      },
+      "clean_quality": {
+        "mse": 74.67298126220703,
+        "psnr_db": 29.39916870315342,
+        "psnr_infinite": false,
+        "ssim": 0.8869243860244751,
+        "quality_scope": "RGB8_Wang_Gaussian11_sigma1.5_valid_interior"
+      }
+    },
+    {
+      "source_id": 7981762,
+      "stratum": "illustration",
+      "source_sha256": "e8c188529b1ed804a75acac8c8e88b9304aa4ccbf448a41df23ee7a6e82dbb18",
+      "protocol": "v1",
+      "strength": 32,
+      "marked_sha256": "b7ff8efdb279e258a5475757b8a6f766a047012ed2e957845e29fc138a34e3d6",
+      "cleaned_sha256": "17f5b6697f8ef23c3b5c5279391dd1c22bd1eae6f374b4a90c71ec2f561094f6",
+      "reports": {
+        "marked": {
+          "status": "detected",
+          "work_id_digest": "bbea31c9fa593728cf6ed0591fa4ec07",
+          "dimensions": [
+            512,
+            512
+          ],
+          "pixel_phase": [
+            0,
+            0
+          ],
+          "tile_phase": [
+            0,
+            0
+          ],
+          "minimum_repetitions": 16,
+          "candidate_count": 1,
+          "expected_payload_matches": true
+        },
+        "jpeg70": {
+          "status": "detected",
+          "work_id_digest": "bbea31c9fa593728cf6ed0591fa4ec07",
+          "dimensions": [
+            512,
+            512
+          ],
+          "pixel_phase": [
+            0,
+            0
+          ],
+          "tile_phase": [
+            0,
+            0
+          ],
+          "minimum_repetitions": 16,
+          "candidate_count": 1,
+          "expected_payload_matches": true
+        },
+        "cleaned": {
+          "status": "not_detected",
+          "candidate_count": 17664,
+          "expected_payload_matches": false
+        }
+      },
+      "clean_quality": {
+        "mse": 4.19011926651001,
+        "psnr_db": 41.908539760758394,
+        "psnr_infinite": false,
+        "ssim": 0.9889683723449707,
+        "quality_scope": "RGB8_Wang_Gaussian11_sigma1.5_valid_interior"
+      }
+    },
+    {
+      "source_id": 7981762,
+      "stratum": "illustration",
+      "source_sha256": "e8c188529b1ed804a75acac8c8e88b9304aa4ccbf448a41df23ee7a6e82dbb18",
+      "protocol": "v2",
+      "strength": 12,
+      "marked_sha256": "180b90c7167c5ca0d89938f99401101363e74e8fe768dcbf0f7c2f51c39081a0",
+      "cleaned_sha256": "9bf0d93b9175279eb11a5a59fb441191989f11635264d96a5e047890193f2a7f",
+      "reports": {
+        "marked": {
+          "status": "detected",
+          "work_id_digest": "bbea31c9fa593728cf6ed059",
+          "copy_id_digest": "b467f2485fc165e5",
+          "corrected_bits": 0,
+          "rotation": 0,
+          "pixel_phase": [
+            0,
+            0
+          ],
+          "tile_phase": [
+            0,
+            0
+          ],
+          "pilot_correlation": 1.0,
+          "expected_payload_matches": true
+        },
+        "jpeg70": {
+          "status": "detected",
+          "work_id_digest": "bbea31c9fa593728cf6ed059",
+          "copy_id_digest": "b467f2485fc165e5",
+          "corrected_bits": 0,
+          "rotation": 0,
+          "pixel_phase": [
+            0,
+            0
+          ],
+          "tile_phase": [
+            0,
+            0
+          ],
+          "pilot_correlation": 1.0,
+          "expected_payload_matches": true
+        },
+        "cleaned": {
+          "status": "not_detected",
+          "expected_payload_matches": false
+        }
+      },
+      "clean_quality": {
+        "mse": 18.441373825073242,
+        "psnr_db": 35.47287089355085,
+        "psnr_infinite": false,
+        "ssim": 0.9636237621307373,
+        "quality_scope": "RGB8_Wang_Gaussian11_sigma1.5_valid_interior"
+      }
+    },
+    {
+      "source_id": 3170979,
+      "stratum": "photograph",
+      "source_sha256": "27a97f53fc6c4ba73064409bc3e1733737431b4457a25abc8dfdae4c1b7fa4a3",
+      "protocol": "v1",
+      "strength": 32,
+      "marked_sha256": "679be5bf9bb47b9e43e4f9df03bfb0eb486f5042599ffe3c1beb41a8ae6a7383",
+      "cleaned_sha256": "aa592948e5fbda3b46e3723ec9e7d3c220822c9c1aba23eb9fab3b59d2b65586",
+      "reports": {
+        "marked": {
+          "status": "detected",
+          "work_id_digest": "8c9a18063cc012f4d064230fd33ce0a1",
+          "dimensions": [
+            512,
+            512
+          ],
+          "pixel_phase": [
+            0,
+            0
+          ],
+          "tile_phase": [
+            0,
+            0
+          ],
+          "minimum_repetitions": 16,
+          "candidate_count": 1,
+          "expected_payload_matches": true
+        },
+        "jpeg70": {
+          "status": "detected",
+          "work_id_digest": "8c9a18063cc012f4d064230fd33ce0a1",
+          "dimensions": [
+            512,
+            512
+          ],
+          "pixel_phase": [
+            0,
+            0
+          ],
+          "tile_phase": [
+            0,
+            0
+          ],
+          "minimum_repetitions": 16,
+          "candidate_count": 1,
+          "expected_payload_matches": true
+        },
+        "cleaned": {
+          "status": "not_detected",
+          "candidate_count": 17664,
+          "expected_payload_matches": false
+        }
+      },
+      "clean_quality": {
+        "mse": 3.390453338623047,
+        "psnr_db": 42.82822589125233,
+        "psnr_infinite": false,
+        "ssim": 0.9909293055534363,
+        "quality_scope": "RGB8_Wang_Gaussian11_sigma1.5_valid_interior"
+      }
+    },
+    {
+      "source_id": 3170979,
+      "stratum": "photograph",
+      "source_sha256": "27a97f53fc6c4ba73064409bc3e1733737431b4457a25abc8dfdae4c1b7fa4a3",
+      "protocol": "v2",
+      "strength": 12,
+      "marked_sha256": "ec4b4c57592fc90fd996c02034e13c13246ff8147f1a94c4a1b14520ac69bc4f",
+      "cleaned_sha256": "c84ef0f76b08e09d48afaa26f7037dae756c8cd29aec9c3ec336d7347a227d11",
+      "reports": {
+        "marked": {
+          "status": "detected",
+          "work_id_digest": "8c9a18063cc012f4d064230f",
+          "copy_id_digest": "dedc5bfd6c1c4332",
+          "corrected_bits": 0,
+          "rotation": 0,
+          "pixel_phase": [
+            0,
+            0
+          ],
+          "tile_phase": [
+            0,
+            0
+          ],
+          "pilot_correlation": 1.0,
+          "expected_payload_matches": true
+        },
+        "jpeg70": {
+          "status": "detected",
+          "work_id_digest": "8c9a18063cc012f4d064230f",
+          "copy_id_digest": "dedc5bfd6c1c4332",
+          "corrected_bits": 0,
+          "rotation": 0,
+          "pixel_phase": [
+            0,
+            0
+          ],
+          "tile_phase": [
+            0,
+            0
+          ],
+          "pilot_correlation": 1.0,
+          "expected_payload_matches": true
+        },
+        "cleaned": {
+          "status": "not_detected",
+          "expected_payload_matches": false
+        }
+      },
+      "clean_quality": {
+        "mse": 17.751096725463867,
+        "psnr_db": 35.638551704005714,
+        "psnr_infinite": false,
+        "ssim": 0.9666325449943542,
+        "quality_scope": "RGB8_Wang_Gaussian11_sigma1.5_valid_interior"
+      }
+    },
+    {
+      "source_id": 3216609,
+      "stratum": "photograph",
+      "source_sha256": "67204430a0e8511236e1ce112643a562e7c9b4ba320fa422f66f0a269bb19d77",
+      "protocol": "v1",
+      "strength": 32,
+      "marked_sha256": "066e6eaf3e515ef4b600d5ba44d15218ce7f88bb45c976301d7a2752dfb462fc",
+      "cleaned_sha256": "a21752090ad1ff1929223ef9a0729056f3cda4101071c6de01ad332f9ec04448",
+      "reports": {
+        "marked": {
+          "status": "detected",
+          "work_id_digest": "98052e66f16a6b6f7557c03d3146c673",
+          "dimensions": [
+            512,
+            512
+          ],
+          "pixel_phase": [
+            0,
+            0
+          ],
+          "tile_phase": [
+            0,
+            0
+          ],
+          "minimum_repetitions": 16,
+          "candidate_count": 1,
+          "expected_payload_matches": true
+        },
+        "jpeg70": {
+          "status": "detected",
+          "work_id_digest": "98052e66f16a6b6f7557c03d3146c673",
+          "dimensions": [
+            512,
+            512
+          ],
+          "pixel_phase": [
+            0,
+            0
+          ],
+          "tile_phase": [
+            0,
+            0
+          ],
+          "minimum_repetitions": 16,
+          "candidate_count": 1,
+          "expected_payload_matches": true
+        },
+        "cleaned": {
+          "status": "not_detected",
+          "candidate_count": 17664,
+          "expected_payload_matches": false
+        }
+      },
+      "clean_quality": {
+        "mse": 16.46305274963379,
+        "psnr_db": 35.96569991146464,
+        "psnr_infinite": false,
+        "ssim": 0.9855941534042358,
+        "quality_scope": "RGB8_Wang_Gaussian11_sigma1.5_valid_interior"
+      }
+    },
+    {
+      "source_id": 3216609,
+      "stratum": "photograph",
+      "source_sha256": "67204430a0e8511236e1ce112643a562e7c9b4ba320fa422f66f0a269bb19d77",
+      "protocol": "v2",
+      "strength": 12,
+      "marked_sha256": "aad559aeb8caac53b688db524d0fd94bdb829b0a51d923613596dbe38ff4c436",
+      "cleaned_sha256": "6467f067116e669b101fcbafa29a3b3e9e20d6da0f8511c1cc29eba6bedf0240",
+      "reports": {
+        "marked": {
+          "status": "detected",
+          "work_id_digest": "98052e66f16a6b6f7557c03d",
+          "copy_id_digest": "3a7e081ec08fedc9",
+          "corrected_bits": 0,
+          "rotation": 0,
+          "pixel_phase": [
+            0,
+            0
+          ],
+          "tile_phase": [
+            0,
+            0
+          ],
+          "pilot_correlation": 1.0,
+          "expected_payload_matches": true
+        },
+        "jpeg70": {
+          "status": "detected",
+          "work_id_digest": "98052e66f16a6b6f7557c03d",
+          "copy_id_digest": "3a7e081ec08fedc9",
+          "corrected_bits": 0,
+          "rotation": 0,
+          "pixel_phase": [
+            0,
+            0
+          ],
+          "tile_phase": [
+            0,
+            0
+          ],
+          "pilot_correlation": 1.0,
+          "expected_payload_matches": true
+        },
+        "cleaned": {
+          "status": "not_detected",
+          "expected_payload_matches": false
+        }
+      },
+      "clean_quality": {
+        "mse": 69.11451721191406,
+        "psnr_db": 29.735110821935958,
+        "psnr_infinite": false,
+        "ssim": 0.9511275887489319,
+        "quality_scope": "RGB8_Wang_Gaussian11_sigma1.5_valid_interior"
+      }
+    },
+    {
+      "source_id": 5106330,
+      "stratum": "screenshot",
+      "source_sha256": "6179ef3ab57647035a0af583658cf0f829fbfbe72233cd428388fdc36b34391c",
+      "protocol": "v1",
+      "strength": 32,
+      "marked_sha256": "613ba0ec5b398cbfa5fe06eed4fc4bfb41ed9fa2d78de164c10011c1bc048205",
+      "cleaned_sha256": "cf89b56c9d74632ee9985557ddefd94b5633b49d844cdb3abe87583aaed3e590",
+      "reports": {
+        "marked": {
+          "status": "detected",
+          "work_id_digest": "a434b8ac3450d219b36bfa002eadc9c0",
+          "dimensions": [
+            512,
+            512
+          ],
+          "pixel_phase": [
+            0,
+            0
+          ],
+          "tile_phase": [
+            0,
+            0
+          ],
+          "minimum_repetitions": 16,
+          "candidate_count": 1,
+          "expected_payload_matches": true
+        },
+        "jpeg70": {
+          "status": "detected",
+          "work_id_digest": "a434b8ac3450d219b36bfa002eadc9c0",
+          "dimensions": [
+            512,
+            512
+          ],
+          "pixel_phase": [
+            0,
+            0
+          ],
+          "tile_phase": [
+            0,
+            0
+          ],
+          "minimum_repetitions": 16,
+          "candidate_count": 1,
+          "expected_payload_matches": true
+        },
+        "cleaned": {
+          "status": "not_detected",
+          "candidate_count": 17664,
+          "expected_payload_matches": false
+        }
+      },
+      "clean_quality": {
+        "mse": 2.9777233600616455,
+        "psnr_db": 43.39196012911582,
+        "psnr_infinite": false,
+        "ssim": 0.9948276877403259,
+        "quality_scope": "RGB8_Wang_Gaussian11_sigma1.5_valid_interior"
+      }
+    },
+    {
+      "source_id": 5106330,
+      "stratum": "screenshot",
+      "source_sha256": "6179ef3ab57647035a0af583658cf0f829fbfbe72233cd428388fdc36b34391c",
+      "protocol": "v2",
+      "strength": 12,
+      "marked_sha256": "ce7c1216d7d49755df0db62ca864b24e6fb1566fd49c793b58aeef91edea0cc9",
+      "cleaned_sha256": "d0362704ac49be539837b3ba7453102b9ad2cd9bfa51069e08c301de755a8bb6",
+      "reports": {
+        "marked": {
+          "status": "detected",
+          "work_id_digest": "a434b8ac3450d219b36bfa00",
+          "copy_id_digest": "4a75334e7868b2b5",
+          "corrected_bits": 0,
+          "rotation": 0,
+          "pixel_phase": [
+            0,
+            0
+          ],
+          "tile_phase": [
+            0,
+            0
+          ],
+          "pilot_correlation": 1.0,
+          "expected_payload_matches": true
+        },
+        "jpeg70": {
+          "status": "detected",
+          "work_id_digest": "a434b8ac3450d219b36bfa00",
+          "copy_id_digest": "4a75334e7868b2b5",
+          "corrected_bits": 0,
+          "rotation": 0,
+          "pixel_phase": [
+            0,
+            0
+          ],
+          "tile_phase": [
+            0,
+            0
+          ],
+          "pilot_correlation": 1.0,
+          "expected_payload_matches": true
+        },
+        "cleaned": {
+          "status": "not_detected",
+          "expected_payload_matches": false
+        }
+      },
+      "clean_quality": {
+        "mse": 9.47320556640625,
+        "psnr_db": 38.36583399368985,
+        "psnr_infinite": false,
+        "ssim": 0.9886804223060608,
+        "quality_scope": "RGB8_Wang_Gaussian11_sigma1.5_valid_interior"
+      }
+    },
+    {
+      "source_id": 8769965,
+      "stratum": "screenshot",
+      "source_sha256": "161943eb8f835b47210428239efcf5dbc01fd7c5aa214e5df3de0d00398e9eeb",
+      "protocol": "v1",
+      "strength": 32,
+      "marked_sha256": "861757ecc02005a0f5bc2a3961dea82c4fef0b2b25612b688b294e8b83aa227f",
+      "cleaned_sha256": "b1f22992d89deedb53741c83ff8b2b2b48f99f3650343678317d7e8a049e3152",
+      "reports": {
+        "marked": {
+          "status": "detected",
+          "work_id_digest": "4a9a7157ff22fb7a261192a83b13b80c",
+          "dimensions": [
+            512,
+            512
+          ],
+          "pixel_phase": [
+            0,
+            0
+          ],
+          "tile_phase": [
+            0,
+            0
+          ],
+          "minimum_repetitions": 16,
+          "candidate_count": 1,
+          "expected_payload_matches": true
+        },
+        "jpeg70": {
+          "status": "detected",
+          "work_id_digest": "4a9a7157ff22fb7a261192a83b13b80c",
+          "dimensions": [
+            512,
+            512
+          ],
+          "pixel_phase": [
+            0,
+            0
+          ],
+          "tile_phase": [
+            0,
+            0
+          ],
+          "minimum_repetitions": 16,
+          "candidate_count": 1,
+          "expected_payload_matches": true
+        },
+        "cleaned": {
+          "status": "not_detected",
+          "candidate_count": 17664,
+          "expected_payload_matches": false
+        }
+      },
+      "clean_quality": {
+        "mse": 3.7673823833465576,
+        "psnr_db": 42.37040658225213,
+        "psnr_infinite": false,
+        "ssim": 0.9683520793914795,
+        "quality_scope": "RGB8_Wang_Gaussian11_sigma1.5_valid_interior"
+      }
+    },
+    {
+      "source_id": 8769965,
+      "stratum": "screenshot",
+      "source_sha256": "161943eb8f835b47210428239efcf5dbc01fd7c5aa214e5df3de0d00398e9eeb",
+      "protocol": "v2",
+      "strength": 12,
+      "marked_sha256": "e58a0a520eb840ba9e6639f2c90eeb92e384c8d6605c78618277ee5e068c0bdb",
+      "cleaned_sha256": "9002e1c0f5d0ae333ed98ef0bc1168e5e5f02f0ed60fccb5341a6f553ce04887",
+      "reports": {
+        "marked": {
+          "status": "detected",
+          "work_id_digest": "4a9a7157ff22fb7a261192a8",
+          "copy_id_digest": "235ac3aac72c6efc",
+          "corrected_bits": 0,
+          "rotation": 0,
+          "pixel_phase": [
+            0,
+            0
+          ],
+          "tile_phase": [
+            0,
+            0
+          ],
+          "pilot_correlation": 1.0,
+          "expected_payload_matches": true
+        },
+        "jpeg70": {
+          "status": "detected",
+          "work_id_digest": "4a9a7157ff22fb7a261192a8",
+          "copy_id_digest": "235ac3aac72c6efc",
+          "corrected_bits": 0,
+          "rotation": 0,
+          "pixel_phase": [
+            0,
+            0
+          ],
+          "tile_phase": [
+            0,
+            0
+          ],
+          "pilot_correlation": 1.0,
+          "expected_payload_matches": true
+        },
+        "cleaned": {
+          "status": "not_detected",
+          "expected_payload_matches": false
+        }
+      },
+      "clean_quality": {
+        "mse": 10.582901000976562,
+        "psnr_db": 37.88475627382446,
+        "psnr_infinite": false,
+        "ssim": 0.9723865985870361,
+        "quality_scope": "RGB8_Wang_Gaussian11_sigma1.5_valid_interior"
+      }
+    },
+    {
+      "source_id": 4607374,
+      "stratum": "text",
+      "source_sha256": "e649b79d6edaa5b9387e117c1b0f43b03a52f7cbc4a6f9e65b76b043c22f2fd9",
+      "protocol": "v1",
+      "strength": 32,
+      "marked_sha256": "f10ccae9451fd4de3a925a9c3dead74feaf25023a79fab5acf77ec7ae495ca9b",
+      "cleaned_sha256": "1015b0d7051466807d9caef192f2b84921af1b1bfdc1bd3752067c4a4d2e6008",
+      "reports": {
+        "marked": {
+          "status": "detected",
+          "work_id_digest": "97a983ea724f024ed2e882ce58ff6742",
+          "dimensions": [
+            512,
+            512
+          ],
+          "pixel_phase": [
+            0,
+            0
+          ],
+          "tile_phase": [
+            0,
+            0
+          ],
+          "minimum_repetitions": 16,
+          "candidate_count": 1,
+          "expected_payload_matches": true
+        },
+        "jpeg70": {
+          "status": "detected",
+          "work_id_digest": "97a983ea724f024ed2e882ce58ff6742",
+          "dimensions": [
+            512,
+            512
+          ],
+          "pixel_phase": [
+            0,
+            0
+          ],
+          "tile_phase": [
+            0,
+            0
+          ],
+          "minimum_repetitions": 16,
+          "candidate_count": 1,
+          "expected_payload_matches": true
+        },
+        "cleaned": {
+          "status": "not_detected",
+          "candidate_count": 17664,
+          "expected_payload_matches": false
+        }
+      },
+      "clean_quality": {
+        "mse": 6.754070281982422,
+        "psnr_db": 39.83514785332756,
+        "psnr_infinite": false,
+        "ssim": 0.9945366382598877,
+        "quality_scope": "RGB8_Wang_Gaussian11_sigma1.5_valid_interior"
+      }
+    },
+    {
+      "source_id": 4607374,
+      "stratum": "text",
+      "source_sha256": "e649b79d6edaa5b9387e117c1b0f43b03a52f7cbc4a6f9e65b76b043c22f2fd9",
+      "protocol": "v2",
+      "strength": 12,
+      "marked_sha256": "62acdc3741731a92a1b8dd461ad808845ad25a7d2131001bd16f0afb408b61a8",
+      "cleaned_sha256": "04cc29b5c05f099b853dc4abba0647a9b3f25d3f4227c958387440442fd6f294",
+      "reports": {
+        "marked": {
+          "status": "detected",
+          "work_id_digest": "97a983ea724f024ed2e882ce",
+          "copy_id_digest": "699cc5cfea9fb10c",
+          "corrected_bits": 0,
+          "rotation": 0,
+          "pixel_phase": [
+            0,
+            0
+          ],
+          "tile_phase": [
+            0,
+            0
+          ],
+          "pilot_correlation": 1.0,
+          "expected_payload_matches": true
+        },
+        "jpeg70": {
+          "status": "detected",
+          "work_id_digest": "97a983ea724f024ed2e882ce",
+          "copy_id_digest": "699cc5cfea9fb10c",
+          "corrected_bits": 0,
+          "rotation": 0,
+          "pixel_phase": [
+            0,
+            0
+          ],
+          "tile_phase": [
+            0,
+            0
+          ],
+          "pilot_correlation": 1.0,
+          "expected_payload_matches": true
+        },
+        "cleaned": {
+          "status": "not_detected",
+          "expected_payload_matches": false
+        }
+      },
+      "clean_quality": {
+        "mse": 20.13593101501465,
+        "psnr_db": 35.091086462025444,
+        "psnr_infinite": false,
+        "ssim": 0.9869349002838135,
+        "quality_scope": "RGB8_Wang_Gaussian11_sigma1.5_valid_interior"
+      }
+    },
+    {
+      "source_id": 12616948,
+      "stratum": "text",
+      "source_sha256": "ea3b7a94991475c22b336cf28fad4b7395fc90b5c5e00862b039cbff49ddc4d1",
+      "protocol": "v1",
+      "strength": 32,
+      "marked_sha256": "48deb8dab3a07a66e709fe3508c674c2fbe5572cce09e888f2eb3e4aeba1aa7f",
+      "cleaned_sha256": "f43c9e6caab547105f6988cf950085d0c6c9239bef1fe11ec6c0235cd60a9c9f",
+      "reports": {
+        "marked": {
+          "status": "detected",
+          "work_id_digest": "cd66514d0a809ff02f4fa7c82a2bf803",
+          "dimensions": [
+            512,
+            512
+          ],
+          "pixel_phase": [
+            0,
+            0
+          ],
+          "tile_phase": [
+            0,
+            0
+          ],
+          "minimum_repetitions": 16,
+          "candidate_count": 1,
+          "expected_payload_matches": true
+        },
+        "jpeg70": {
+          "status": "detected",
+          "work_id_digest": "cd66514d0a809ff02f4fa7c82a2bf803",
+          "dimensions": [
+            512,
+            512
+          ],
+          "pixel_phase": [
+            0,
+            0
+          ],
+          "tile_phase": [
+            0,
+            0
+          ],
+          "minimum_repetitions": 16,
+          "candidate_count": 1,
+          "expected_payload_matches": true
+        },
+        "cleaned": {
+          "status": "not_detected",
+          "candidate_count": 17664,
+          "expected_payload_matches": false
+        }
+      },
+      "clean_quality": {
+        "mse": 2.477078676223755,
+        "psnr_db": 44.19140560133022,
+        "psnr_infinite": false,
+        "ssim": 0.9929817318916321,
+        "quality_scope": "RGB8_Wang_Gaussian11_sigma1.5_valid_interior"
+      }
+    },
+    {
+      "source_id": 12616948,
+      "stratum": "text",
+      "source_sha256": "ea3b7a94991475c22b336cf28fad4b7395fc90b5c5e00862b039cbff49ddc4d1",
+      "protocol": "v2",
+      "strength": 12,
+      "marked_sha256": "7768d2e13e7e5642bd22c78b1dcda7d796f3e39077bb2e8490fe7f73ad3bd8f7",
+      "cleaned_sha256": "a5c636cf4ab688aa65b0786207257eef9b1edf0ead453670e7560428904a232d",
+      "reports": {
+        "marked": {
+          "status": "detected",
+          "work_id_digest": "cd66514d0a809ff02f4fa7c8",
+          "copy_id_digest": "52a03b79b877a75c",
+          "corrected_bits": 0,
+          "rotation": 0,
+          "pixel_phase": [
+            0,
+            0
+          ],
+          "tile_phase": [
+            0,
+            0
+          ],
+          "pilot_correlation": 1.0,
+          "expected_payload_matches": true
+        },
+        "jpeg70": {
+          "status": "detected",
+          "work_id_digest": "cd66514d0a809ff02f4fa7c8",
+          "copy_id_digest": "52a03b79b877a75c",
+          "corrected_bits": 0,
+          "rotation": 0,
+          "pixel_phase": [
+            0,
+            0
+          ],
+          "tile_phase": [
+            0,
+            0
+          ],
+          "pilot_correlation": 1.0,
+          "expected_payload_matches": true
+        },
+        "cleaned": {
+          "status": "not_detected",
+          "expected_payload_matches": false
+        }
+      },
+      "clean_quality": {
+        "mse": 9.881653785705566,
+        "psnr_db": 38.18250727018984,
+        "psnr_infinite": false,
+        "ssim": 0.979585587978363,
+        "quality_scope": "RGB8_Wang_Gaussian11_sigma1.5_valid_interior"
+      }
+    }
+  ],
+  "elapsed_wall_seconds": 47.817858934402466
+}

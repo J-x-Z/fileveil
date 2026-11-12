@@ -86,6 +86,115 @@ class BenchmarkMetrics(unittest.TestCase):
             self.assertEqual(output.size, reference.size)
             self.assertTrue(np.array_equal(np.asarray(output), np.asarray(reference)))
 
+    def test_cleanup_metrics_keep_indeterminate_separate_from_strict_negative(self):
+        spec = importlib.util.spec_from_file_location(
+            "compare", ROOT / "tools/benchmark-compare.py"
+        )
+        compare = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(compare)
+        rows = [
+            dict(
+                attack="clean",
+                ok=True,
+                detector=dict(status="not_detected", frame_valid=False),
+            ),
+            dict(
+                attack="clean",
+                ok=True,
+                detector=dict(status="indeterminate", frame_valid=False),
+            ),
+        ]
+        values = compare.aggregate(rows)
+        self.assertEqual(values["clean_valid_frame_disruption_rate"], 1)
+        self.assertEqual(values["clean_strict_negative_rate"], 0.5)
+        self.assertEqual(values["clean_indeterminate"], 1)
+
+    def test_uncertain_control_is_preserved_separately_from_detected_frames(self):
+        spec = importlib.util.spec_from_file_location(
+            "compare", ROOT / "tools/benchmark-compare.py"
+        )
+        compare = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(compare)
+        rows = [
+            dict(
+                attack=attack,
+                ok=True,
+                detector=dict(status="indeterminate", frame_valid=False),
+            )
+            for attack in ("negative", "wrong_key")
+        ]
+        values = compare.aggregate(rows)
+        self.assertEqual(values["negative_indeterminate"], 1)
+        self.assertEqual(values["wrong_key_indeterminate"], 1)
+        self.assertEqual(values["false_positives"], 0)
+
+    def test_comparison_rejects_different_source_bytes(self):
+        import json
+        import tempfile
+
+        spec = importlib.util.spec_from_file_location(
+            "compare", ROOT / "tools/benchmark-compare.py"
+        )
+        compare = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(compare)
+        with tempfile.TemporaryDirectory() as folder:
+            paths = []
+            for index, checksum in enumerate(["first", "different"]):
+                path = Path(folder) / f"{index}-summary.json"
+                path.write_text(json.dumps({}))
+                row = dict(
+                    source_id=1,
+                    source_sha256=checksum,
+                    work_sha256="same",
+                    prepared_dimensions=[512, 512],
+                    attack="embedding",
+                )
+                path.with_name(f"{index}.jsonl").write_text(json.dumps(row) + "\n")
+                paths.append(path)
+            with self.assertRaisesRegex(ValueError, "Source hashes"):
+                compare.compare(paths)
+
+    def test_resume_rejects_changed_compiled_runner(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "run.json"
+            benchmark.bind_run(path, dict(runner_sha256="original"), False)
+            benchmark.bind_run(path, dict(runner_sha256="original"), True)
+            with self.assertRaisesRegex(ValueError, "Run identity changed"):
+                benchmark.bind_run(path, dict(runner_sha256="changed"), True)
+
+    def test_resume_rejects_unbound_old_measurements(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as folder:
+            with self.assertRaisesRegex(ValueError, "lack their run identity"):
+                benchmark.bind_run(Path(folder) / "run.json", {}, True)
+
+    def test_unavailable_platform_resources_are_not_reported_as_zero(self):
+        spec = importlib.util.spec_from_file_location(
+            "compare", ROOT / "tools/benchmark-compare.py"
+        )
+        compare = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(compare)
+        result = compare.aggregate(
+            [
+                dict(
+                    attack="original",
+                    algorithm_cpu_seconds=None,
+                    process_peak_rss_bytes=None,
+                )
+            ]
+        )
+        self.assertIsNone(result["recorded_operations_cpu_seconds"])
+        self.assertIsNone(result["worker_process_peak_rss_bytes"])
+        summary = benchmark.summarize(
+            [dict(attack="original", ok=True, detector=dict(status="not_detected"))],
+            {},
+        )["attacks"]["original"]
+        self.assertIsNone(summary["cpu_seconds"])
+        self.assertIsNone(summary["peak_rss_bytes"])
+
 
 if __name__ == "__main__":
     unittest.main()

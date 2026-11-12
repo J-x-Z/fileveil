@@ -1,0 +1,44 @@
+{
+  "scope": "Frozen explicit-strength Quality12 and Robust20 recipes. The persistent worker records a loaded binary hash; this copy preserves the same executable for audit.",
+  "files": [
+    {
+      "path": "target/release/examples/benchmark_engine",
+      "sha256": "cc0f81b566353df296e7fa34be2b0bc29f9dfbc90d159b4148d5a495069b76e8",
+      "bytes": 1264064
+    },
+    {
+      "path": "crates/fileveil-engine/src/heritage/robust.rs",
+      "sha256": "56abbb63267e60df1ed949427aac8be4a0a3457a59b49f3b56a63c098ae38c2c",
+      "bytes": 21197
+    },
+    {
+      "path": "crates/fileveil-engine/src/heritage/robust_v2.rs",
+      "sha256": "9db45c3a6e983a7734bfdb7cdde0125e22d2ee8252f0953ae2624380dfcab40b",
+      "bytes": 44153
+    },
+    {
+      "path": "crates/fileveil-engine/src/heritage/robust_v2/geometry.rs",
+      "sha256": "16ec926f36a4ebe590d4c958b588ae2fa9281d80af7e154b32387ee19c7b7b65",
+      "bytes": 8381
+    },
+    {
+      "path": "crates/fileveil-engine/examples/benchmark_engine.rs",
+      "sha256": "5f3902e21234e22951b3f1d2b03f34905b880da7abbb0ac586c65fbdee1a1142",
+      "bytes": 8252
+    },
+    {
+      "path": "tools/benchmark-watermarks.py",
+      "sha256": "c43f091eb9fcc8fe7d05378c068783b9095d55fa80c761152ec8853afc21a0d6",
+      "bytes": 32479
+    },
+    {
+      "path": "tests/fixtures/benchmark-corpus.json",
+      "sha256": "23199d037fc65144b594029d35cb9dab75fe72013c60bc5dd4c257a8dc5a6618",
+      "bytes": 302295
+    }
+  ],
+  "schema": "fileveil.watermark.benchmark.snapshot.v1",
+  "binary_snapshot_path": "work/v05-benchmark/bin/benchmark-engine-frozen",
+  "source_snapshot_directory": "work/v05-benchmark/frozen-code",
+  "post_measurement_changes": "The default strength constant changed from 16 to 12. Explicit strength 12 and 20 calls retain the same algorithm body. The runner and harness subsequently gained compiled-source fingerprints and resume identity binding."
+}

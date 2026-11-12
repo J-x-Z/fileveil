@@ -7,13 +7,18 @@
 
 源文件共 93,245,848 字节，约 88.93 MiB。大图使用明确标识的上游有界缩略图，原图尺寸与实际下载尺寸同时记录。下载文件保持原字节，基准转换为 RGB8、保持宽高比并将最长边限制在 1024，短边至少 512。来源包含相关书页、同一软件和相邻拍摄场景，统计范围为该固定语料。整体人群误报率与独立场景泛化能力仍待更大语料标定。
 
+准备图具有 114 种实际宽高组合，185 张最长边为 1024，15 张最长边位于 608–1014。结果按内容类型及准备尺寸分列，缩放攻击另测 50%、75% 和 150% 尺寸。
+
 第三方图片遵循逐项来源许可。仓库保存来源清单与结果，图片留在忽略的 `work/` 目录。MPL-2.0 覆盖项目自有代码。源文件改变时 SHA-256 复核会停止重放。
 
 ```sh
 python3 tools/benchmark-fetch.py --replay tests/fixtures/benchmark-corpus.json
 CARGO_INCREMENTAL=0 cargo build --locked --release -p fileveil-engine --example benchmark_engine
-python3 tools/benchmark-watermarks.py --protocol v1 --profile full --limit 200
+python3 tools/benchmark-watermarks.py --protocol v1 --strength 32 --profile full --limit 200
+python3 tools/benchmark-watermarks.py --protocol v2 --strength 12 --profile full --limit 200
+python3 tools/benchmark-watermarks.py --protocol v2 --strength 20 --profile full --limit 200
 python3 tests/support/benchmark_metrics_test.py
+python3 tests/support/benchmark_oracle_recheck.py --executable target/release/examples/benchmark_engine
 ```
 
 本次环境使用 NumPy 2.2.6、Pillow 12.0.0、OpenCV 4.12.0。AVIF 与 WebP 由真实编解码器执行，再以解码后的像素输入 Rust 信号算法。格式入口的能力矩阵独立于该像素算法基准。
@@ -22,13 +27,13 @@ python3 tests/support/benchmark_metrics_test.py
 
 每图执行 40 项固定操作，覆盖 JPEG 10–90/95、PNG、WebP 30/70/lossless、AVIF 35/70、50/75/150% 缩放、50/75% 中心与偏移裁剪、90/180/270°及 5/15°旋转、模糊、固定随机种子噪声、亮度/对比度/饱和度、连续编辑和组合处理。`screen_resample` 是明确标识的截图式重采样模拟。真实软件截图来自语料中的截图组。`metadata_strip` 是像素保持控制，文件系统和 Core 元数据操作另有正常入口集成测试。
 
-Rust runner 使用 JSONL 长生命周期进程，每次仅保留当前图像。攻击中间文件位于自动回收的临时目录。结果保留为 JSONL、JSON 和 CSV，支持明确的 `--resume`。首次声明结果绑定语料、执行文件、算法与测量范围；公开测试密钥只用于开发基准。
+Rust runner 使用 JSONL 长生命周期进程，每次仅保留当前图像。攻击中间文件位于自动回收的临时目录。结果保留为 JSONL、JSON 和 CSV，支持明确的 `--resume`。runner 通过编译期内嵌源码提供指纹，重放绑定语料、执行文件、算法和测量脚本。恢复时身份发生变化会要求使用新的结果目录。公开测试密钥只用于开发基准。
 
 检测成功要求协议帧有效且恢复正确作品摘要，2.0 同时比较发行副本摘要。阴性、错误密钥和不同作品/副本编号分别统计。0.4 的公开协议将错误密钥场景记录为不适用。失败嵌入保留在端到端分母中。
 
 PSNR 与 SSIM 基于 RGB8，SSIM 使用 11×11、sigma 1.5 高斯窗口和有效内部区域。几何攻击对参考图应用已知相同几何变换。0.4 BER 通过独立系数观测计算，成功帧使用检测器选择的几何，失败帧使用明确标识的 512 名义网格。2.0 的已知载荷诊断比较最佳导频候选和 441 位编码帧，候选选择仅依赖导频或有效 MAC。纠错重构差异率另行记录。
 
-CPU 为 Rust 进程 `getrusage` 增量，写操作包含 PNG 输出编码。RSS 为该协议 worker 的进程生命周期高水位。整个脚本耗时还包含真实重编码和质量计算，同机并发负载会影响墙钟。性能比较优先采用同主机 CPU 记录。
+CPU 为 Rust 进程 `getrusage` 增量，写操作包含 PNG 输出编码。40 项正控操作记录完整的检测或已知载荷分析调用。累计 CPU 为已记录调用之和，清理后附加检测调用的 CPU 未计入该累计数值。RSS 为该协议 worker 的进程生命周期高水位。整个脚本耗时还包含真实重编码和质量计算，同机并发负载会影响墙钟。性能比较优先采用同主机 CPU 记录。
 
 ## 0.4 实测基线
 
@@ -47,4 +52,35 @@ CPU 为 Rust 进程 `getrusage` 增量，写操作包含 PNG 输出编码。RSS 
 
 嵌入成功 200/200，阴性检出 0/200。定向清理后完整帧检出 0/200，其中严格 `not_detected` 为 130/200，`indeterminate` 为 70/200。清理后的状态分布与完整帧破坏率分别记录。
 
-嵌入平均 PSNR 为 36.7855 dB，SSIM 为 0.928953。Rust 累计 CPU 为 98.4743 s，协议 worker 峰值 RSS 为 102.375 MiB。整个脚本耗时 901.3 s。完整逐操作数值保存在 `tests/fixtures/benchmark/v1-baseline-summary.json` 和 CSV，原始 8800 条记录保存在 `work/v05-benchmark/results/v1-s32-full-200.jsonl`。
+嵌入平均 PSNR 为 36.7855 dB，SSIM 为 0.928953。Rust 已记录调用累计 CPU 为 98.4743 s，协议 worker 峰值 RSS 为 102.375 MiB。整个脚本耗时 901.3 s。完整逐操作数值保存在 `tests/fixtures/benchmark/v1-baseline-summary.json` 和 CSV，原始 8800 条记录保存在 `work/v05-benchmark/results/v1-s32-full-200.jsonl`。
+
+## 2.0 质量与稳健配置实测
+
+采用同一组 200 张来源文件、相同准备尺寸和 40 项操作，2.0 强度 12 恢复正确作品与副本摘要 7127/8000，约 89.0875%。所有嵌入成功，200 张阴性和 200 次错误密钥均未检出有效帧，不同作品与副本参考均未匹配。清理后 200/200 为严格 `not_detected`。
+
+强度 20 恢复 7672/8000，约 95.9%，阴性、错误密钥各 0/200，有效载荷均匹配预期作品与副本。两种 2.0 配置均执行 8800 条记录，所有三种配置的执行错误数均为零。
+
+| 指标 | 0.4 强度 32 | 2.0 质量 12 | 2.0 稳健 20 |
+| --- | --- | --- | --- |
+| 40 项操作正确恢复 | 6219/8000，77.7375% | 7127/8000，89.0875% | 7672/8000，95.9% |
+| 嵌入 PSNR / SSIM | 36.7855 dB / 0.928953 | 36.3453 dB / 0.970352 | 34.8867 dB / 0.951193 |
+| 正控分析调用 CPU 平均 / p95 | 10.23 / 19.22 ms | 26.87 / 128.39 ms | 20.06 / 95.65 ms |
+| 已记录调用 CPU 累计 | 98.4743 s | 301.6767 s | 249.3245 s |
+| worker 生命周期峰值 RSS | 102.375 MiB | 106.328 MiB | 114.156 MiB |
+| 完整脚本墙钟 | 901.3 s | 1162.7 s | 1298.9 s |
+| 清理相对原图 PSNR / SSIM | 39.6282 dB / 0.974413 | 34.7074 dB / 0.965353 | 34.6004 dB / 0.961942 |
+| 清理严格阴性 / 无法判断 | 130 / 70 | 200 / 0 | 200 / 0 |
+
+几何同步改善偏移 75% 裁剪的恢复数，从 0/200 增至 165/200，5°与 15°旋转分别恢复 131/200 和 126/200，组合操作恢复 113/200。低码率 AVIF 35 从 131/200 降至 88/200，WebP 30 从 147/200 降至 113/200，JPEG 10 从 110/200 降至 106/200。中心 50% 裁剪从 150/200 降至 137/200。定向清理具有更高的可见质量代价，表中同时记录清理状态和质量。
+
+稳健配置的 JPEG 10、AVIF 35、WebP 30 分别恢复 163、137、170/200。偏移 75% 和中心 50% 裁剪为 195、184/200，5°和 15°旋转各为 166/200，组合操作为 153/200。高强度使更多帧提前通过认证，降低本组 Rust 分析调用的平均 CPU。2.0 调用还包括已知载荷 BER 诊断，0.4 的独立 BER 在 Python 中计算。表中的分析 CPU 与完整脚本墙钟分别保留各自范围。
+
+0.4 的 BER 按独立解码几何及失败时名义网格分列，2.0 按有效 MAC 几何及最佳导频候选分列。各项观察数、均值和每项操作的误码测量保存在 `tests/fixtures/benchmark/comparison-final.json`。逐操作恢复数见同名 CSV，两种配置的完整摘要和独立复检收据也保存在该目录。
+
+本次 2.0 执行文件 SHA-256 为 `cc0f81b566353df296e7fa34be2b0bc29f9dfbc90d159b4148d5a495069b76e8`，算法源为 `9db45c3a6e983a7734bfdb7cdde0125e22d2ee8252f0953ae2624380dfcab40b`，几何源为 `16ec926f36a4ebe590d4c958b588ae2fa9281d80af7e154b32387ee19c7b7b65`。显式强度 12 与 20 的算法正文固定。后续默认强度常量调整为 12，未改变这些显式参数调用。执行源码与二进制快照保留在 `work/v05-benchmark/frozen-code/` 和 `work/v05-benchmark/bin/`。
+
+## 独立解码与清理复检
+
+从每类来源选取两张，共 8 张真实图片，明确居中裁为 512×512 互操作子集。OpenCV 使用完整 DCT，0.4 验证 CRC，2.0 使用独立的完整三位纠错 syndrome 查表及 Python 标准 HMAC。每种协议原图和 JPEG 70 各 8/8 恢复正确摘要，清理后各 8/8 未检出。2.0 独立解码覆盖原生尺寸、四分之一旋转和像素/块相位。FFT 任意角同步与重采样网格使用 Rust 基准测量。
+
+独立复检只保留来源、输出哈希及检测收据，临时图自动回收。`tests/support/benchmark_oracle_recheck.py` 可重新执行该子集。
