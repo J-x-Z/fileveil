@@ -482,7 +482,6 @@ fn supervise(cli: &Cli) -> Result<i32> {
             return Ok(6);
         }
         if let Some(status) = child
-            .child
             .try_wait()
             .map_err(|_| Error::Io("Could not inspect CLI worker".into()))?
         {

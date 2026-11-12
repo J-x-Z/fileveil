@@ -129,7 +129,7 @@ def copy_resources(destination: Path) -> None:
             shutil.copyfile(source, destination / source.name)
     # Include the corresponding project source for MPL section 3.2 distributions.
     with zipfile.ZipFile(destination / "FileVeil-source.zip", "w", zipfile.ZIP_DEFLATED) as archive:
-        for base in ["Cargo.toml", "Cargo.lock", "LICENSE", "README.md", ".github", "crates", "tools", "docs", "tests", "assets", "THIRD_PARTY_NOTICES.txt"]:
+        for base in ["Cargo.toml", "Cargo.lock", "LICENSE", "README.md", ".gitignore", ".gitattributes", ".github", "crates", "tools", "docs", "tests", "assets", "THIRD_PARTY_NOTICES.txt"]:
             source = ROOT / base
             paths = source.rglob("*") if source.is_dir() else [source]
             for path in sorted(paths):
@@ -193,6 +193,7 @@ def bundle_macos_qpdf(resources: Path) -> None:
         notices.mkdir(parents=True, exist_ok=True)
         for text in texts:
             shutil.copy2(text, notices / text.name)
+    run([str(destination / source.name), "--version"], timeout=30)
 
 
 def create_icon(source: Path | None, resources: Path, temporary: Path) -> str | None:
@@ -235,6 +236,11 @@ def package_macos(binary: Path, stage: Path, version: str, icon: Path | None, te
     bundle_macos_qpdf(resources)
     shutil.copyfile(binary, executable)
     executable.chmod(stat.S_IMODE(binary.stat().st_mode) | 0o111)
+    cli_binary = binary.with_name("fileveil")
+    cli = contents / "MacOS" / cli_binary.name
+    shutil.copyfile(cli_binary, cli)
+    cli.chmod(stat.S_IMODE(cli_binary.stat().st_mode) | 0o111)
+    run(["codesign", "--force", "--sign", "-", "--timestamp=none", str(cli)], timeout=60)
     info = {
         "CFBundleName": "FileVeil",
         "CFBundleDisplayName": "FileVeil",
@@ -244,7 +250,7 @@ def package_macos(binary: Path, stage: Path, version: str, icon: Path | None, te
         "CFBundleShortVersionString": version,
         "CFBundleVersion": version,
         "CFBundleInfoDictionaryVersion": "6.0",
-        "LSMinimumSystemVersion": minimum_macos([binary]),
+        "LSMinimumSystemVersion": minimum_macos([binary, cli_binary]),
         "NSHighResolutionCapable": True,
         "NSPrincipalClass": "NSApplication",
         "NSDocumentsFolderUsageDescription": "FileVeil reads the files you select for local privacy auditing.",
@@ -274,6 +280,10 @@ def package_portable(binary: Path, stage: Path, version: str, platform: str) -> 
     executable = stage / binary.name
     shutil.copyfile(binary, executable)
     executable.chmod(stat.S_IMODE(binary.stat().st_mode) | 0o111)
+    cli_binary = binary.with_name("fileveil.exe" if platform == "windows" else "fileveil")
+    cli = stage / cli_binary.name
+    shutil.copyfile(cli_binary, cli)
+    cli.chmod(stat.S_IMODE(cli_binary.stat().st_mode) | 0o111)
     copy_resources(stage / "resources")
     pdf_backend = portable_pdf_backend(stage, platform)
     manifest = {
@@ -283,6 +293,8 @@ def package_portable(binary: Path, stage: Path, version: str, platform: str) -> 
         "platform": platform,
         "executable": executable.name,
         "sha256": hashlib.sha256(executable.read_bytes()).hexdigest(),
+        "cli_executable": cli.name,
+        "cli_sha256": hashlib.sha256(cli.read_bytes()).hexdigest(),
         "pdf_backend": pdf_backend,
     }
     (stage / "fileveil-package.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
@@ -316,6 +328,9 @@ def portable_pdf_backend(stage: Path, platform: str) -> dict:
             if not license_file.is_file():
                 raise PackagingError(f"qpdf distribution notice is missing ({name})")
             shutil.copy2(license_file, notices / name)
+        for license_file in sorted((ROOT / "assets" / "licenses" / "external-qpdf").glob("windows-*")):
+            if license_file.is_file():
+                shutil.copy2(license_file, notices / license_file.name)
     try:
         result = subprocess.run([str(probe), "--version"], capture_output=True, text=True,
                                 check=True, timeout=30)
@@ -352,7 +367,7 @@ def main() -> int:
             raise PackagingError(f"Output already exists ({destination}). Use --replace to update a FileVeil package")
         verify_owned_package(destination, platform)
     if not arguments.skip_build:
-        run(["cargo", "build", "--locked", "--release", "-p", "fileveil-gui", "--target-dir", str(target)])
+        run(["cargo", "build", "--locked", "--release", "-p", "fileveil-gui", "-p", "fileveil-cli", "--target-dir", str(target)])
     if not binary.is_file():
         raise PackagingError(f"Release binary is missing ({binary})")
     try:
@@ -367,6 +382,15 @@ def main() -> int:
     actual = probe.stdout.strip()
     if actual.split()[-1:] != [version]:
         raise PackagingError(f"Release binary version disagrees with workspace version ({actual})")
+    cli_binary = binary.with_name("fileveil.exe" if platform == "windows" else "fileveil")
+    if not cli_binary.is_file():
+        raise PackagingError("Matching release CLI is missing. Build fileveil-cli and fileveil-gui before --skip-build")
+    try:
+        cli_probe = subprocess.run([str(cli_binary), "--version"], cwd=ROOT, text=True, capture_output=True, timeout=60)
+    except subprocess.TimeoutExpired as error:
+        raise PackagingError("CLI version probe exceeded 60 seconds") from error
+    if cli_probe.returncode != 0 or cli_probe.stdout.strip().split()[-1:] != [version]:
+        raise PackagingError("Release CLI version disagrees with workspace version")
     output.mkdir(parents=True, exist_ok=True)
     icon = arguments.icon
     if icon is None and (ROOT / "assets" / "FileVeil.icns").is_file():

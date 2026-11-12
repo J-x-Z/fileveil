@@ -659,6 +659,7 @@ pub fn capabilities(limits: &Limits) -> serde_json::Value {
         "schema_version": fileveil_core::SCHEMA_VERSION, "tool": "FileVeil", "version": env!("CARGO_PKG_VERSION"),
         "offline": true, "telemetry": false, "profiles": {"safe": "available", "deep": "selective", "research": "experimental_signal_processing"},
         "pdf": pdf::capabilities(), "provenance": provenance::capabilities(), "watermark_detectors": watermark::detectors(),
+        "external_provenance_interfaces": provenance::external_interfaces(),
         "difference_lab":{"available":true,"min_samples":2,"max_samples":8,"methods":["pixel_difference","rgb_lsb","entropy","dct","dft"],"oem_attribution":"not_assessed"},
         "image_processing": {"low_bits": "available", "signal": "experimental", "input": ["jpeg", "png"], "output": "png", "unknown_keyed_watermark_verification": "not_assessed", "changes_pixels": true},
         "formats": [

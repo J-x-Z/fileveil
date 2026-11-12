@@ -37,5 +37,11 @@ fn main() {
     )
     .unwrap();
     fs::write(root.join("worker.pid"), std::process::id().to_string()).unwrap();
+    if executable
+        .file_name()
+        .is_some_and(|name| name == "normal-exit-worker.exe")
+    {
+        return;
+    }
     std::thread::sleep(Duration::from_secs(60));
 }

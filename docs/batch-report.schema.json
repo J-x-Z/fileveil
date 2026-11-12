@@ -208,8 +208,6 @@
       }
     },
     "report": {
-      "$schema": "https://json-schema.org/draft/2020-12/schema",
-      "$id": "urn:fileveil:report:0.3",
       "title": "FileVeil report 0.3 with legacy 0.1 and 0.2 support",
       "type": "object",
       "additionalProperties": false,

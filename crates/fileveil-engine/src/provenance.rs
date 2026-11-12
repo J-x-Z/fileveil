@@ -66,6 +66,33 @@ pub fn capabilities() -> Vec<ProvenanceCapability> {
     capabilities
 }
 
+/// Documented remote interfaces remain disabled in this offline build.
+/// No credentials are loaded and no file content is transmitted by this API.
+pub fn external_interfaces() -> serde_json::Value {
+    json!({
+        "checked_date":"2026-11-12", "network_enabled":false,
+        "openai_media":{
+            "status":"documented_api_not_configured", "evidence":["c2pa","synthid"],
+            "endpoint":"https://api.openai.com/v1/content_provenance_checks",
+            "reference":"https://developers.openai.com/api/docs/guides/content-provenance",
+            "requires_api_access":true,"requires_explicit_upload_consent":true,
+            "upload_scope":"whole_selected_file", "max_file_bytes":52_428_800,
+            "max_audio_seconds":60,"executed":false
+        },
+        "openai_text":{
+            "status":"organization_approval_required", "evidence":"keyed_text_watermark",
+            "reference":"https://developers.openai.com/api/docs/guides/content-provenance",
+            "requested_textgrain_name_verified":false,"executed":false
+        },
+        "anthropic_text":{
+            "status":"restricted_private_preview_not_configured", "method_family":"synthid_text",
+            "reference":"https://www.anthropic.com/news/claude-text-watermark",
+            "requires_provider_access":true,"requires_explicit_upload_consent":true,
+            "hidden_character_removal_is_a_separate_operation":true,"executed":false
+        }
+    })
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CheckStatus {

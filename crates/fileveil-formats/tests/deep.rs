@@ -519,3 +519,209 @@ fn relationship_types_identify_privacy_parts_with_arbitrary_member_names() {
     )
     .unwrap();
 }
+
+fn hidden_workbook(visible_sheet: &str, workbook_extra: &str, extra: &[(&str, &[u8])]) -> Vec<u8> {
+    let ns = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+    let workbook = format!(
+        r#"<workbook xmlns="{ns}" xmlns:r="{R}"><bookViews><workbookView activeTab="1" firstSheet="1"/></bookViews><sheets><sheet name="PRIVATE_HIDDEN_ONE" sheetId="1" state="hidden" r:id="hidden1"/><sheet name="Visible" sheetId="2" r:id="visible"/><sheet name="PRIVATE_HIDDEN_TWO" sheetId="3" state="veryHidden" r:id="hidden2"/></sheets>{workbook_extra}</workbook>"#
+    );
+    let rels = format!(
+        r#"<Relationships xmlns="{REL}"><Relationship Id="hidden1" Type="{R}/worksheet" Target="worksheets/private1.xml"/><Relationship Id="visible" Type="{R}/worksheet" Target="worksheets/public.xml"/><Relationship Id="hidden2" Type="{R}/worksheet" Target="worksheets/private2.xml"/></Relationships>"#
+    );
+    let secret = format!(
+        r#"<worksheet xmlns="{ns}"><sheetData><row r="1"><c r="A1" t="inlineStr"><is><t>PRIVATE_HIDDEN_PAYLOAD</t></is></c></row></sheetData></worksheet>"#
+    );
+    let mut entries = vec![
+        ("xl/_rels/workbook.xml.rels", rels.as_bytes()),
+        ("xl/worksheets/private1.xml", secret.as_bytes()),
+        ("xl/worksheets/private2.xml", secret.as_bytes()),
+        ("xl/worksheets/public.xml", visible_sheet.as_bytes()),
+    ];
+    entries.extend_from_slice(extra);
+    let initial = package(Format::Xlsx, &workbook, &entries);
+    let mut zip = ZipArchive::new(Cursor::new(&initial)).unwrap();
+    let mut writer = ZipWriter::new(Cursor::new(Vec::new()));
+    for index in 0..zip.len() {
+        let mut file = zip.by_index(index).unwrap();
+        let name = file.name().unwrap().into_owned();
+        let mut bytes = Vec::new();
+        file.read_to_end(&mut bytes).unwrap();
+        if name == "[Content_Types].xml" {
+            let mut types = String::from_utf8(bytes).unwrap();
+            let declarations=["private1","private2","public"].iter().map(|name|format!(r#"<Override PartName="/xl/worksheets/{name}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>"#)).collect::<String>();
+            types = types.replace("</Types>", &format!("{declarations}</Types>"));
+            bytes = types.into_bytes();
+        }
+        writer
+            .start_file(
+                name,
+                SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored),
+            )
+            .unwrap();
+        writer.write_all(&bytes).unwrap();
+    }
+    writer.finish().unwrap().into_inner()
+}
+fn literal_sheet() -> &'static str {
+    r#"<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData><row r="1"><c r="A1" t="inlineStr"><is><t>Retained visible text</t></is></c><c r="B1"><v>42</v></c></row></sheetData></worksheet>"#
+}
+
+#[test]
+fn simple_hidden_worksheets_are_removed_with_relationships_and_view_reindexing() {
+    let original = hidden_workbook(literal_sheet(), "", &[]);
+    let options = deep(DeepOptions {
+        remove_hidden_sheets: true,
+        ..Default::default()
+    });
+    let before = inspect_with_options(
+        &original,
+        Path::new("workbook.xlsx"),
+        &Limits::default(),
+        &options,
+    )
+    .unwrap();
+    assert!(before.blockers.is_empty());
+    assert!(
+        before.findings.iter().any(
+            |finding| finding.code == "ooxml.hidden_sheets" && finding.action == Action::Remove
+        )
+    );
+    let output =
+        sanitize_with_options(&original, Format::Xlsx, &Limits::default(), &options).unwrap();
+    assert!(part(&output, "xl/worksheets/private1.xml").is_none());
+    assert!(part(&output, "xl/worksheets/private2.xml").is_none());
+    assert_eq!(
+        part(&original, "xl/worksheets/public.xml"),
+        part(&output, "xl/worksheets/public.xml")
+    );
+    assert!(!String::from_utf8_lossy(&output).contains("PRIVATE_HIDDEN"));
+    // roxmltree independently verifies workbook references, namespace and view indices.
+    let workbook = part(&output, "xl/workbook.xml").unwrap();
+    let document = roxmltree::Document::parse(std::str::from_utf8(&workbook).unwrap()).unwrap();
+    let sheets: Vec<_> = document
+        .descendants()
+        .filter(|node| node.tag_name().name() == "sheet")
+        .collect();
+    assert_eq!(sheets.len(), 1);
+    assert_eq!(sheets[0].attribute("name"), Some("Visible"));
+    let view = document
+        .descendants()
+        .find(|node| node.tag_name().name() == "workbookView")
+        .unwrap();
+    assert_eq!(view.attribute("activeTab"), Some("0"));
+    assert_eq!(view.attribute("firstSheet"), Some("0"));
+    let types = part(&output, "[Content_Types].xml").unwrap();
+    let types = roxmltree::Document::parse(std::str::from_utf8(&types).unwrap()).unwrap();
+    assert!(!types.descendants().any(|node| {
+        node.attribute("PartName")
+            .is_some_and(|name| name.contains("private"))
+    }));
+    let rels = part(&output, "xl/_rels/workbook.xml.rels").unwrap();
+    let rels = roxmltree::Document::parse(std::str::from_utf8(&rels).unwrap()).unwrap();
+    assert_eq!(
+        rels.descendants()
+            .filter(|node| node.tag_name().name() == "Relationship")
+            .count(),
+        1
+    );
+    let verified = verify_scoped(
+        &original,
+        &output,
+        Format::Xlsx,
+        &Limits::default(),
+        &options,
+    )
+    .unwrap();
+    assert_eq!(verified.result, Outcome::PartiallyVerified);
+    assert_eq!(verified.integrity.content_equal, None);
+    assert!(
+        verified
+            .findings
+            .iter()
+            .any(|finding| finding.code == "ooxml.hidden_sheets"
+                && finding.state == FindingState::RemovedVerified)
+    );
+}
+
+#[test]
+fn hidden_sheet_deletion_blocks_calculation_and_shared_string_dependencies() {
+    let options = deep(DeepOptions {
+        remove_hidden_sheets: true,
+        ..Default::default()
+    });
+    for tag in [
+        "f",
+        "formula",
+        "formula1",
+        "formula2",
+        "calculatedColumnFormula",
+        "totalsRowFormula",
+    ] {
+        let formula =
+            literal_sheet().replace("<v>42</v>", &format!("<{tag}>SUM(A1:A2)</{tag}><v>42</v>"));
+        let original = hidden_workbook(&formula, "", &[]);
+        assert!(
+            matches!(
+                sanitize_with_options(&original, Format::Xlsx, &Limits::default(), &options),
+                Err(Error::Blocked(_))
+            ),
+            "{tag}"
+        );
+    }
+    let original = hidden_workbook(
+        literal_sheet(),
+        r#"<definedNames><definedName name="PrivateRange">PRIVATE_HIDDEN_ONE!A1</definedName></definedNames>"#,
+        &[],
+    );
+    assert!(matches!(
+        sanitize_with_options(&original, Format::Xlsx, &Limits::default(), &options),
+        Err(Error::Blocked(_))
+    ));
+    for name in [
+        "xl/sharedStrings.xml",
+        "xl/calcChain.xml",
+        "xl/charts/chart1.xml",
+        "xl/pivotTables/pivotTable1.xml",
+    ] {
+        let original = hidden_workbook(literal_sheet(), "", &[(name, b"<dependency/>")]);
+        assert!(
+            matches!(
+                sanitize_with_options(&original, Format::Xlsx, &Limits::default(), &options),
+                Err(Error::Blocked(_))
+            ),
+            "{name}"
+        );
+    }
+}
+
+#[test]
+fn hidden_sheet_deletion_blocks_complex_outbound_and_inbound_relationships() {
+    let options = deep(DeepOptions {
+        remove_hidden_sheets: true,
+        ..Default::default()
+    });
+    let external = format!(
+        r#"<Relationships xmlns="{REL}"><Relationship Id="link" Type="{R}/hyperlink" Target="https://example.invalid/private" TargetMode="External"/></Relationships>"#
+    );
+    let original = hidden_workbook(
+        literal_sheet(),
+        "",
+        &[("xl/worksheets/_rels/private1.xml.rels", external.as_bytes())],
+    );
+    assert!(matches!(
+        sanitize_with_options(&original, Format::Xlsx, &Limits::default(), &options),
+        Err(Error::Blocked(_))
+    ));
+    let inbound = format!(
+        r#"<Relationships xmlns="{REL}"><Relationship Id="other" Type="urn:unknown" Target="private1.xml"/></Relationships>"#
+    );
+    let original = hidden_workbook(
+        literal_sheet(),
+        "",
+        &[("xl/worksheets/_rels/public.xml.rels", inbound.as_bytes())],
+    );
+    assert!(matches!(
+        sanitize_with_options(&original, Format::Xlsx, &Limits::default(), &options),
+        Err(Error::Blocked(_))
+    ));
+}

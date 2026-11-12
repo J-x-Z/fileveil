@@ -10,6 +10,7 @@ const W_STRICT: &str = "http://purl.oclc.org/ooxml/wordprocessingml/main";
 const R_NS: &str = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
 const R_STRICT: &str = "http://purl.oclc.org/ooxml/officeDocument/relationships";
 const S_NS: &str = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+const S_STRICT: &str = "http://purl.oclc.org/ooxml/spreadsheetml/main";
 const VML_NS: &str = "urn:schemas-microsoft-com:vml";
 const EXCEL_NS: &str = "urn:schemas-microsoft-com:office:excel";
 
@@ -38,7 +39,7 @@ impl Node {
     fn attribute(&self, name: &str) -> Option<&str> {
         self.attributes
             .iter()
-            .find(|a| a.local == name)
+            .find(|a| a.namespace.is_empty() && a.local == name)
             .map(|a| a.value.as_str())
     }
     fn relationship_id(&self) -> Option<&str> {
@@ -240,6 +241,258 @@ struct Plan {
     edits: BTreeMap<String, Vec<Edit>>,
     codes: BTreeSet<&'static str>,
 }
+fn spreadsheet(namespace: &str) -> bool {
+    matches!(namespace, S_NS | S_STRICT)
+}
+fn replace_attributes(node: &Node, replacements: &BTreeMap<&str, String>) -> Result<Edit> {
+    let retained = node
+        .opening
+        .attributes()
+        .map(|attribute| attribute.map_err(|_| xml_error()))
+        .collect::<Result<Vec<_>>>()?;
+    let mut opening = node.opening.clone();
+    opening.clear_attributes();
+    for attribute in retained {
+        if !replacements.contains_key(attribute.key.as_ref()) {
+            opening.push_attribute(attribute);
+        }
+    }
+    for (key, value) in replacements {
+        opening.push_attribute((*key, value.as_str()));
+    }
+    let mut writer = quick_xml::Writer::new(Vec::new());
+    writer
+        .write_event(if node.empty {
+            Event::Empty(opening)
+        } else {
+            Event::Start(opening)
+        })
+        .map_err(|_| xml_error())?;
+    Ok(Edit {
+        start: node.start,
+        end: node.open_end,
+        replacement: writer.into_inner(),
+    })
+}
+
+/// The supported subset has literal cells and independent, ordinary worksheets.
+fn plan_hidden_sheets(package: &Package, limits: &Limits, result: &mut Plan) -> Result<()> {
+    let root = part(package, "_rels/.rels").ok_or_else(xml_error)?;
+    let root_relationships = relationships(&root.data)?;
+    let main = root_relationships
+        .iter()
+        .find(|relationship| matches!(relationship.kind.as_str(), OFFICE_REL | STRICT_OFFICE_REL))
+        .ok_or_else(xml_error)?;
+    let workbook_name = relationship_target("", &main.target)?;
+    let workbook = part(package, &workbook_name).ok_or_else(xml_error)?;
+    let types = content_types(package)?;
+    if types.for_part(&workbook_name)?
+        != "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"
+    {
+        return Ok(());
+    }
+    let workbook_nodes = nodes(&workbook.data, limits)?;
+    let sheets: Vec<_> = workbook_nodes
+        .iter()
+        .filter(|node| spreadsheet(&node.namespace) && node.local == "sheet")
+        .collect();
+    let hidden_indices: BTreeSet<_> = sheets
+        .iter()
+        .enumerate()
+        .filter(|(_, node)| {
+            node.attribute("state")
+                .is_some_and(|state| matches!(state, "hidden" | "veryHidden"))
+        })
+        .map(|(index, _)| index)
+        .collect();
+    if hidden_indices.is_empty() {
+        return Ok(());
+    }
+    if sheets.iter().any(|sheet| {
+        sheet
+            .attribute("state")
+            .is_some_and(|state| !matches!(state, "visible" | "hidden" | "veryHidden"))
+    }) {
+        return Err(xml_error());
+    }
+    let visible: Vec<_> = sheets
+        .iter()
+        .enumerate()
+        .filter(|(index, _)| !hidden_indices.contains(index))
+        .map(|(index, _)| index)
+        .collect();
+    if visible.is_empty() {
+        return Err(Error::Blocked(
+            "Hidden worksheet removal requires at least one retained visible worksheet".into(),
+        ));
+    }
+    let workbook_relationships = package
+        .parts
+        .iter()
+        .find(|item| {
+            item.name.ends_with(".rels")
+                && relationship_source(&item.name).is_ok_and(|source| source == workbook_name)
+        })
+        .ok_or_else(xml_error)?;
+    let mut worksheet_targets = BTreeMap::new();
+    for node in nodes(&workbook_relationships.data, limits)? {
+        if node.namespace == REL_NS
+            && node.local == "Relationship"
+            && node.attribute("TargetMode") != Some("External")
+            && node.attribute("Type").is_some_and(|kind| {
+                matches!(kind.strip_suffix("/worksheet"), Some(R_NS | R_STRICT))
+            })
+        {
+            worksheet_targets.insert(
+                node.attribute("Id").ok_or_else(xml_error)?.to_string(),
+                relationship_target(
+                    &workbook_name,
+                    node.attribute("Target").ok_or_else(xml_error)?,
+                )?,
+            );
+        }
+    }
+    if sheets.iter().any(|sheet| {
+        sheet
+            .relationship_id()
+            .is_none_or(|id| !worksheet_targets.contains_key(id))
+    }) {
+        return Err(Error::Blocked(
+            "Hidden-sheet removal supports ordinary worksheet targets only".into(),
+        ));
+    }
+    if worksheet_targets.values().any(|target| {
+        !types.for_part(target).is_ok_and(|content_type| {
+            content_type
+                == "application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"
+        })
+    }) {
+        return Err(Error::Blocked(
+            "Worksheet relationship targets must have the ordinary worksheet content type".into(),
+        ));
+    }
+    let mut targets = BTreeSet::new();
+    for index in &hidden_indices {
+        let node = sheets[*index];
+        let target = worksheet_targets
+            .get(node.relationship_id().ok_or_else(xml_error)?)
+            .ok_or_else(|| {
+                Error::Blocked(
+                    "Hidden sheet does not reference an ordinary internal worksheet".into(),
+                )
+            })?;
+        // A worksheet shared with a retained sheet cannot be removed as a package part.
+        if !targets.insert(target.clone())
+            || visible.iter().any(|index| {
+                sheets[*index]
+                    .relationship_id()
+                    .and_then(|id| worksheet_targets.get(id))
+                    == Some(target)
+            })
+        {
+            return Err(Error::Blocked(
+                "Shared worksheet targets prevent selective hidden-sheet deletion".into(),
+            ));
+        }
+        for relations in package.parts.iter().filter(|item| {
+            item.name.ends_with(".rels")
+                && relationship_source(&item.name).is_ok_and(|source| source == *target)
+        }) {
+            if !relationships(&relations.data)?.is_empty() {
+                return Err(Error::Blocked("A hidden worksheet has dependent relationships. Dependency-aware removal is protected in this build".into()));
+            }
+        }
+    }
+    for relations in package
+        .parts
+        .iter()
+        .filter(|item| item.name.ends_with(".rels"))
+    {
+        let source = relationship_source(&relations.name)?;
+        for relationship in relationships(&relations.data)? {
+            if !relationship.external
+                && targets.contains(&relationship_target(&source, &relationship.target)?)
+                && source != workbook_name
+            {
+                return Err(Error::Blocked("Other package parts reference a hidden worksheet and require dependency-aware removal".into()));
+            }
+        }
+    }
+    for item in package.parts.iter().filter(|item| {
+        !item.directory
+            && !targets.contains(&item.name)
+            && !result.removed.contains(&item.name)
+            && item.name != "[Content_Types].xml"
+    }) {
+        let lower = item.name.to_ascii_lowercase();
+        let content_type = types.for_part(&item.name)?.to_ascii_lowercase();
+        if lower.contains("sharedstrings")
+            || lower.contains("/charts/")
+            || lower.contains("/pivot")
+            || lower.ends_with("calcchain.xml")
+            || content_type.contains("sharedstrings")
+            || content_type.contains("chart")
+            || content_type.contains("pivot")
+            || content_type.contains("calcchain")
+        {
+            return Err(Error::Blocked("Hidden-sheet removal with shared strings, charts, pivot structures or calculation chains requires dependency analysis".into()));
+        }
+        if item.name.ends_with(".xml") {
+            let parsed = nodes(&item.data, limits)?;
+            if parsed.iter().any(|node| {
+                spreadsheet(&node.namespace)
+                    && (matches!(
+                        node.local.as_str(),
+                        "f" | "formula"
+                            | "formula1"
+                            | "formula2"
+                            | "calculatedColumnFormula"
+                            | "totalsRowFormula"
+                            | "definedNames"
+                            | "definedName"
+                    ) || (node.local == "c" && node.attribute("t") == Some("s")))
+            }) {
+                return Err(Error::Blocked("Hidden-sheet removal is limited to retained literal cells without formulas, defined names or shared-string references".into()));
+            }
+        }
+    }
+    result.removed.extend(targets);
+    let edits = result.edits.entry(workbook_name).or_default();
+    for index in &hidden_indices {
+        edits.push(remove(sheets[*index]));
+    }
+    for node in workbook_nodes
+        .iter()
+        .filter(|node| spreadsheet(&node.namespace) && node.local == "workbookView")
+    {
+        let mut replacements = BTreeMap::new();
+        for key in ["activeTab", "firstSheet"] {
+            if let Some(value) = node.attribute(key) {
+                let old = value.parse::<usize>().map_err(|_| xml_error())?;
+                if old >= sheets.len() {
+                    return Err(xml_error());
+                }
+                let retained = if hidden_indices.contains(&old) {
+                    visible[0]
+                } else {
+                    old
+                };
+                let new = visible
+                    .iter()
+                    .position(|index| *index == retained)
+                    .ok_or_else(xml_error)?;
+                if new != old {
+                    replacements.insert(key, new.to_string());
+                }
+            }
+        }
+        if !replacements.is_empty() {
+            edits.push(replace_attributes(node, &replacements)?);
+        }
+    }
+    result.codes.insert("ooxml.hidden_sheets");
+    Ok(())
+}
 fn selected_relationship(kind: &str, choices: &DeepOptions) -> Option<&'static str> {
     if !kind.starts_with(&format!("{R_NS}/"))
         && !kind.starts_with(&format!("{R_STRICT}/"))
@@ -341,6 +594,9 @@ fn plan(package: &Package, options: &SanitizeOptions, limits: &Limits) -> Result
             }
         }
     }
+    if choices.remove_hidden_sheets {
+        plan_hidden_sheets(package, limits, &mut result)?;
+    }
     for part in &package.parts {
         if relation_part_for_removed(&part.name, &result.removed) {
             result.removed.insert(part.name.clone());
@@ -414,15 +670,6 @@ fn plan(package: &Package, options: &SanitizeOptions, limits: &Limits) -> Result
         let parsed = nodes(&part.data, limits)?;
         let edits = result.edits.entry(part.name.clone()).or_default();
         for (index, node) in parsed.iter().enumerate() {
-            if choices.remove_hidden_sheets
-                && node.namespace == S_NS
-                && node.local == "sheet"
-                && node
-                    .attribute("state")
-                    .is_some_and(|state| matches!(state, "hidden" | "veryHidden"))
-            {
-                return Err(Error::Blocked("Deleting hidden worksheets requires formula, chart and named-range dependency analysis and is protected in this build".into()));
-            }
             if choices.remove_comments
                 && node.word()
                 && matches!(
@@ -680,6 +927,12 @@ fn independent_postconditions(
                     local,
                     "commentRangeStart" | "commentRangeEnd" | "commentReference"
                 ))
+                || (choices.remove_hidden_sheets
+                    && spreadsheet(ns)
+                    && local == "sheet"
+                    && node
+                        .attribute("state")
+                        .is_some_and(|state| matches!(state, "hidden" | "veryHidden")))
                 || (choices.accept_revisions && word && is_revision(local))
                 || (choices.remove_custom_xml
                     && word

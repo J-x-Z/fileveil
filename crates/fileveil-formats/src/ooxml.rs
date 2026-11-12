@@ -914,18 +914,23 @@ fn inspect_package(package: &Package, limits: &Limits) -> Result<Inspection> {
                         {
                             codes.insert("ooxml.revisions");
                         }
-                        if (word_namespace
-                            && matches!(e.local_name().as_ref(), "vanish" | "webHidden"))
-                            || (namespace
-                                == ResolveResult::Bound(quick_xml::name::Namespace(
-                                    "http://schemas.openxmlformats.org/spreadsheetml/2006/main",
-                                ))
-                                && local.as_ref() == "sheet"
-                                && attributes(&e)?.get("state").is_some_and(|state| {
-                                    matches!(state.as_str(), "hidden" | "veryHidden")
-                                }))
+                        if word_namespace
+                            && matches!(e.local_name().as_ref(), "vanish" | "webHidden")
                         {
                             codes.insert("ooxml.hidden_content");
+                        }
+                        if matches!(
+                            namespace,
+                            ResolveResult::Bound(quick_xml::name::Namespace(
+                                "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+                                    | "http://purl.oclc.org/ooxml/spreadsheetml/main"
+                            ))
+                        ) && local.as_ref() == "sheet"
+                            && attributes(&e)?.get("state").is_some_and(|state| {
+                                matches!(state.as_str(), "hidden" | "veryHidden")
+                            })
+                        {
+                            codes.insert("ooxml.hidden_sheets");
                         }
                         if word_namespace && local.as_ref() == "rsids" {
                             codes.insert("ooxml.internal_identifiers");
@@ -985,6 +990,11 @@ fn inspect_package(package: &Package, limits: &Limits) -> Result<Inspection> {
             ),
             "ooxml.hidden_content" => (
                 "Hidden document content is retained",
+                Action::AskUser,
+                RiskLayer::ContainerStructure,
+            ),
+            "ooxml.hidden_sheets" => (
+                "Hidden or very-hidden worksheet data is retained",
                 Action::AskUser,
                 RiskLayer::ContainerStructure,
             ),

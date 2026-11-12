@@ -571,7 +571,6 @@ fn wait_for_worker(
             ));
         }
         if let Some(status) = worker
-            .child
             .try_wait()
             .map_err(|_| Error::Io("Could not inspect GUI worker".into()))?
         {

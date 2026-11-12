@@ -1,0 +1,7 @@
+The qpdf 12.4.2 Windows MSVC runtime uses the upstream x64-windows-static build cache for zlib, libjpeg-turbo and OpenSSL. The accompanying windows-dependency-sources.json records the official release asset, archive member names and individual copyright-file hashes.
+
+This software is based in part on the work of the Independent JPEG Group.
+
+libjpeg-turbo licensing and copyright notices are reproduced in windows-libjpeg-turbo-COPYRIGHT.txt. zlib notices are reproduced in windows-zlib-COPYRIGHT.txt. The OpenSSL Apache License 2.0 is reproduced in windows-openssl-COPYRIGHT.txt. The qpdf Apache License 2.0 and upstream NOTICE remain in LICENSE.txt and NOTICE.md.
+
+These third-party materials retain their upstream licenses. FileVeil's MPL-2.0 license applies to FileVeil-owned source files.

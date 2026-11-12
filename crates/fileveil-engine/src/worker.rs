@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 //! Own a worker process tree through cancellation, timeout and ordinary exit.
-use std::process::{Child, Command};
+use std::process::{Child, Command, ExitStatus};
 
 /// Configure a dedicated process group before spawning an isolated worker.
 /// Windows callers must construct `WorkerGuard` before sending the request.
@@ -20,6 +20,7 @@ pub fn configure_command(command: &mut Command) {
 /// The child must have been created by `configure_command` and must wait for
 /// its request until `new` returns, allowing Windows Job Object assignment.
 pub struct WorkerGuard {
+    /// Access worker pipes here and collect completion through `Self::try_wait`.
     pub child: Child,
     terminated: bool,
     #[cfg(windows)]
@@ -59,6 +60,50 @@ impl WorkerGuard {
                 child,
                 terminated: false,
             })
+        }
+    }
+    /// Collect completion after stopping the owned process tree. Unix retains
+    /// the leader's PID until the group has been signalled, preventing reuse.
+    pub fn try_wait(&mut self) -> std::io::Result<Option<ExitStatus>> {
+        if self.terminated {
+            return self.child.try_wait();
+        }
+        #[cfg(unix)]
+        {
+            let information = loop {
+                let mut information: libc::siginfo_t = unsafe { std::mem::zeroed() };
+                let result = unsafe {
+                    libc::waitid(
+                        libc::P_PID,
+                        self.child.id() as libc::id_t,
+                        &mut information,
+                        libc::WEXITED | libc::WNOHANG | libc::WNOWAIT,
+                    )
+                };
+                if result == 0 {
+                    break information;
+                }
+                let error = std::io::Error::last_os_error();
+                if error.kind() != std::io::ErrorKind::Interrupted {
+                    if error.raw_os_error() == Some(libc::ECHILD) {
+                        self.terminated = true;
+                    }
+                    return Err(error);
+                }
+            };
+            if unsafe { information.si_pid() } == 0 {
+                return Ok(None);
+            }
+            self.terminate();
+            self.child.wait().map(Some)
+        }
+        #[cfg(not(unix))]
+        {
+            let status = self.child.try_wait()?;
+            if status.is_some() {
+                self.terminate();
+            }
+            Ok(status)
         }
     }
     pub fn terminate(&mut self) {

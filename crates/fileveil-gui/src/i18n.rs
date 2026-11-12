@@ -14,6 +14,132 @@ pub fn tr(language: Language, english: &str) -> &str {
         return english;
     }
     match english {
+        "The trusted qpdf PDF backend is unavailable" => {
+            "可信 qpdf 后端不可用，请安装或配置兼容的后端。"
+        }
+        "Encrypted PDF documents are protected from parsing and rewriting" => {
+            "加密 PDF 受到保护，当前无法解析或重写。"
+        }
+        "Encrypted PDF documents are protected" => "加密 PDF 受到保护。",
+        "PDF strict parsing failed or required repair" => "PDF 严格解析失败，或文档需要修复。",
+        "PDF full rewrite failed or required repair" => "PDF 完整重写失败，或结果需要修复。",
+        "Independent PDF page count is unavailable" => "无法完成独立 PDF 页数检查。",
+        "Protected PDF credentials prevent rewriting verification" => {
+            "受保护的 PDF 凭据阻断重写验证。"
+        }
+        "Removing annotations from an interactive form would affect widgets. Form-aware annotation rewriting is protected in this build" => {
+            "移除注释会影响交互式表单控件，当前保护这类表单结构。"
+        }
+        "JavaScript actions with chained follow-up actions require action-chain-aware rewriting and are protected in this build" => {
+            "JavaScript 包含后续动作链，当前保护这类复杂动作结构。"
+        }
+        "Credential removal supports JPEG and PNG snapshots" => "当前凭据移除支持 JPEG 和 PNG。",
+        "Credential removal supports JPEG and PNG files" => "当前凭据移除支持 JPEG 和 PNG。",
+        "Protected image structures prevent credential removal" => "受保护的图像结构阻断凭据移除。",
+        "The official credential backend could not remove this store" => {
+            "官方凭据后端无法移除此存储结构。"
+        }
+        "A credential store or provenance reference remains after removal" => {
+            "移除后仍检测到凭据或来源引用，验证未通过。"
+        }
+        "C2PA trust bundle exceeds the metadata limit" => "C2PA 信任证书集合超过元数据预算。",
+        "C2PA offline settings or local trust bundle are invalid" => {
+            "C2PA 离线设置或本地信任证书无效。"
+        }
+        "C2PA local trust bundle contains invalid PEM" => "本地 C2PA 信任证书含无效 PEM。",
+        "C2PA local trust bundle contains an invalid X.509 certificate" => {
+            "本地 C2PA 信任集合含无效 X.509 证书。"
+        }
+        "C2PA trust certificate count exceeds the member limit" => "C2PA 信任证书数量超过预算。",
+        "C2PA local trust bundle contains no certificates" => "本地 C2PA 信任集合中没有证书。",
+        "Removing provenance credentials requires the Deep policy" => {
+            "移除来源凭据需要选择 Deep 策略。"
+        }
+        "PDF content changes require the Deep policy" => "PDF 内容变更需要选择 Deep 策略。",
+        "Office content changes require the Deep policy" => "Office 内容变更需要选择 Deep 策略。",
+        "Office content-changing selections require the Deep policy" => {
+            "Office 内容变更需要选择 Deep 策略。"
+        }
+        "Selected PDF content choices require a PDF file" => "所选 PDF 清理项需要 PDF 文件。",
+        "Selected Office content choices require DOCX, XLSX or PPTX" => {
+            "所选 Office 清理项需要 DOCX、XLSX 或 PPTX。"
+        }
+        "Selected text choices require a supported UTF-8 text or HTML file" => {
+            "所选文本清理项需要受支持的 UTF-8 文本或 HTML 文件。"
+        }
+        "Resource-fork transformation requires a semantic-preservation backend" => {
+            "文件包含资源叉，需要能够保护其内容语义的后端。"
+        }
+        "Credential removal changed decoded image samples" => {
+            "凭据移除改变了解码图像样本，验证未通过。"
+        }
+        "Output timestamp normalization is unavailable on this filesystem" => {
+            "此文件系统无法完成输出时间规范化。"
+        }
+        "Staged output modification time changed before publication" => {
+            "发布前暂存副本的修改时间发生变化。"
+        }
+        "Local trust roots must be UTF-8 PEM" => "本地信任根需要使用 UTF-8 PEM 格式。",
+        "The difference lab requires 2 to 8 explicit samples" => {
+            "差异实验室需要明确选择 2 至 8 个样本。"
+        }
+        "Overlapping Office edits require a more specific transformation" => {
+            "Office 清理范围存在重叠，需要更具体的转换策略。"
+        }
+        "Hidden worksheet removal requires at least one retained visible worksheet" => {
+            "移除隐藏工作表时，需要保留至少一个可见工作表。"
+        }
+        "Hidden-sheet removal supports ordinary worksheet targets only" => {
+            "当前隐藏表移除仅支持普通工作表。"
+        }
+        "Shared worksheet targets prevent selective hidden-sheet deletion" => {
+            "多个条目共享工作表目标，阻断选择性删除。"
+        }
+        "A hidden worksheet has dependent relationships. Dependency-aware removal is protected in this build" => {
+            "隐藏工作表具有依赖关系，当前保护这类关联结构。"
+        }
+        "Other package parts reference a hidden worksheet and require dependency-aware removal" => {
+            "包内其他部件引用隐藏工作表，需要完整依赖分析。"
+        }
+        "Hidden-sheet removal with shared strings, charts, pivot structures or calculation chains requires dependency analysis" => {
+            "共享字符串、图表、透视结构或计算链需要依赖分析，当前阻断该操作。"
+        }
+        "Hidden-sheet removal is limited to retained literal cells without formulas, defined names or shared-string references" => {
+            "当前支持保留单元格仅含直接值的简单工作簿，公式、命名范围和共享字符串引用会阻断操作。"
+        }
+        "Deep external-relationship removal currently supports hyperlinks. External data, templates and linked media require format-specific dependency handling" => {
+            "当前支持移除外部超链接，外部数据、模板和链接媒体需要专门的依赖处理。"
+        }
+        "Accepting tracked paragraph-mark, table-grid or numbering changes requires an Office layout-aware revision engine" => {
+            "段落标记、表格网格或编号修订需要具备 Office 布局语义的修订引擎。"
+        }
+        "Hidden text inherited through document styles requires style resolution and is protected in this build" => {
+            "隐藏文本通过样式继承，需要样式解析，当前保留保护。"
+        }
+        "Hidden text properties could not be isolated to a run" => {
+            "无法将隐藏文本属性安全定位到文本运行范围。"
+        }
+        "Office type or credential protections prevent scoped verification" => {
+            "Office 类型或受保护凭据阻断范围验证。"
+        }
+        "Standard Office properties remain after Deep cleaning" => {
+            "Deep 净化后仍有受支持的标准 Office 属性。"
+        }
+        "User-selected credential removal discards removable Content Credentials and their signatures. Other source associations and unknown content watermarks remain unassessed." => {
+            "已按选择移除可移除的来源凭据及其签名。其他来源关联和未知内容水印仍未评估。"
+        }
+        "The output modification time is verified as 2000-01-01 UTC. Access time is set initially and can change during reading. Access and creation times, filesystem journals, snapshots and backups remain outside the verification scope." => {
+            "输出修改时间已验证为 2000-01-01 UTC。访问时间可能在读取时变化，访问时间、创建时间、文件系统日志、快照和备份历史均在本次范围之外。"
+        }
+        "Detection covers the named synthetic packet protocol. A negative result leaves other schemes unassessed." => {
+            "检测覆盖所列的合成包协议。阴性结果的范围限于该协议，其他方案仍未评估。"
+        }
+        "The report separates source credentials, hidden markers and personal identity. Proprietary keyed text and image detectors require an actual supported detector and remain unassessed." => {
+            "报告分别记录来源凭据、隐藏标记和个人身份关联。专有密钥文本与图像水印仍需实际可用的检测器，当前未评估。"
+        }
+        "Statistical differences describe the supplied controls. Codec effects, sensor noise and image processing can create similar patterns. OEM attribution and watermark identity require separate evidence." => {
+            "统计差异描述所选对照样本。编码、传感器噪声和图像处理可能产生相似模式，厂商归因与水印身份需要独立证据。"
+        }
         "MCP permissions" => "MCP 授权",
         "Choose readable folders and folders for new output copies" => {
             "选择可读取的目录，以及可新建净化副本的输出目录"
@@ -536,6 +662,12 @@ pub fn finding_summary(language: Language, finding: &Finding) -> String {
         return finding.summary.clone();
     }
     let summary = match finding.code.as_str() {
+        "ooxml.hidden_sheets" => {
+            "工作簿包含隐藏或非常隐藏的工作表。Deep 支持无依赖的简单工作表清理，复杂引用会阻断。"
+        }
+        code if code.starts_with("audio.") => {
+            "音频容器含标签或技术结构，所选清理项与保留范围分别记录，信号水印未评估。"
+        }
         "pdf.document_info" => "PDF 文档信息字典含标准或自定义隐私字段。",
         "pdf.xmp" => "PDF XMP 元数据流可携带作者、软件、时间和来源。",
         "pdf.attachments" => "PDF 包含附件或嵌入文件，Deep 可明确选择相应清理范围。",

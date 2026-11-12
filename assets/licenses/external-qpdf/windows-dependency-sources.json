@@ -1,0 +1,53 @@
+{
+  "source_release": "https://github.com/qpdf/qpdf/releases/tag/v12.4.2",
+  "asset_url": "https://github.com/qpdf/qpdf/releases/download/v12.4.2/vcpkg.zip",
+  "asset_size": 195951195,
+  "asset_sha256_declared": "sha256:82005252fee032135d07c85ad7626a38f26fb253c1e098d1d185f315bea15ebb",
+  "whole_asset_sha256_verified": false,
+  "retrieval": "HTTPS byte ranges with exact Content-Range and ZIP CRC validation",
+  "network_bytes_fetched": 316058,
+  "files": [
+    {
+      "dependency": "libjpeg-turbo",
+      "archive_member": "vcpkg/installed/x64-windows-static/share/libjpeg-turbo/copyright",
+      "output": "assets/licenses/external-qpdf/windows-libjpeg-turbo-COPYRIGHT.txt",
+      "bytes": 6077,
+      "sha256": "ba6bceebcba0fdd35488477c2cca8c4632ce82c74dbfbc87d886ce6fc4433579",
+      "zip_crc32": "4640334b"
+    },
+    {
+      "dependency": "zlib",
+      "archive_member": "vcpkg/installed/x64-windows-static/share/zlib/copyright",
+      "output": "assets/licenses/external-qpdf/windows-zlib-COPYRIGHT.txt",
+      "bytes": 1002,
+      "sha256": "e32ff4e00d9d94930537635291da39e7e612703334bf6fde8c7f1686fe8a45a2",
+      "zip_crc32": "16364c2c"
+    },
+    {
+      "dependency": "openssl",
+      "archive_member": "vcpkg/installed/x64-windows-static/share/openssl/copyright",
+      "output": "assets/licenses/external-qpdf/windows-openssl-COPYRIGHT.txt",
+      "bytes": 10175,
+      "sha256": "7d5450cb2d142651b8afa315b5f238efc805dad827d91ba367d8516bc9d49e7a",
+      "zip_crc32": "6bc136ad"
+    }
+  ],
+  "triplet": "x64-windows-static",
+  "runtime_library_evidence": {
+    "url": "https://github.com/qpdf/qpdf/blob/v12.4.2/libqpdf/CMakeLists.txt",
+    "variables": {
+      "VCPKG_TRIPLE": "${VCPKG_TRIPLE_PREFIX}-windows-static",
+      "VCPKG_LIBS": [
+        "zs",
+        "turbojpeg",
+        "libssl",
+        "libcrypto"
+      ]
+    },
+    "license_scope": "zlib, libjpeg-turbo and OpenSSL static runtime libraries from the upstream Windows release build cache"
+  },
+  "archive_only_dependency_review": {
+    "libspng": "Present in the build-cache archive. The qpdf MSVC runtime link list selects zs, turbojpeg, libssl and libcrypto."
+  },
+  "binary_acknowledgment": "This software is based in part on the work of the Independent JPEG Group."
+}

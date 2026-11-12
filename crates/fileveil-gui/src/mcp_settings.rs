@@ -19,17 +19,22 @@ impl McpSettings {
             language,
             "Choose readable folders and folders for new output copies",
         ));
-        root_controls(
+        let mut changed = root_controls(
             ui,
             language,
             "Readable folders",
             &mut self.access.read_roots,
         );
-        root_controls(ui, language, "Output folders", &mut self.access.write_roots);
+        changed |= root_controls(ui, language, "Output folders", &mut self.access.write_roots);
         ui.horizontal(|ui| {
             ui.label(tr(language, "Operations per MCP connection"));
-            ui.add(egui::DragValue::new(&mut self.access.max_operations).range(1..=10_000));
+            changed |= ui
+                .add(egui::DragValue::new(&mut self.access.max_operations).range(1..=10_000))
+                .changed();
         });
+        if changed {
+            self.notice = None;
+        }
         ui.label(tr(
             language,
             "Update the client configuration and reconnect to apply permission changes",
@@ -77,10 +82,16 @@ impl McpSettings {
         .map_err(|_| "Could not serialize MCP configuration".to_string())
     }
 }
-fn root_controls(ui: &mut egui::Ui, language: Language, title: &str, roots: &mut Vec<PathBuf>) {
+fn root_controls(
+    ui: &mut egui::Ui,
+    language: Language,
+    title: &str,
+    roots: &mut Vec<PathBuf>,
+) -> bool {
     ui.add_space(10.0);
     ui.label(tr(language, title));
     let mut remove = None;
+    let mut changed = false;
     for (index, root) in roots.iter().enumerate() {
         ui.horizontal(|ui| {
             ui.add(egui::Label::new(root.to_string_lossy()).truncate())
@@ -92,6 +103,7 @@ fn root_controls(ui: &mut egui::Ui, language: Language, title: &str, roots: &mut
     }
     if let Some(index) = remove {
         roots.remove(index);
+        changed = true;
     }
     if ui
         .button(tr(
@@ -109,5 +121,35 @@ fn root_controls(ui: &mut egui::Ui, language: Language, title: &str, roots: &mut
         && !roots.contains(&path)
     {
         roots.push(path);
+        changed = true;
+    }
+    changed
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn empty_grants_export_a_denied_by_default_configuration() {
+        let configuration = McpSettings::default().configuration().unwrap();
+        let value: serde_json::Value = serde_json::from_str(&configuration).unwrap();
+        let arguments = value["mcpServers"]["fileveil"]["args"].as_array().unwrap();
+        assert!(arguments.iter().any(|argument| argument == "--mcp"));
+        assert!(
+            !arguments
+                .iter()
+                .any(|argument| argument == "--mcp-read-root" || argument == "--mcp-write-root")
+        );
+    }
+
+    #[test]
+    fn invalid_authorization_roots_cannot_be_copied_as_working_grants() {
+        let mut settings = McpSettings::default();
+        settings
+            .access
+            .read_roots
+            .push(PathBuf::from("relative-folder"));
+        assert!(settings.configuration().is_err());
     }
 }

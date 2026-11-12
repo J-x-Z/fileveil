@@ -337,7 +337,7 @@ fn assert_windows_stopped(pid: &str) {
 
 #[cfg(windows)]
 #[test]
-fn windows_job_object_stops_native_worker_and_grandchild_on_timeout_cancel_and_drop() {
+fn windows_job_object_stops_native_worker_and_grandchild_through_all_exit_paths() {
     let directory = tempfile::tempdir().unwrap();
     let worker = directory.path().join("process-tree-worker.exe");
     let status = Command::new("rustc")
@@ -351,16 +351,23 @@ fn windows_job_object_stops_native_worker_and_grandchild_on_timeout_cancel_and_d
         status.success(),
         "Native Windows worker fixture compilation failed"
     );
+    let normal_worker = directory.path().join("normal-exit-worker.exe");
+    fs::copy(&worker, &normal_worker).unwrap();
     let input = copy_fixture("png_clean.png", directory.path());
     let original = fs::read(&input).unwrap();
-    for mode in ["timeout", "cancel", "drop"] {
+    for mode in ["timeout", "cancel", "drop", "normal"] {
         let output = directory.path().join(format!("{mode}.png"));
         let mut request = JobRequest::new(JobKind::Sanitize {
             input: input.clone(),
             output: Some(output.clone()),
         });
         request.timeout_seconds = if mode == "timeout" { 2 } else { 30 };
-        let handle = JobHandle::spawn_with_executable(request, worker.clone(), Arc::new(|| {}));
+        let executable = if mode == "normal" {
+            &normal_worker
+        } else {
+            &worker
+        };
+        let handle = JobHandle::spawn_with_executable(request, executable.clone(), Arc::new(|| {}));
         let pid = wait_for_pid(directory.path());
         let descendant = fs::read_to_string(directory.path().join("grandchild.pid")).unwrap();
         if mode == "drop" {
@@ -369,7 +376,9 @@ fn windows_job_object_stops_native_worker_and_grandchild_on_timeout_cancel_and_d
             if mode == "cancel" {
                 assert!(handle.cancel());
             }
-            assert_eq!(wait(&handle).exit_code, 6);
+            // The normal-exit fixture deliberately supplies no business report.
+            let expected = if mode == "normal" { 5 } else { 6 };
+            assert_eq!(wait(&handle).exit_code, expected);
             drop(handle);
         }
         assert_windows_stopped(&pid);

@@ -7,7 +7,7 @@
 | JPEG | EXIF/XMP/IPTC/COM、ICC、APP、尾部、C2PA | 可识别元数据 | 同 Safe，可选文件系统属性 | 编码结构与独立解码像素对照，ICC/Adobe/未知段保留，复杂方向与来源凭据阻断 |
 | PNG | 块边界、CRC、文本、EXIF、ICC、C2PA | 可识别元数据 | 同 Safe，可选文件系统属性 | 独立像素对照，APNG 与来源凭据阻断 |
 | DOCX | 属性、修订、批注、隐藏文本、部件、关系 | 已知属性与 ZIP 元数据 | 显式批注、简单修订接受、直接隐藏文本、自定义 XML、受支持嵌入对象、外部超链接、内部编辑标识 | OPC/CRC、未选部件字节对照、独立 XML 解析，复杂修订与语义依赖阻断 |
-| XLSX | 属性、批注、隐藏表、公式、外部关系 | 已知属性与 ZIP 元数据 | 可选批注、自定义 XML、受支持嵌入结构 | 保留公式、图表与普通内容，隐藏表删除及不支持的依赖阻断 |
+| XLSX | 属性、批注、隐藏表、公式、外部关系 | 已知属性与 ZIP 元数据 | 可选批注、自定义 XML、受支持嵌入结构、无依赖隐藏表 | 保留普通内容，公式/共享字符串/图表等依赖阻断隐藏表删除 |
 | PPTX | 属性、批注、媒体、关系 | 已知属性与 ZIP 元数据 | 可选批注、自定义 XML、受支持嵌入结构 | 未选内容保留，复杂内容关系阻断 |
 | TXT/Markdown | UTF-8、BOM、控制符、隐藏标记 | 显式字符选项 | 同 Safe | 对照所选转换，保留 ZWJ/ZWNJ 和合法双向文本，报告部分验证 |
 | HTML | 文本、来源字段、注释 | 显式 meta/注释/字符选项 | 同 Safe | WHATWG tokenizer 源范围清理，保留 script/style/textarea 与语义字段，复杂上下文阻断 |
@@ -37,3 +37,11 @@ Diff Lab 接受 2–8 张显式图像，提供像素差分、RGB 直方图、低
 可选移除 macOS 下载来源、Finder 标签、Unix user.* 属性和 NTFS 私有流。Quarantine、Mark-of-the-Web、未知受保护属性默认保留，资源叉阻断重写。时间选项验证新副本的修改时间规范化，访问时间、创建时间、日志、快照和备份历史有独立范围限制。
 
 GUI 工作区覆盖文件、Deep、图片、Diff Lab、AI Provenance 与批量验证。语言、MCP 授权与资源预算集中在设置，中性黑灰和灰白主题保持一致。实际平台运行状态见验证记录。
+
+## 官方检测接口核对
+
+2026-11-12 核对 OpenAI 官方文档，图片和音频存在 Content Provenance API，检测范围包括相应 C2PA 或 SynthID 信号。接口需要上传所选文件，文本检测需要组织申请审批。本地版本仅记录接口能力与授权需求，网络执行保持关闭。当前 API 文档未确认 textGrain 这一名称，因此能力输出使用 OpenAI 文本检测接口描述。[OpenAI 官方文档](https://developers.openai.com/api/docs/guides/content-provenance)
+
+Anthropic 官方说明 Claude 文本水印采用 SynthID-Text 方法族，检测 API 处于受限私有预览，适用资格和授权由服务方决定。该方案通过词选择产生信号，零宽字符清理具有独立适用范围。本地版本未配置该检测后端。[Anthropic 官方说明](https://www.anthropic.com/news/claude-text-watermark)
+
+外部接口不会因普通本地扫描自动启用。未来实际接入需要逐次明确内容上传范围，真实 API 授权和端到端结果验收仍待提供相应条件。

@@ -1,0 +1,13 @@
+*.rs text eol=lf
+*.toml text eol=lf
+*.lock text eol=lf
+*.py text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+LICENSE text eol=lf
+THIRD_PARTY_NOTICES.txt text eol=lf
+assets/** -text
+tests/fixtures/** -text
+crates/**/tests/fixtures/** -text

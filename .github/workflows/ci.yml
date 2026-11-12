@@ -35,7 +35,7 @@ jobs:
             ${{ runner.os }}-${{ runner.arch }}-cargo-
       - name: Linux desktop dependencies
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y libx11-dev libxi-dev libxcursor-dev libxrandr-dev libxinerama-dev libxkbcommon-dev libwayland-dev libegl1-mesa-dev libgl1-mesa-dev qpdf poppler-utils xvfb xauth
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y libx11-dev libxi-dev libxcursor-dev libxrandr-dev libxinerama-dev libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev libegl1-mesa-dev libgl1-mesa-dev libgl1-mesa-dri qpdf poppler-utils xvfb xauth
       - name: macOS PDF backends
         if: runner.os == 'macOS'
         run: brew install qpdf poppler
@@ -63,12 +63,22 @@ jobs:
         run: cargo test --locked --workspace
       - name: Generate synthetic samples
         run: cargo run --locked -p fixture-generator -- work/ci-fixtures
+      - name: Independent macOS native media decode
+        if: runner.os == 'macOS'
+        run: |
+          sips -s format png tests/fixtures/heic_exif_gps.heic --out work/heic-decoded.png > work/native-media-interop.log
+          sips -s format png tests/fixtures/avif_exif_gps.avif --out work/avif-decoded.png >> work/native-media-interop.log
+          swift crates/fileveil-formats/tests/support/decode_native_video.swift tests/fixtures/mp4_container_times.mp4 tests/fixtures/mov_model_metadata.mov >> work/native-media-interop.log
       - name: CLI capabilities
         run: cargo run --locked -p fileveil-cli -- capabilities --json
       - name: Scan synthetic JPEG
         run: cargo run --locked -p fileveil-cli -- scan work/ci-fixtures/jpeg_exif_gps_author.jpg --json
       - name: Build CLI
         run: cargo build --locked -p fileveil-cli
+      - name: Validate report schemas and legacy envelopes
+        run: |
+          python -m pip install "jsonschema>=4,<5"
+          python tools/check-report-schemas.py
       - name: Verify synthetic copies
         shell: python {0}
         run: |
@@ -102,7 +112,7 @@ jobs:
                       assert report["integrity"]["pixel_equal"] is True, report
                   print(name, arguments[0], report["result"])
       - name: Build desktop release
-        run: cargo build --locked --release -p fileveil-gui
+        run: cargo build --locked --release -p fileveil-gui -p fileveil-cli
       - name: Windows CI software OpenGL renderer
         if: runner.os == 'Windows'
         shell: pwsh
@@ -133,12 +143,12 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $process = Start-Process target/release/fileveil-gui.exe -ArgumentList '--smoke-test-report', 'work/native-gui.json' -PassThru
+          $process = Start-Process target/release/fileveil-gui.exe -ArgumentList '--smoke-test-report', 'work/native-gui.json' -PassThru -RedirectStandardOutput work/native-gui.stdout.log -RedirectStandardError work/native-gui.stderr.log
           if (-not $process.WaitForExit(60000)) { Stop-Process -Id $process.Id; throw 'GUI timeout' }
           if ($process.ExitCode -ne 0) { throw "GUI exit $($process.ExitCode)" }
           if (-not (Test-Path work/native-gui.json)) { throw 'GUI framebuffer report missing' }
           $evidence = Get-Content work/native-gui.json -Raw | ConvertFrom-Json
-          $evidence | Add-Member -NotePropertyName ci_renderer -NotePropertyValue 'Mesa 26.2.6 llvmpipe software OpenGL'
+          $evidence | Add-Member -NotePropertyName ci_renderer_requested -NotePropertyValue 'Mesa 26.2.6 llvmpipe software OpenGL'
           $evidence | ConvertTo-Json -Depth 20 | Set-Content work/native-gui.json
       - name: Validate native framebuffer evidence
         shell: python {0}
@@ -168,6 +178,7 @@ jobs:
           name: native-evidence-${{ matrix.os }}
           path: |
             work/native-gui.*
+            work/native-media-interop.log
       - name: Save platform Cargo cache
         if: always() && steps.cargo-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4

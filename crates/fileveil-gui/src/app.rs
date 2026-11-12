@@ -296,6 +296,7 @@ impl FileVeilApp {
                 self.settings_open = false;
             } else {
                 self.session.cancel_all();
+                self.workspaces.cancel();
             }
         }
     }
@@ -1129,6 +1130,11 @@ impl FileVeilApp {
                         .size(11.0)
                         .color(colors.caution),
                     );
+                    if let Some(summary) =
+                        crate::workspaces::method_retest_summary(language, report)
+                    {
+                        ui.label(RichText::new(summary).size(11.0).color(colors.muted));
+                    }
                 }
                 ui.add_space(8.0);
                 for (key, hash) in [
@@ -1321,8 +1327,10 @@ impl eframe::App for FileVeilApp {
         }
     }
     fn logic(&mut self, context: &egui::Context, _frame: &mut eframe::Frame) {
-        self.session.poll(context);
         self.workspaces.poll(context);
+        if !self.workspaces.busy() {
+            self.session.poll(context);
+        }
         if self.session.active.is_some() {
             context.request_repaint_after(Duration::from_millis(100));
         }
@@ -1652,7 +1660,7 @@ fn finding_row(
             ));
         });
 }
-fn save_report(path: &Path, data: &[u8]) -> std::result::Result<(), String> {
+pub(crate) fn save_report(path: &Path, data: &[u8]) -> std::result::Result<(), String> {
     let directory = path
         .parent()
         .filter(|p| !p.as_os_str().is_empty())

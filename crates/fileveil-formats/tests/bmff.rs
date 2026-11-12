@@ -305,3 +305,36 @@ fn item_counts_duplicates_and_invalid_field_widths_fail_closed() {
     let malformed = atom(b"iloc", &[1, 0, 0, 0, 0x94, 0, 0, 0]);
     assert!(bmff::inspect(&heif(b"heic", &malformed), Format::Heic, &Limits::default()).is_err());
 }
+
+#[test]
+fn native_codec_fixtures_expose_metadata_through_the_normal_format_entry_point() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures");
+    for (name, format, required) in [
+        ("heic_exif_gps.heic", Format::Heic, "bmff.exif.gps"),
+        ("avif_exif_gps.avif", Format::Avif, "bmff.metadata.xmp_item"),
+        (
+            "mp4_container_times.mp4",
+            Format::Mp4,
+            "bmff.metadata.timestamps",
+        ),
+        (
+            "mov_model_metadata.mov",
+            Format::Mov,
+            "bmff.metadata.device",
+        ),
+    ] {
+        let path = root.join(name);
+        let original = std::fs::read(&path).unwrap();
+        let report = inspect(&original, &path, &Limits::default()).unwrap();
+        assert_eq!(report.format, format);
+        assert!(
+            report
+                .findings
+                .iter()
+                .any(|finding| finding.code == required),
+            "{name}"
+        );
+        assert!(!report.rewrite_supported);
+        assert_eq!(std::fs::read(path).unwrap(), original);
+    }
+}

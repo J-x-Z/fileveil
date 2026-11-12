@@ -522,3 +522,43 @@ fn ntfs_mark_of_the_web_case_variants_survive_private_stream_cleanup() {
     assert!(!stream(&output, ":FileVeilPrivate:$DATA").exists());
     assert!(stream(&original, ":FileVeilPrivate:$DATA").exists());
 }
+
+#[test]
+fn explicit_utf8_text_control_cleanup_accepts_nul_without_relaxing_binary_detection() {
+    let directory = tempfile::tempdir().unwrap();
+    let input = directory.path().join("input.TXT");
+    let output = directory.path().join("clean.txt");
+    let bytes = "Visible\0 text\u{200d} joining\u{202e} bidi".as_bytes();
+    fs::write(&input, bytes).unwrap();
+    let options = SanitizeOptions {
+        text: TextOptions {
+            remove_control_characters: true,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    let report =
+        sanitize_with_options(&input, Some(&output), &Limits::default(), &options).unwrap();
+    assert_eq!(report.input_format, "text/plain");
+    assert_eq!(fs::read(&input).unwrap(), bytes);
+    assert_eq!(
+        fs::read(&output).unwrap(),
+        "Visible text\u{200d} joining\u{202e} bidi".as_bytes()
+    );
+    verify_with_options(&input, &output, &Limits::default(), &options).unwrap();
+    for (index, name, bytes) in [
+        (0, "unknown.bin", b"UTF8\0binary".as_slice()),
+        (1, "invalid.txt", b"\xff\xfe\0binary".as_slice()),
+        (2, "pdf.txt", b"%PDF-1.7\ntext\0PDF".as_slice()),
+        (3, "zip.txt", b"PK\x03\x04\0zip".as_slice()),
+    ] {
+        let input = directory.path().join(name);
+        let output = directory.path().join(format!("rejected-{index}"));
+        fs::write(&input, bytes).unwrap();
+        assert!(
+            sanitize_with_options(&input, Some(&output), &Limits::default(), &options).is_err()
+        );
+        assert!(!output.exists());
+        assert_eq!(fs::read(&input).unwrap(), bytes);
+    }
+}

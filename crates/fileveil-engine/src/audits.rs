@@ -24,10 +24,20 @@ pub fn provenance(input: &Path, trust_roots: Option<&Path>, limits: &Limits) -> 
         .map_err(|_| Error::Io("Could not serialize provenance evidence".into()))?;
     report.advanced = Some(
         serde_json::json!({"capabilities":crate::provenance::capabilities(),
-        "credential_found":report.provenance.is_some(),"personal_identity_link":"not_assessed",
-        "unknown_ai_watermarks":"not_assessed"}),
+        "external_interfaces":crate::provenance::external_interfaces(),
+        "credential_found":report.provenance.as_ref().is_some_and(|value|value["presence"]=="embedded"),
+        "provenance_evidence_present":report.provenance.is_some(),"personal_identity_link":"not_assessed",
+        "unknown_ai_watermarks":"not_assessed","model_source_validation":"not_assessed"}),
     );
-    report.result = Outcome::PartiallyVerified;
+    report.result = if report.provenance.as_ref().is_some_and(|value| {
+        ["signature", "asset_binding", "manifest_validation"]
+            .iter()
+            .any(|field| value[field] == "invalid")
+    }) {
+        Outcome::Failed
+    } else {
+        Outcome::PartiallyVerified
+    };
     report.warnings.push("The report separates source credentials, hidden markers and personal identity. Proprietary keyed text and image detectors require an actual supported detector and remain unassessed.".into());
     if !snapshot.unchanged(input, limits)?
         || roots
@@ -47,10 +57,15 @@ pub fn detect_watermark(input: &Path, limits: &Limits) -> Result<Report> {
     let snapshot = Snapshot::open(input, limits)?;
     let inspection = inspect_snapshot(&snapshot.bytes, input, limits)?;
     let detection = crate::watermark::detect(&snapshot.bytes, inspection.format, limits)?;
+    let unsupported = detection.status == crate::watermark::DetectionStatus::NotAssessed;
     let mut report = report_for("detect_watermark", &inspection, &snapshot);
     report.advanced =
         Some(serde_json::json!({"detection":detection,"detectors":crate::watermark::detectors()}));
-    report.result = Outcome::PartiallyVerified;
+    report.result = if unsupported {
+        Outcome::Unsupported
+    } else {
+        Outcome::PartiallyVerified
+    };
     report.warnings.push("Detection covers the named synthetic packet protocol. A negative result leaves other schemes unassessed.".into());
     if !snapshot.unchanged(input, limits)? {
         return Err(Error::Blocked("Watermark input changed".into()));

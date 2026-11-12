@@ -130,6 +130,8 @@ pub fn inspect_with_options(
         }
     }
     if options.text.remove_control_characters
+        && matches!(identify(data, hint), Format::Unknown | Format::Text)
+        && !data.starts_with(b"PK")
         && matches!(
             hint.extension()
                 .and_then(|s| s.to_str())

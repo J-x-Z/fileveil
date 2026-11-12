@@ -86,6 +86,9 @@ fn inspect_selected(
         validate_format_options(fileveil_formats::identify(data, hint), options)?;
         return fileveil_formats::inspect_with_options(data, hint, limits, options);
     }
+    if options.text.any() {
+        return fileveil_formats::inspect_with_options(data, hint, limits, options);
+    }
     inspect_snapshot(data, hint, limits)
 }
 

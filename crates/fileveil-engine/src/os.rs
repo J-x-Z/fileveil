@@ -71,7 +71,39 @@ pub fn write(file: &File, _path: &Path, attributes: &[Attribute]) -> Result<()> 
 }
 
 #[cfg(windows)]
-pub fn read(_file: &File, path: &Path, limits: &Limits) -> Result<Vec<Attribute>> {
+fn path_from_handle(file: &File) -> Result<std::path::PathBuf> {
+    use std::os::windows::{ffi::OsStringExt, io::AsRawHandle};
+    use windows_sys::Win32::Storage::FileSystem::{
+        FILE_NAME_NORMALIZED, GetFinalPathNameByHandleW, VOLUME_NAME_GUID,
+    };
+    let mut path = vec![0u16; 32768];
+    // Local-volume names preserve the MCP broker's stable namespace. SMB
+    // handles use their final UNC name, retaining ordinary CLI share support.
+    for flags in [
+        FILE_NAME_NORMALIZED | VOLUME_NAME_GUID,
+        FILE_NAME_NORMALIZED,
+    ] {
+        let length = unsafe {
+            GetFinalPathNameByHandleW(
+                file.as_raw_handle(),
+                path.as_mut_ptr(),
+                path.len() as u32,
+                flags,
+            )
+        };
+        if length > 0 && (length as usize) < path.len() {
+            return Ok(std::path::PathBuf::from(OsString::from_wide(
+                &path[..length as usize],
+            )));
+        }
+    }
+    Err(Error::Blocked(
+        "Could not resolve the open file for NTFS stream auditing".into(),
+    ))
+}
+
+#[cfg(windows)]
+pub fn read(file: &File, _path: &Path, limits: &Limits) -> Result<Vec<Attribute>> {
     use std::{
         io::Read,
         os::windows::ffi::{OsStrExt, OsStringExt},
@@ -85,6 +117,7 @@ pub fn read(_file: &File, path: &Path, limits: &Limits) -> Result<Vec<Attribute>
             WIN32_FIND_STREAM_DATA,
         },
     };
+    let path = path_from_handle(file)?;
     let path_wide: Vec<u16> = path.as_os_str().encode_wide().chain(Some(0)).collect();
     let mut data: WIN32_FIND_STREAM_DATA = unsafe { std::mem::zeroed() };
     // The path buffer is NUL-terminated and data remains alive for each Win32 call.
@@ -156,8 +189,9 @@ pub fn read(_file: &File, path: &Path, limits: &Limits) -> Result<Vec<Attribute>
     Ok(result)
 }
 #[cfg(windows)]
-pub fn write(_file: &File, path: &Path, attributes: &[Attribute]) -> Result<()> {
+pub fn write(file: &File, _path: &Path, attributes: &[Attribute]) -> Result<()> {
     use std::io::Write;
+    let path = path_from_handle(file)?;
     for attribute in attributes {
         let mut stream_path = path.as_os_str().to_os_string();
         stream_path.push(&attribute.name);

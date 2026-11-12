@@ -4,7 +4,7 @@
 
 桌面版支持中文和英文界面、文件拖放、多文件队列、文件夹导入、发现信息搜索与分类筛选、处理计划、批量保存净化副本、二次验证与脱敏 JSON 报告导出。默认使用深色外观，侧栏可切换深色和中性浅色，设置内提供语言与高对比外观选项。任务支持取消与超时。
 
-JPEG、PNG 和 DOCX/XLSX/PPTX 支持 Safe 净化。Deep 提供选择性 Office 内容清理，TXT/Markdown/HTML 支持显式净化副本。PDF 使用 qpdf 完整重写，独立 Poppler 检查页数、文本及受限分辨率页面渲染。C2PA 离线验签、合成 LSB 包检测、图片差异实验室与 HEIC/AVIF/MP4/MOV 结构审计已接入共享 Rust Core。具体范围见 [格式支持](docs/FORMAT_SUPPORT.md)。
+JPEG、PNG、WAV、FLAC 和 DOCX/XLSX/PPTX 支持各自范围内的 Safe 净化。Deep 提供选择性 Office 内容清理，TXT/Markdown/HTML 支持显式净化副本。PDF 使用 qpdf 完整重写，独立 Poppler 检查页数、文本及受限分辨率页面渲染。C2PA 离线验签、合成 LSB 包检测、图片差异实验室与 HEIC/AVIF/MP4/MOV 结构审计已接入共享 Rust Core。具体范围见 [格式支持](docs/FORMAT_SUPPORT.md)。
 
 ## 启动桌面版
 
@@ -17,7 +17,7 @@ open /Volumes/WINDOWS/work/fileveil/dist/FileVeil.app
 从源码构建桌面版需要 Rust 1.96 或更新版本。
 
 ```sh
-cargo build --locked --release -p fileveil-gui
+cargo build --locked --release -p fileveil-gui -p fileveil-cli
 python3 tools/package-desktop.py --skip-build
 ```
 
@@ -131,8 +131,14 @@ GUI 工作区提供文件扫描、Deep 净化、图片处理、Diff Lab、AI Pro
 
 PDF 需要 qpdf。独立完整验证需要另行安装 Poppler 的 pdfinfo、pdftotext 和 pdftoppm，缺少这些工具时准确报告部分验证。支持可信的绝对路径环境配置 FILEVEIL_QPDF、FILEVEIL_PDFINFO、FILEVEIL_PDFTOTEXT、FILEVEIL_PDFTOPPM。已签名或加密的 PDF、Office 宏和签名包继续保护。
 
-HEIC/AVIF/MP4/MOV 当前提供结构与元数据审计，净化重写和编码内容验证尚未提供。未知 OEM 字段仅报告结构线索。音频专用适配器、私有密钥统计水印、厂商专有水印及 CAWG 身份校验仍待实现或授权检测能力。复杂 Office 修订、公式依赖的隐藏工作表和复杂 HTML 结构会明确阻断。
+HEIC/AVIF/MP4/MOV 当前提供结构与元数据审计，净化重写和编码内容验证尚未提供。未知 OEM 字段仅报告结构线索。MP3 净化、音频信号水印、私有密钥统计水印、厂商专有水印及 CAWG 身份校验仍待实现或授权检测能力。Deep 支持无依赖的简单隐藏工作表清理。复杂 Office 修订、公式或共享字符串依赖的隐藏表和复杂 HTML 结构会明确阻断。
 
 公开的 synthetic_lsb_v1 检测只覆盖 FileVeil 合成协议，包含校验有效性及处理后复验。实验性信号处理和阴性结果的适用范围均写入报告。Diff Lab 提供可重复统计与对照信息，OEM 归因保持未评估。
 
 最低 Rust 版本升至 1.96，以使用固定版本的官方 C2PA SDK。旧 CLI 命令和 Safe 默认行为保留，报告新增字段均可选。发行包附带 MPL-2.0、第三方声明和对应项目源码 ZIP。正式签名、公证及实际目标平台状态见验证记录。
+
+WAV/FLAC 标准隐私标签清理保留编码音频负载，技术声道和增益信息继续保护。MP3 提供有限 ID3 审计，音频信号水印检测未提供。macOS 主程序与可选 PDF 后端的最低系统版本分别记录。本机 Homebrew qpdf 后端声明 macOS 27.0，较早系统可配置兼容的 qpdf，实际可用性由运行探测报告。
+
+### Rust 调用方迁移
+
+原有 scan/sanitize/verify 和图片处理函数继续保留。新范围参数使用 SanitizeOptions 与 advanced 模块，默认 Safe 行为保持原契约。新增格式和 not_assessed 结果需要同步更新调用方的穷尽 match。Report 新增可选字段后，直接构造完整结构体的调用方可改用 Report::new 并设置所需字段。0.3 读取器兼容旧 JSON，严格 schema 校验器应采用本仓库更新后的 0.3 schema。is_image 继续表示现有 JPEG/PNG 像素处理范围，媒体容器与音频通过独立能力分类判断。
