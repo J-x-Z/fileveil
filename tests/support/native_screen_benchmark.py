@@ -41,6 +41,31 @@ def sha256(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def runner_identity(runner, executable, snapshot_path):
+    """Require an inline fingerprint or the exact preserved legacy executable."""
+    fingerprint = runner.call("fingerprint", Path("."), "v1", "", "")
+    fields = ["baseline_source_sha256", "v2_source_sha256", "geometry_source_sha256", "runner_source_sha256"]
+    if fingerprint.get("ok"):
+        if not all(isinstance(fingerprint.get(field), str) and len(fingerprint[field]) == 64 and set(fingerprint[field]) <= set("0123456789abcdef") for field in fields):
+            raise RuntimeError("Runner returned an incomplete compiled-source fingerprint")
+        return fingerprint, {"status": "verified", "scope": "runner_emitted_compiled_source_fingerprint"}
+    snapshot = json.loads(snapshot_path.read_text())
+    entries = [entry for entry in snapshot["files"] if entry["path"] == "target/release/examples/benchmark_engine"]
+    if len(entries) != 1 or entries[0]["sha256"] != sha256(executable) or entries[0]["bytes"] != executable.stat().st_size:
+        raise RuntimeError("Runner fingerprint failed and its executable does not match the pinned algorithm snapshot")
+    return fingerprint, {
+        "status": "not_supported",
+        "scope": "executable_sha256_matches_preserved_build_snapshot; source hashes are snapshot evidence without an inline compiled-source fingerprint",
+        "query_evidence_field": "algorithm_fingerprint",
+        "pinned_snapshot": {
+            "path": str(snapshot_path.relative_to(ROOT)) if snapshot_path.is_relative_to(ROOT) else str(snapshot_path),
+            "sha256": sha256(snapshot_path),
+            "scope": snapshot["scope"],
+            "files": snapshot["files"],
+        },
+    }
+
+
 class Capture:
     def __init__(self, executable, stderr):
         self.process = subprocess.Popen(
@@ -130,6 +155,7 @@ def main():
     parser.add_argument("--manifest", type=Path, default=ROOT / "work/v05-benchmark/manifest.json")
     parser.add_argument("--executable", type=Path, default=ROOT / "work/v05-benchmark/bin/benchmark-engine-frozen")
     parser.add_argument("--capture-executable", type=Path, default=ROOT / "target/release/examples/native_watermark_screen")
+    parser.add_argument("--pinned-snapshot", type=Path, default=ROOT / "work/v05-benchmark/final-algorithm-snapshot.json")
     parser.add_argument("--output", type=Path, default=ROOT / "work/v05-benchmark/native-screen")
     parser.add_argument("--profiles", nargs="+", choices=PROFILES, default=list(PROFILES))
     parser.add_argument("--limit", type=int, default=200)
@@ -144,6 +170,7 @@ def main():
     args.executable = args.executable.resolve()
     args.capture_executable = args.capture_executable.resolve()
     args.manifest = args.manifest.resolve()
+    args.pinned_snapshot = args.pinned_snapshot.resolve()
     args.output.mkdir(parents=True, exist_ok=True)
     cv2.setNumThreads(1)
     benchmark = module("native_screen_benchmark_helpers", ROOT / "tools/benchmark-watermarks.py")
@@ -154,7 +181,11 @@ def main():
     records = [json.loads(line) for line in journal.read_text().splitlines()] if journal.exists() else []
     done = {(row["source_id"], row["profile"], row["attack"]) for row in records}
     runner = benchmark.Runner(args.executable)
-    fingerprint = runner.call("fingerprint", Path("."), "v1", "", "")
+    try:
+        fingerprint, identity = runner_identity(runner, args.executable, args.pinned_snapshot)
+    except Exception:
+        runner.close()
+        raise
     metadata = {
         "schema": "fileveil.watermark.native_framebuffer_benchmark.v1",
         "capture_scope": "actual native egui Glow framebuffer image crop, not OS desktop compositor capture",
@@ -164,6 +195,7 @@ def main():
         "capture_executable_sha256": sha256(args.capture_executable),
         "capture_source_sha256": sha256(ROOT / "crates/fileveil-gui/examples/native_watermark_screen.rs"),
         "script_sha256": sha256(Path(__file__)), "algorithm_fingerprint": fingerprint,
+        "algorithm_identity": identity,
         "helper_source_sha256": sha256(ROOT / "tools/benchmark-watermarks.py"),
         "independent_source_sha256": {name: sha256(ROOT / f"tests/support/{path}") for name, path in [("v1", "heritage_robust_oracle.py"), ("v2", "watermark_v2_oracle.py")]},
         "platform": platform.platform(), "pillow": Image.__version__, "opencv": cv2.__version__,

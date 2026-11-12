@@ -517,5 +517,126 @@
       }
     ],
     "script_sha256": "abc190bf4c4b62c437059c025e3a3fb3f0b6f787e66916459329eb93044308ca"
+  },
+  "algorithm_identity": {
+    "status": "not_supported",
+    "scope": "executable_sha256_matches_preserved_build_snapshot; source hashes are snapshot evidence without an inline compiled-source fingerprint",
+    "query_evidence_field": "algorithm_fingerprint",
+    "pinned_snapshot": {
+      "path": "work/v05-benchmark/final-algorithm-snapshot.json",
+      "sha256": "efc45126467e7157eb47a7dc89a7f968016c31c0410f3aa526fb366996624438",
+      "scope": "Frozen explicit-strength Quality12 and Robust20 recipes. The persistent worker records a loaded binary hash; this copy preserves the same executable for audit.",
+      "files": [
+        {
+          "path": "target/release/examples/benchmark_engine",
+          "sha256": "cc0f81b566353df296e7fa34be2b0bc29f9dfbc90d159b4148d5a495069b76e8",
+          "bytes": 1264064
+        },
+        {
+          "path": "crates/fileveil-engine/src/heritage/robust.rs",
+          "sha256": "56abbb63267e60df1ed949427aac8be4a0a3457a59b49f3b56a63c098ae38c2c",
+          "bytes": 21197
+        },
+        {
+          "path": "crates/fileveil-engine/src/heritage/robust_v2.rs",
+          "sha256": "9db45c3a6e983a7734bfdb7cdde0125e22d2ee8252f0953ae2624380dfcab40b",
+          "bytes": 44153
+        },
+        {
+          "path": "crates/fileveil-engine/src/heritage/robust_v2/geometry.rs",
+          "sha256": "16ec926f36a4ebe590d4c958b588ae2fa9281d80af7e154b32387ee19c7b7b65",
+          "bytes": 8381
+        },
+        {
+          "path": "crates/fileveil-engine/examples/benchmark_engine.rs",
+          "sha256": "5f3902e21234e22951b3f1d2b03f34905b880da7abbb0ac586c65fbdee1a1142",
+          "bytes": 8252
+        },
+        {
+          "path": "tools/benchmark-watermarks.py",
+          "sha256": "c43f091eb9fcc8fe7d05378c068783b9095d55fa80c761152ec8853afc21a0d6",
+          "bytes": 32479
+        },
+        {
+          "path": "tests/fixtures/benchmark-corpus.json",
+          "sha256": "23199d037fc65144b594029d35cb9dab75fe72013c60bc5dd4c257a8dc5a6618",
+          "bytes": 302295
+        }
+      ]
+    }
+  },
+  "identity_correction": {
+    "scope": "Original 600 capture results retained. The historical runner query failed, so algorithm source identities are linked through the preserved executable SHA and build snapshot. An inline compiled-source fingerprint was unavailable from this binary.",
+    "original_query_evidence_field": "algorithm_fingerprint",
+    "original_run_sha256": "f38acc6aabaf1c524f7ab9d2dc928205939422f0805dde7d62afbc304b327a46",
+    "original_summary_sha256": "fc09d3456926bf54fa10c195ee0078adf1e4cabe96d1cdeb324bb574d7db9b64",
+    "original_journal_sha256": "4dd27d0db721e73e53aa6b77f0b5347ea75a4fd3678ce37a249587303a3bc523",
+    "original_600_capture_results_recomputed": false,
+    "adapter_validation_run_sha256": "6902dff18f5ab04cd6731c6fa04b469a1c504a0a98a48640755f1c22bb74bbab",
+    "adapter_validation_summary_sha256": "2a2ce7fd6359f9ac1888288c979f1a5ebc01f457953e9a63900aaeea9b98b9d5",
+    "adapter_validation_profiles": {
+      "v1-s32": {
+        "negative": {
+          "cases": 1,
+          "detected": 0,
+          "correct_payload": 0,
+          "errors": 0,
+          "algorithm_cpu_seconds": 0.016431,
+          "capture_wall_seconds": 0.141921833,
+          "detection_rate": 0.0,
+          "correct_payload_rate": null,
+          "independently_assessed": 0,
+          "independently_correct_payload": 0,
+          "psnr_db_mean": null,
+          "ssim_mean": null
+        },
+        "native_framebuffer_screenshot": {
+          "cases": 1,
+          "detected": 1,
+          "correct_payload": 1,
+          "errors": 0,
+          "algorithm_cpu_seconds": 0.005414000000000002,
+          "capture_wall_seconds": 0.136001667,
+          "detection_rate": 1.0,
+          "correct_payload_rate": 1.0,
+          "independently_assessed": 1,
+          "independently_correct_payload": 1,
+          "psnr_db_mean": 36.32568512210388,
+          "ssim_mean": 0.8458244800567627
+        }
+      },
+      "v2-s12": {
+        "negative": {
+          "cases": 1,
+          "detected": 0,
+          "correct_payload": 0,
+          "errors": 0,
+          "algorithm_cpu_seconds": 0.13331,
+          "capture_wall_seconds": 0.141921833,
+          "detection_rate": 0.0,
+          "correct_payload_rate": null,
+          "independently_assessed": 0,
+          "independently_correct_payload": 0,
+          "psnr_db_mean": null,
+          "ssim_mean": null
+        },
+        "native_framebuffer_screenshot": {
+          "cases": 1,
+          "detected": 1,
+          "correct_payload": 1,
+          "errors": 0,
+          "algorithm_cpu_seconds": 0.005909999999999999,
+          "capture_wall_seconds": 0.130076292,
+          "detection_rate": 1.0,
+          "correct_payload_rate": 1.0,
+          "independently_assessed": 1,
+          "independently_correct_payload": 1,
+          "psnr_db_mean": 32.571109388710525,
+          "ssim_mean": 0.9159008264541626
+        }
+      }
+    },
+    "adapter_source_sha256": "91e828cabe2859244fdce45fd766ff22820af787de8f406c4fa5b78b6b9daa5b",
+    "validation_scope": "One real image, v1-s32 and v2-s12 native captures and independent positive rechecks, plus their negative controls. The current debug runner emitted its compiled fingerprint successfully. A failed query from a nonmatching executable was rejected."
   }
 }
