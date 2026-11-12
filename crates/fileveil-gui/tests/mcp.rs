@@ -369,6 +369,52 @@ fn scan_sanitize_and_verify_share_engine_reports_and_protect_existing_outputs() 
     assert_eq!(fs::read(&original).unwrap(), original_bytes);
     assert_eq!(client.close(), 0);
 }
+
+#[test]
+fn authorized_mobile_media_workers_complete_scan_sanitize_verify() {
+    let directory = tempdir();
+    let mut client = Client::authorized("2025-11-25", directory.path());
+    for (name, mime) in [
+        ("heic_exif_gps.heic", "image/heif"),
+        ("avif_exif_gps.avif", "image/avif"),
+        ("mp4_container_times.mp4", "video/mp4"),
+        ("mp4_av_source.mp4", "video/mp4"),
+        ("mov_model_metadata.mov", "video/quicktime"),
+    ] {
+        let original = directory.path().join(format!("原件 {name}"));
+        let output = directory.path().join(format!("副本 {name}"));
+        fs::copy(fixture(name), &original).unwrap();
+        let original_bytes = fs::read(&original).unwrap();
+        let scanned = client.call("fileveil_scan", json!({"path":original}));
+        assert_eq!(report(&scanned)["input_format"], mime);
+        assert_eq!(report(&scanned)["integrity"]["parseable"], true);
+        let sanitized = client.call(
+            "fileveil_sanitize",
+            json!({"path":original,"output":output}),
+        );
+        assert_eq!(report(&sanitized)["integrity"]["original_unchanged"], true);
+        assert_eq!(report(&sanitized)["integrity"]["content_equal"], true);
+        assert!(report(&sanitized)["integrity"]["pixel_equal"].is_null());
+        let verified = client.call(
+            "fileveil_verify",
+            json!({"original":original,"output":output}),
+        );
+        assert_eq!(report(&verified)["integrity"]["content_equal"], true);
+        assert_eq!(
+            report(&verified)["output_sha256"],
+            report(&sanitized)["output_sha256"]
+        );
+        let cleaned_bytes = fs::read(&output).unwrap();
+        let collision = client.call(
+            "fileveil_sanitize",
+            json!({"path":original,"output":output}),
+        );
+        assert_eq!(collision["result"]["isError"], true);
+        assert_eq!(fs::read(&original).unwrap(), original_bytes);
+        assert_eq!(fs::read(&output).unwrap(), cleaned_bytes);
+    }
+    assert_eq!(client.close(), 0);
+}
 #[test]
 fn both_image_modes_produce_png_and_verify_with_explicit_processing_parameters() {
     let directory = tempdir();

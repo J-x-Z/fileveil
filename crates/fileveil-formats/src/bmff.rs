@@ -7,6 +7,10 @@ use fileveil_core::{
 };
 use std::{collections::BTreeMap, ops::Range, path::Path};
 
+#[path = "bmff_rewrite.rs"]
+mod rewrite;
+pub use rewrite::{retained_media_digest, sanitize, verify};
+
 const MAX_DEPTH: usize = 32;
 
 fn invalid(message: &str) -> Error {
@@ -334,7 +338,7 @@ impl<'a> Fields<'a> {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 enum ItemKind {
     Exif,
     Xmp,
@@ -346,6 +350,7 @@ struct ItemLocation {
     method: u64,
     external: bool,
     ranges: Vec<(u64, Option<u64>)>,
+    encoded: Range<usize>,
 }
 
 fn item_info(payload: &[u8]) -> Result<(u32, ItemKind, bool)> {
@@ -416,6 +421,7 @@ fn locations(payload: &[u8], maximum: usize) -> Result<Vec<ItemLocation>> {
     let mut result = Vec::new();
     let mut extents = 0usize;
     for _ in 0..count {
+        let encoded_start = fields.cursor;
         let id = fields.number(if version == 2 { 4 } else { 2 })? as u32;
         let method = if version > 0 { fields.number(2)? } else { 0 };
         if method > 2 {
@@ -450,6 +456,7 @@ fn locations(payload: &[u8], maximum: usize) -> Result<Vec<ItemLocation>> {
             method,
             external,
             ranges,
+            encoded: encoded_start..fields.cursor,
         });
     }
     fields.finish()?;
@@ -491,7 +498,12 @@ fn keys(payload: &[u8], header: &Header, result: &mut Inspection, maximum: usize
         let key = std::str::from_utf8(key)
             .map_err(|_| invalid("Metadata key is not UTF-8"))?
             .to_ascii_lowercase();
-        let category = if key.contains("location") || key.contains("gps") {
+        let category = if key.contains("content.identifier") {
+            Some((
+                "bmff.metadata.content_pairing",
+                "Content-pairing identifier is retained to preserve linked media playback",
+            ))
+        } else if key.contains("location") || key.contains("gps") {
             Some(("bmff.metadata.location", "Location metadata key is present"))
         } else if key.contains("creationdate") || key.contains("creationtime") {
             Some((
@@ -527,7 +539,7 @@ fn keys(payload: &[u8], header: &Header, result: &mut Inspection, maximum: usize
 
 /// Audit container structure and recognized metadata. Media samples, proprietary
 /// payloads and encoded image signals remain outside the verification scope.
-pub fn inspect(data: &[u8], format: Format, limits: &Limits) -> Result<Inspection> {
+fn inspect_structure(data: &[u8], format: Format, limits: &Limits) -> Result<Inspection> {
     if data.len() as u64 > limits.max_file_bytes {
         return Err(invalid("Input exceeds the byte limit"));
     }
@@ -643,7 +655,19 @@ pub fn inspect(data: &[u8], format: Format, limits: &Limits) -> Result<Inspectio
             }
             b"uuid" => {
                 parser.metadata(payload.len())?;
-                result.findings.push(finding(&header, "bmff.structure.uuid", "UUID extension payload is present. Its private meaning and tracking capability are unassessed", RiskLayer::ContainerStructure));
+                let uuid = &data[header.payload - 16..header.payload];
+                if uuid == rewrite::C2PA_UUID {
+                    result.findings.push(finding(&header, "bmff.provenance", "A standard C2PA UUID container is present. Cryptographic results are reported separately", RiskLayer::ProvenanceCredential));
+                } else if uuid == rewrite::XMP_UUID {
+                    result.findings.push(finding(
+                        &header,
+                        "bmff.metadata.packet",
+                        "A standard XMP UUID metadata packet is present",
+                        RiskLayer::EmbeddedMetadata,
+                    ));
+                } else {
+                    result.findings.push(finding(&header, "bmff.structure.uuid", "UUID extension payload is present. Its private meaning and tracking capability are unassessed", RiskLayer::ContainerStructure));
+                }
             }
             b"XMP_" | b"xml " | b"Exif" => {
                 parser.metadata(payload.len())?;
@@ -798,6 +822,35 @@ pub fn inspect(data: &[u8], format: Format, limits: &Limits) -> Result<Inspectio
     result.findings.push(Finding::unassessed("bmff.audit.scope", RiskLayer::ContainerStructure, "container", "Read-only structure audit. Media decode, proprietary fields, timed tracks, signal watermarks and safe rewriting are unassessed"));
     if result.findings.len() > limits.max_members {
         return Err(invalid("Findings exceed the configured report limit"));
+    }
+    Ok(result)
+}
+
+/// Recognized privacy fields are rewritten without relocating encoded media.
+/// Unsupported or protected layouts retain a read-only structural report.
+pub fn inspect(data: &[u8], format: Format, limits: &Limits) -> Result<Inspection> {
+    let mut result = inspect_structure(data, format, limits)?;
+    match rewrite::normalized(data, format, limits) {
+        Ok(cleaned) => {
+            result.content_digest = digest(&cleaned.bytes);
+            result.rewrite_supported = true;
+            for finding in &mut result.findings {
+                if cleaned.codes.contains(finding.code.as_str()) {
+                    finding.action = if finding.code == "bmff.metadata.exif_item" {
+                        Action::Rebuild
+                    } else {
+                        Action::Remove
+                    };
+                }
+            }
+            result.findings.extend(cleaned.extra_findings);
+            result
+                .findings
+                .retain(|finding| finding.code != "bmff.audit.scope");
+            result.findings.push(Finding::unassessed("bmff.audit.scope", RiskLayer::ContainerStructure,
+                "container", "Metadata rewrite preserves encoded media, item presentation properties and sample tables. Proprietary payload meanings and signal watermarks remain unassessed"));
+        }
+        Err(error) => result.blockers.push(error.to_string()),
     }
     Ok(result)
 }

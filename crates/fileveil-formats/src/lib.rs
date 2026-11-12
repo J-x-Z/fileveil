@@ -109,6 +109,7 @@ pub fn inspect(data: &[u8], hint: &Path, limits: &Limits) -> Result<Inspection> 
 }
 pub fn sanitize(data: &[u8], format: Format, limits: &Limits) -> Result<Vec<u8>> {
     match format {
+        format if format.is_media_container() => bmff::sanitize(data, format, limits),
         format if format.is_audio() => audio::sanitize(data, format, limits),
         Format::Jpeg => jpeg::JpegAdapter.sanitize(data, limits),
         Format::Png => png::PngAdapter.sanitize(data, limits),
@@ -193,6 +194,9 @@ pub fn verify_scoped(
     limits: &Limits,
     options: &SanitizeOptions,
 ) -> Result<ScopedVerification> {
+    if format.is_media_container() {
+        return bmff::verify(before, after, format, limits);
+    }
     if format.is_office() {
         return ooxml::verify_scoped(before, after, limits, options);
     }

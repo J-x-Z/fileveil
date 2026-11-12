@@ -220,3 +220,9 @@ Windows 验收发现 qpdf 12.4.2 会误解 argv 中的 verbatim 绝对路径。�
 Windows GUI CI 使用已校验 SHA-256 的 Mesa 26.2.6 MinGW x64 llvmpipe。三个原生 framebuffer 均已实际查看，使用中性黑灰界面并正确显示中文。Windows 包只包含 qpdf30.dll，不包含 CI 的 Mesa DLL。两份 Windows 可执行文件 Authenticode 状态均为 `NotSigned`。macOS ad-hoc 签名严格验证通过，Gatekeeper 评估为 rejected。正式平台签名与公证继续等待凭据。
 
 最终测试及原生证据保存在 `work/v03/ci-evidence/2660b1e-*`，三平台测试汇总为 `2660b1e-tests-summary.json`。Windows 与 Linux 的 CI 成品保存于 `work/v03/ci-release/`，收据记录下载源、归档摘要、二进制清单匹配及许可证核对。Linux 交付归档采用保留 GUI/CLI 执行权限的 tar.gz，原始 Actions ZIP 单独保留为证据。
+
+### 手机媒体净化闭环回归
+
+2026-11-12 增加 HEIC/HEIF、AVIF、MP4/MOV 偏移保持重写。19 项 BMFF 测试覆盖实际编码样本、共享 extent、保护与加密结构、损坏偏移、未知 UUID 保留、篡改和幂等。Engine 的三个正常入口回归覆盖 Scan → Sanitize → Verify、原件字节不变、签名保护和 Deep 文件属性。
+
+macOS 独立 ImageIO/AVAssetReader 回归实际通过，覆盖 HEIC、AVIF、H.264 MOV、H.264 MP4 和 H.264/AAC MP4。清理前后的解码 RGBA、PCM、视频帧、轨道变换及采样时序完全相同。运行时报告明确保留编码负载与结构的验证范围，平台解码属于此回归证据。记录保存在 `work/v03-final/media-*.log`，原始媒体由仓库内平台编码脚本生成。

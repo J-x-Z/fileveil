@@ -530,15 +530,7 @@ impl Workspaces {
             .and_then(|item| item.scan.as_ref())
             .is_some_and(|report| {
                 report.result != fileveil_core::Outcome::Unsupported
-                    && !matches!(
-                        mime,
-                        "image/heif"
-                            | "image/avif"
-                            | "video/mp4"
-                            | "video/quicktime"
-                            | "audio/mpeg"
-                            | "application/octet-stream"
-                    )
+                    && !matches!(mime, "audio/mpeg" | "application/octet-stream")
             });
         if !supported {
             ui.label(t(language,"当前格式或处理后端未提供净化能力，可在文件扫描中查看具体状态。","Cleaning is unavailable for this format or backend. The Files scan records its capability status."));

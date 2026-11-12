@@ -178,6 +178,14 @@ fn unassessed(format: Format) -> Vec<Finding> {
             "Audio signal watermark detection was not performed",
         ));
     }
+    if format.is_media_container() {
+        findings.push(Finding::unassessed(
+            "media.content_watermark",
+            RiskLayer::ContentWatermark,
+            "encoded_media",
+            "Unknown image, video and audio signal watermarks require corresponding detectors",
+        ));
+    }
     findings
 }
 fn has_residual(inspection: &Inspection, attributes: &[os::Attribute]) -> bool {
@@ -217,6 +225,7 @@ fn protect_container_credentials(
         Format::Png => "png.provenance",
         Format::Pdf => "pdf.provenance",
         Format::Wav => "wav.provenance",
+        Format::Heic | Format::Avif | Format::Mp4 | Format::Mov => "bmff.provenance",
         _ => return Ok(()),
     };
     if inspection.blockers.is_empty()
@@ -296,6 +305,7 @@ pub(crate) fn neutralize_provenance_findings(report: &mut Report) {
                     | "pdf.provenance"
                     | "text.provenance"
                     | "wav.provenance"
+                    | "bmff.provenance"
             )
     }) {
         finding.summary=if finding.state==FindingState::RemovedVerified {
@@ -451,6 +461,26 @@ fn compare(
         report.output_sha256 = Some(digest(&output.bytes));
         report.pdf = Some(verified.details);
         report.result = verified.result;
+        return Ok(report);
+    }
+    if before.format.is_media_container() {
+        let verified =
+            fileveil_formats::bmff::verify(&original.bytes, &output.bytes, before.format, limits)?;
+        let mut report = Report::new("verify", before.format);
+        report.findings = verified.findings;
+        report.findings.extend(os::findings(&original.attributes));
+        report.findings.extend(unassessed(before.format));
+        report.warnings = verified.warnings;
+        report.integrity = verified.integrity;
+        report.integrity.security_markers_preserved = Some(true);
+        report.input_sha256 = Some(digest(&original.bytes));
+        report.output_sha256 = Some(digest(&output.bytes));
+        report.result = verified.result;
+        report.advanced = Some(serde_json::json!({"media": {
+            "rewrite_method": "offset_preserving_metadata_rewrite",
+            "retained_encoded_payload_and_structure_equal": true,
+            "runtime_decode_validation": "not_assessed"
+        }}));
         return Ok(report);
     }
     let mut integrity = Integrity {
@@ -755,7 +785,7 @@ pub fn capabilities(limits: &Limits) -> serde_json::Value {
             {"format": "docx_xlsx_pptx", "scan": "available", "safe": "available", "deep":"selective", "verify": "opc_relations_crc_retained_parts_independent_xml", "limitations": ["utf8_xml_only", "signed_macro_encrypted_blocked", "complex_content_dependencies_blocked", "office_application_compatibility_not_assessed"]},
             {"format": "utf8_text_markdown_html", "scan": "available", "safe": "explicit_options", "verify": "selected_transform_and_retained_spans", "limitations":["zwj_zwnj_and_bidi_preserved","complex_html_blocked"]},
             {"format": "pdf", "scan": "requires_qpdf", "safe": "requires_qpdf", "verify": "qpdf_graph_and_optional_independent_poppler"},
-            {"format":"heic_heif_avif_mp4_mov","scan":"structural_audit","safe":"unavailable","verify":"not_assessed","limitations":["codec_payload_not_decoded","unknown_vendor_fields_unattributed"]},
+            {"format":"heic_heif_avif_mp4_mov","scan":"available","safe":"selected_standard_metadata","deep":"selected_standard_metadata_and_filesystem_attributes","verify":"encoded_payload_and_container_structure","limitations":["runtime_codec_decode_not_assessed","unknown_vendor_fields_unattributed","protected_or_shared_item_structures_blocked"]},
             {"format":"wav_flac","scan":"available","safe":"selected_standard_tags","verify":"retained_encoded_audio_bytes","limitations":["audio_signal_not_decoded_during_runtime_verification","technical_gain_and_channel_metadata_preserved"]},
             {"format":"mp3","scan":"bounded_id3_audit","safe":"unavailable","verify":"not_assessed"}
         ],

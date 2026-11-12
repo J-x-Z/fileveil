@@ -960,7 +960,10 @@ impl FileVeilApp {
                                 .findings
                                 .iter()
                                 .filter(|finding| {
-                                    matches!(finding.action, Action::Remove | Action::Normalize)
+                                    matches!(
+                                        finding.action,
+                                        Action::Remove | Action::Normalize | Action::Rebuild
+                                    )
                                 })
                                 .collect();
                             if removable.is_empty() {
@@ -1587,11 +1590,12 @@ fn item_status(language: Language, item: &FileItem) -> &'static str {
 }
 fn report_status(language: Language, report: &Report) -> &'static str {
     if report.operation == "scan" && report.result == Outcome::VerifiedWithinScope {
-        if report
-            .findings
-            .iter()
-            .any(|finding| matches!(finding.action, Action::Remove | Action::Normalize))
-        {
+        if report.findings.iter().any(|finding| {
+            matches!(
+                finding.action,
+                Action::Remove | Action::Normalize | Action::Rebuild
+            )
+        }) {
             return tr(language, "Ready to clean");
         }
         return tr(language, "Scan complete");

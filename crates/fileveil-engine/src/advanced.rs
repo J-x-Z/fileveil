@@ -157,7 +157,10 @@ fn compare_advanced(
         report.integrity = verified.integrity;
         report.result = verified.result;
         report.pdf = Some(verified.details);
-    } else if before.format.is_image() || before.format.is_audio() {
+    } else if before.format.is_image()
+        || before.format.is_audio()
+        || before.format.is_media_container()
+    {
         if before.content_digest != after.content_digest {
             return Err(Error::Verification(
                 "Retained encoded image or color structures changed".into(),
@@ -182,6 +185,7 @@ fn compare_advanced(
                 && finding.code != "watermark.statistical"
                 && finding.code != "image.content_watermark"
                 && finding.code != "audio.signal_watermark"
+                && finding.code != "media.content_watermark"
         });
         if options.remove_provenance {
             let original_pixels = decode_pixels(&original.bytes, limits)?;
@@ -279,10 +283,16 @@ fn compare_advanced(
     report.input_sha256 = Some(digest(&original.bytes));
     report.output_sha256 = Some(digest(&output.bytes));
     report.policy = options.policy;
-    report.advanced = Some(
-        serde_json::json!({"options":options,"selected_scope_verified":true,
-        "timestamp_scope":if options.filesystem.normalize_output_timestamps {"output_modification_only_verified"} else {"not_assessed"}}),
-    );
+    let details = report.advanced.get_or_insert_with(|| serde_json::json!({}));
+    details["options"] = serde_json::to_value(options)
+        .map_err(|_| Error::Io("Could not serialize selected cleanup options".into()))?;
+    details["selected_scope_verified"] = serde_json::json!(true);
+    details["timestamp_scope"] =
+        serde_json::json!(if options.filesystem.normalize_output_timestamps {
+            "output_modification_only_verified"
+        } else {
+            "not_assessed"
+        });
     if options.remove_provenance {
         let mime = if before.format == Format::Text {
             text_credential_mime(hint)

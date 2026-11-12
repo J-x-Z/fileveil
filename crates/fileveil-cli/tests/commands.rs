@@ -185,3 +185,66 @@ fn image_signal_commands_use_supervised_workers_and_report_pixel_changes() {
         assert_eq!(report["output_sha256"], verified["output_sha256"]);
     }
 }
+
+#[test]
+fn mobile_media_commands_complete_scan_sanitize_verify_without_overwriting_originals() {
+    let directory = tempfile::tempdir().unwrap();
+    for (name, mime) in [
+        ("heic_exif_gps.heic", "image/heif"),
+        ("avif_exif_gps.avif", "image/avif"),
+        ("mp4_container_times.mp4", "video/mp4"),
+        ("mp4_av_source.mp4", "video/mp4"),
+        ("mov_model_metadata.mov", "video/quicktime"),
+    ] {
+        let input = directory.path().join(format!("原件 {name}"));
+        let output = directory.path().join(format!("副本 {name}"));
+        std::fs::copy(fixtures().join(name), &input).unwrap();
+        let original = std::fs::read(&input).unwrap();
+        let scanned = run(&["scan", input.to_str().unwrap(), "--json"]);
+        assert!(matches!(scanned.status.code(), Some(0 | 4)));
+        let scanned: serde_json::Value = serde_json::from_slice(&scanned.stdout).unwrap();
+        assert_eq!(scanned["input_format"], mime);
+        assert_eq!(scanned["integrity"]["parseable"], true);
+        let sanitized = run(&[
+            "sanitize",
+            input.to_str().unwrap(),
+            "--output",
+            output.to_str().unwrap(),
+            "--json",
+        ]);
+        assert!(
+            matches!(sanitized.status.code(), Some(0 | 4)),
+            "{}",
+            String::from_utf8_lossy(&sanitized.stdout)
+        );
+        let sanitized: serde_json::Value = serde_json::from_slice(&sanitized.stdout).unwrap();
+        assert_eq!(sanitized["integrity"]["original_unchanged"], true);
+        assert_eq!(sanitized["integrity"]["content_equal"], true);
+        assert!(sanitized["integrity"]["pixel_equal"].is_null());
+        let verified = run(&[
+            "verify",
+            input.to_str().unwrap(),
+            output.to_str().unwrap(),
+            "--json",
+        ]);
+        assert!(matches!(verified.status.code(), Some(0 | 4)));
+        let verified: serde_json::Value = serde_json::from_slice(&verified.stdout).unwrap();
+        assert_eq!(verified["integrity"]["content_equal"], true);
+        assert_eq!(verified["output_sha256"], sanitized["output_sha256"]);
+        let cleaned = std::fs::read(&output).unwrap();
+        assert_eq!(
+            run(&[
+                "sanitize",
+                input.to_str().unwrap(),
+                "--output",
+                output.to_str().unwrap(),
+                "--json",
+            ])
+            .status
+            .code(),
+            Some(2)
+        );
+        assert_eq!(std::fs::read(&input).unwrap(), original);
+        assert_eq!(std::fs::read(&output).unwrap(), cleaned);
+    }
+}

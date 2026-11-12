@@ -334,7 +334,264 @@ fn native_codec_fixtures_expose_metadata_through_the_normal_format_entry_point()
                 .any(|finding| finding.code == required),
             "{name}"
         );
-        assert!(!report.rewrite_supported);
+        assert!(report.rewrite_supported, "{name}: {:?}", report.blockers);
         assert_eq!(std::fs::read(path).unwrap(), original);
     }
+}
+
+#[test]
+fn native_codec_samples_complete_metadata_rewrite_and_payload_verification() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures");
+    for (name, format) in [
+        ("heic_exif_gps.heic", Format::Heic),
+        ("avif_exif_gps.avif", Format::Avif),
+        ("mp4_container_times.mp4", Format::Mp4),
+        ("mov_model_metadata.mov", Format::Mov),
+    ] {
+        let original = std::fs::read(root.join(name)).unwrap();
+        let before = bmff::inspect(&original, format, &Limits::default()).unwrap();
+        assert!(before.rewrite_supported, "{name}: {:?}", before.blockers);
+        let clean = bmff::sanitize(&original, format, &Limits::default()).unwrap();
+        assert_eq!(clean.len(), original.len());
+        assert_ne!(clean, original, "{name}");
+        let after = bmff::inspect(&clean, format, &Limits::default()).unwrap();
+        assert!(after.rewrite_supported, "{name}: {:?}", after.blockers);
+        assert_eq!(before.content_digest, after.content_digest, "{name}");
+        assert_eq!(
+            bmff::sanitize(&clean, format, &Limits::default()).unwrap(),
+            clean,
+            "{name}"
+        );
+        assert!(
+            after.findings.iter().all(|finding| !matches!(
+                finding.action,
+                fileveil_core::Action::Remove
+                    | fileveil_core::Action::Normalize
+                    | fileveil_core::Action::Rebuild
+            )),
+            "{name}: {:?}",
+            after.findings
+        );
+        for private in [
+            b"Synthetic Author".as_slice(),
+            b"FileVeil Synthetic Device".as_slice(),
+        ] {
+            assert!(
+                !clean.windows(private.len()).any(|window| window == private),
+                "{name}"
+            );
+        }
+        assert_eq!(
+            bmff::retained_media_digest(&original, format, &Limits::default()).unwrap(),
+            bmff::retained_media_digest(&clean, format, &Limits::default()).unwrap(),
+            "{name}"
+        );
+        let verified = bmff::verify(&original, &clean, format, &Limits::default()).unwrap();
+        assert_eq!(verified.integrity.content_equal, Some(true));
+        assert_eq!(verified.result, fileveil_core::Outcome::PartiallyVerified);
+    }
+}
+
+#[test]
+fn credentials_and_shared_image_metadata_extents_protect_rewriting() {
+    let signed =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../fileveil-engine/tests/fixtures/provenance");
+    for (name, format) in [
+        ("signed.heic", Format::Heic),
+        ("signed.avif", Format::Avif),
+        ("signed.mp4", Format::Mp4),
+        ("signed.mov", Format::Mov),
+    ] {
+        let bytes = std::fs::read(signed.join(name)).unwrap();
+        let audit = bmff::inspect(&bytes, format, &Limits::default()).unwrap();
+        assert!(!audit.rewrite_supported);
+        assert!(
+            audit
+                .findings
+                .iter()
+                .any(|finding| finding.code == "bmff.provenance")
+        );
+        assert!(bmff::sanitize(&bytes, format, &Limits::default()).is_err());
+    }
+    let exif = [
+        0u32.to_be_bytes().as_slice(),
+        b"II\x2a\0\x08\0\0\0\0\0\0\0\0\0",
+    ]
+    .concat();
+    let mut children = information(&[item(1, b"hvc1", None), item(2, b"Exif", None)]);
+    children.extend_from_slice(&location(1, 1, 0, exif.len() as u32, 0));
+    children.extend_from_slice(&location(2, 1, 0, exif.len() as u32, 0));
+    children.extend_from_slice(&atom(b"idat", &exif));
+    let shared = heif(b"heic", &children);
+    let audit = bmff::inspect(&shared, Format::Heic, &Limits::default()).unwrap();
+    assert!(!audit.rewrite_supported);
+    assert!(
+        audit
+            .blockers
+            .iter()
+            .any(|message| message.contains("shares encoded media"))
+    );
+    assert!(bmff::sanitize(&shared, Format::Heic, &Limits::default()).is_err());
+}
+
+#[test]
+fn quicktime_privacy_keys_are_removed_while_playback_and_pairing_keys_survive() {
+    let mut key_payload = 3u32.to_be_bytes().to_vec();
+    for key in [
+        "com.apple.quicktime.model",
+        "com.apple.quicktime.full-frame-rate-playback-intent",
+        "com.apple.quicktime.content.identifier",
+    ] {
+        key_payload.extend_from_slice(&((key.len() + 8) as u32).to_be_bytes());
+        key_payload.extend_from_slice(b"mdta");
+        key_payload.extend_from_slice(key.as_bytes());
+    }
+    let mut values = Vec::new();
+    for (index, value) in [
+        b"PRIVATE-DEVICE".as_slice(),
+        b"KEEP-PLAYBACK",
+        b"KEEP-CONTENT-ID",
+    ]
+    .iter()
+    .enumerate()
+    {
+        values.extend_from_slice(&atom(
+            &((index + 1) as u32).to_be_bytes(),
+            &atom(b"data", value),
+        ));
+    }
+    let mut metadata = full_atom(b"keys", &key_payload);
+    metadata.extend_from_slice(&atom(b"ilst", &values));
+    let mut data = movie(b"qt  ", &full_atom(b"meta", &metadata));
+    data.extend_from_slice(&atom(b"mdat", b"RETAINED-CODED-MEDIA"));
+    let clean = bmff::sanitize(&data, Format::Mov, &Limits::default()).unwrap();
+    assert!(
+        !clean
+            .windows(b"PRIVATE-DEVICE".len())
+            .any(|value| value == b"PRIVATE-DEVICE")
+    );
+    for retained in [b"KEEP-PLAYBACK".as_slice(), b"KEEP-CONTENT-ID"] {
+        assert!(clean.windows(retained.len()).any(|value| value == retained));
+    }
+    let after = bmff::inspect(&clean, Format::Mov, &Limits::default()).unwrap();
+    assert!(
+        !after
+            .findings
+            .iter()
+            .any(|finding| finding.code == "bmff.metadata.device")
+    );
+    assert!(
+        after
+            .findings
+            .iter()
+            .any(|finding| finding.code == "bmff.metadata.content_pairing"
+                && finding.action == fileveil_core::Action::Preserve)
+    );
+    bmff::verify(&data, &clean, Format::Mov, &Limits::default()).unwrap();
+}
+
+#[test]
+fn encoded_sample_and_presentation_tampering_fail_the_independent_media_digest() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures");
+    let original = std::fs::read(root.join("mp4_container_times.mp4")).unwrap();
+    let mut clean = bmff::sanitize(&original, Format::Mp4, &Limits::default()).unwrap();
+    let kind = clean.windows(4).position(|bytes| bytes == b"mdat").unwrap();
+    let extended = clean[kind - 4..kind] == 1u32.to_be_bytes();
+    let payload = kind + 4 + if extended { 8 } else { 0 };
+    clean[payload + 5] ^= 1;
+    assert_ne!(
+        bmff::retained_media_digest(&original, Format::Mp4, &Limits::default()).unwrap(),
+        bmff::retained_media_digest(&clean, Format::Mp4, &Limits::default()).unwrap()
+    );
+    assert!(bmff::verify(&original, &clean, Format::Mp4, &Limits::default()).is_err());
+    let original = std::fs::read(root.join("heic_exif_gps.heic")).unwrap();
+    let mut clean = bmff::sanitize(&original, Format::Heic, &Limits::default()).unwrap();
+    let rotation = clean
+        .windows(8)
+        .position(|bytes| bytes == b"\0\0\0\x09irot")
+        .unwrap()
+        + 8;
+    clean[rotation] ^= 1;
+    assert_ne!(
+        bmff::retained_media_digest(&original, Format::Heic, &Limits::default()).unwrap(),
+        bmff::retained_media_digest(&clean, Format::Heic, &Limits::default()).unwrap()
+    );
+    assert!(bmff::verify(&original, &clean, Format::Heic, &Limits::default()).is_err());
+}
+
+#[test]
+fn unknown_vendor_extensions_are_retained_and_remain_unassessed() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures");
+    let mut original = std::fs::read(root.join("mov_model_metadata.mov")).unwrap();
+    let mut extension = vec![0x45; 16];
+    extension.extend_from_slice(b"PRIVATE-UNKNOWN-VENDOR-FIELD");
+    original.extend_from_slice(&atom(b"uuid", &extension));
+    let clean = bmff::sanitize(&original, Format::Mov, &Limits::default()).unwrap();
+    assert!(
+        clean
+            .windows(extension.len())
+            .any(|value| value == extension)
+    );
+    let verified = bmff::verify(&original, &clean, Format::Mov, &Limits::default()).unwrap();
+    assert!(
+        verified
+            .findings
+            .iter()
+            .any(|finding| finding.code == "bmff.structure.uuid"
+                && finding.action == fileveil_core::Action::Preserve
+                && finding.state == fileveil_core::FindingState::Remains)
+    );
+    assert_eq!(verified.result, fileveil_core::Outcome::PartiallyVerified);
+}
+
+#[test]
+fn encrypted_sample_entries_and_non_media_chunk_offsets_are_protected() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures");
+    let original = std::fs::read(root.join("mp4_container_times.mp4")).unwrap();
+    let mut encrypted = original.clone();
+    let description = encrypted
+        .windows(4)
+        .position(|value| value == b"stsd")
+        .unwrap();
+    encrypted[description + 16..description + 20].copy_from_slice(b"encv");
+    let audit = bmff::inspect(&encrypted, Format::Mp4, &Limits::default()).unwrap();
+    assert!(!audit.rewrite_supported);
+    assert!(
+        audit
+            .blockers
+            .iter()
+            .any(|message| message.contains("Encrypted media sample"))
+    );
+    assert!(bmff::sanitize(&encrypted, Format::Mp4, &Limits::default()).is_err());
+    let mut invalid_offset = original;
+    let offsets = invalid_offset
+        .windows(4)
+        .position(|value| value == b"stco")
+        .unwrap();
+    invalid_offset[offsets + 12..offsets + 16].copy_from_slice(&0u32.to_be_bytes());
+    let audit = bmff::inspect(&invalid_offset, Format::Mp4, &Limits::default()).unwrap();
+    assert!(!audit.rewrite_supported);
+    assert!(
+        audit
+            .blockers
+            .iter()
+            .any(|message| message.contains("outside media-data"))
+    );
+    assert!(bmff::sanitize(&invalid_offset, Format::Mp4, &Limits::default()).is_err());
+}
+
+#[test]
+fn nested_image_metadata_namespaces_are_protected() {
+    let mut children = full_atom(b"meta", &[]);
+    children.extend_from_slice(&atom(b"idat", &[0; 8]));
+    let original = heif(b"heic", &children);
+    let audit = bmff::inspect(&original, Format::Heic, &Limits::default()).unwrap();
+    assert!(!audit.rewrite_supported);
+    assert!(
+        audit
+            .blockers
+            .iter()
+            .any(|message| message.contains("Nested image metadata namespaces"))
+    );
+    assert!(bmff::sanitize(&original, Format::Heic, &Limits::default()).is_err());
 }

@@ -667,6 +667,12 @@ pub fn finding_title(language: Language, finding: &Finding) -> String {
         "bmff.metadata.device" => ("媒体设备字段", "Media device fields"),
         "bmff.metadata.location" => ("媒体位置字段", "Media location fields"),
         "bmff.metadata.software" => ("媒体软件字段", "Media software fields"),
+        "bmff.metadata.handler_name" | "bmff.metadata.encoder_name" | "bmff.metadata.item_name" => {
+            ("媒体软件与显示名称", "Media software and display names")
+        }
+        "bmff.metadata.content_pairing" => {
+            ("保留的关联媒体标识", "Retained linked-media identifiers")
+        }
         "bmff.metadata.identifier" => ("媒体标识字段", "Media identifier fields"),
         "bmff.metadata.xmp_item" => ("媒体 XMP 元数据", "Media XMP metadata"),
         "bmff.audit.scope" => ("媒体容器审计范围", "Media container audit scope"),
@@ -691,7 +697,7 @@ pub fn finding_title(language: Language, finding: &Finding) -> String {
         "jpeg.unknown_app" => ("未知 JPEG 应用段", "Unknown JPEG application segment"),
         "jpeg.trailing_data" | "png.trailing_data" => ("文件尾部附加数据", "Trailing data"),
         "jpeg.provenance" | "png.provenance" | "pdf.provenance" | "text.provenance"
-        | "wav.provenance" => ("来源凭据结构", "Provenance container"),
+        | "wav.provenance" | "bmff.provenance" => ("来源凭据结构", "Provenance container"),
         "png.text" => ("PNG 文本元数据", "PNG text metadata"),
         "png.ztxt" => ("PNG 压缩文本", "PNG compressed text"),
         "png.itxt" => ("PNG 国际文本", "PNG international text"),
@@ -723,6 +729,7 @@ pub fn finding_title(language: Language, finding: &Finding) -> String {
         "html.meta" => ("HTML 元标签线索", "HTML metadata tag candidate"),
         "watermark.statistical" => ("统计水印检测范围", "Statistical watermark coverage"),
         "image.content_watermark" => ("未知内容水印检测范围", "Unknown content watermark coverage"),
+        "media.content_watermark" => ("媒体信号水印范围", "Media signal watermark coverage"),
         "format.unsupported" => ("格式支持限制", "Format support limitation"),
         _ => {
             if let Some(property) = finding.code.strip_prefix("ooxml.core.") {
@@ -807,7 +814,10 @@ pub fn finding_summary(language: Language, finding: &Finding) -> String {
         code if code.starts_with("bmff.structure.") => {
             "媒体容器中检测到私有、未知或需要进一步解释的结构，偏移用于复核。"
         }
-        "bmff.audit.scope" => "已完成有限媒体容器结构审计，编码负载和私有字段含义未评估。",
+        "bmff.audit.scope" => {
+            "媒体重写覆盖可识别的隐私字段，验证保留的编码负载与显示及播放结构。未知私有字段含义和信号水印仍待评估。"
+        }
+        "bmff.provenance" => "媒体包含受保护的来源凭据，签名与绑定由离线 C2PA 验证器单独核验。",
         "image.processing.executed" => {
             "已重新解码输出，并按所选参数核对图像处理结果。未知水印的清除状态仍待对应检测器确认。"
         }

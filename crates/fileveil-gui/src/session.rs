@@ -253,10 +253,12 @@ impl Session {
 
     pub fn can_sanitize(&self, id: u64) -> bool {
         self.eligible_scan(id).is_some_and(|report| {
-            report
-                .findings
-                .iter()
-                .any(|finding| matches!(finding.action, Action::Remove | Action::Normalize))
+            report.findings.iter().any(|finding| {
+                matches!(
+                    finding.action,
+                    Action::Remove | Action::Normalize | Action::Rebuild
+                )
+            })
         })
     }
 
@@ -644,6 +646,8 @@ mod tests {
         session.queue_scan(1);
         assert!(!session.can_sanitize(1));
         session.cancel_all();
+        assert!(session.can_sanitize(1));
+        session.items[0].scan.as_mut().unwrap().findings[0].action = Action::Rebuild;
         assert!(session.can_sanitize(1));
         session.items[0].scan.as_mut().unwrap().findings[0].action = Action::Preserve;
         assert!(!session.can_sanitize(1));
