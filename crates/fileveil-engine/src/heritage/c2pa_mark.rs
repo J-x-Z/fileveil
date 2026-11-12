@@ -318,26 +318,27 @@ mod tests {
         }
         #[cfg(windows)]
         {
-            // OpenSSL inherits the Temp directory ACL. Apply the same explicit
-            // owner-only policy required by the production PEM reader.
-            let username = std::env::var("USERNAME").unwrap();
-            let domain = std::env::var("USERDOMAIN").unwrap();
-            let owner = format!("{domain}\\{username}");
-            for arguments in [
-                vec!["/setowner".into(), owner.clone()],
-                vec!["/inheritance:r".into()],
-                vec!["/grant:r".into(), format!("{owner}:(F)")],
-            ] {
-                let output = Command::new("icacls")
-                    .arg(path)
-                    .args(arguments)
-                    .output()
-                    .unwrap();
-                assert!(
-                    output.status.success(),
-                    "Could not protect ephemeral test PEM"
-                );
-            }
+            // Replace inherited and explicit ACEs. Updating an existing grant
+            // with icacls can leave other explicit OpenSSL-created entries.
+            let script = r#"
+$ErrorActionPreference = 'Stop'
+$owner = [System.Security.Principal.WindowsIdentity]::GetCurrent().User
+$acl = [System.Security.AccessControl.FileSecurity]::new()
+$acl.SetOwner($owner)
+$acl.SetAccessRuleProtection($true, $false)
+$rule = [System.Security.AccessControl.FileSystemAccessRule]::new($owner, 'FullControl', 'Allow')
+$acl.AddAccessRule($rule)
+Set-Acl -LiteralPath $env:FILEVEIL_TEST_PEM -AclObject $acl
+"#;
+            let output = Command::new("powershell.exe")
+                .args(["-NoProfile", "-NonInteractive", "-Command", script])
+                .env("FILEVEIL_TEST_PEM", path)
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "Could not protect ephemeral test PEM"
+            );
         }
     }
 
