@@ -449,6 +449,11 @@ fn macos_selected_attributes_are_removed_and_quarantine_remains() {
     let file = fs::OpenOptions::new().write(true).open(&original).unwrap();
     for (name, value) in [
         ("com.apple.metadata:kMDItemWhereFroms", "PRIVATE_ORIGIN"),
+        (
+            "com.apple.metadata:kMDItemDownloadedDate",
+            "PRIVATE_DOWNLOAD_DATE",
+        ),
+        ("com.apple.lastuseddate#PS", "PRIVATE_LAST_USE"),
         ("com.apple.metadata:_kMDItemUserTags", "PRIVATE_TAG"),
         ("com.apple.quarantine", "0081;0;FileVeil;"),
         ("user.fileveil-test", "PRIVATE_USER_ATTRIBUTE"),
@@ -460,6 +465,7 @@ fn macos_selected_attributes_are_removed_and_quarantine_remains() {
             remove_download_origin: true,
             remove_finder_tags: true,
             remove_user_attributes: true,
+            remove_usage_metadata: true,
             ..FilesystemOptions::default()
         },
         ..SanitizeOptions::default()
@@ -469,6 +475,8 @@ fn macos_selected_attributes_are_removed_and_quarantine_remains() {
     let result = fs::File::open(&output).unwrap();
     for name in [
         "com.apple.metadata:kMDItemWhereFroms",
+        "com.apple.metadata:kMDItemDownloadedDate",
+        "com.apple.lastuseddate#PS",
         "com.apple.metadata:_kMDItemUserTags",
         "user.fileveil-test",
     ] {
@@ -561,4 +569,65 @@ fn explicit_utf8_text_control_cleanup_accepts_nul_without_relaxing_binary_detect
         assert!(!output.exists());
         assert_eq!(fs::read(&input).unwrap(), bytes);
     }
+}
+
+#[test]
+fn creation_time_choice_is_verified_or_fails_without_publication() {
+    let directory = tempfile::tempdir().unwrap();
+    let input = directory.path().join("input.png");
+    let output = directory.path().join("output.png");
+    let bytes = image_file(&input, ImageFormat::Png);
+    let original_created = fs::metadata(&input).unwrap().created().ok();
+    let options = SanitizeOptions {
+        filesystem: FilesystemOptions {
+            normalize_creation_time: true,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    let result = sanitize_with_options(&input, Some(&output), &Limits::default(), &options);
+    if cfg!(any(target_os = "macos", windows)) {
+        let report = result.unwrap();
+        assert_eq!(
+            report.advanced.as_ref().unwrap()["creation_time_scope"],
+            "output_creation_time_verified"
+        );
+        let expected = SystemTime::UNIX_EPOCH + Duration::from_secs(946_684_800);
+        assert_eq!(fs::metadata(&output).unwrap().created().unwrap(), expected);
+        verify_with_options(&input, &output, &Limits::default(), &options).unwrap();
+        let mut staged_report = report.clone();
+        staged_report.output_name = None;
+        #[cfg(target_os = "macos")]
+        use std::os::darwin::fs::FileTimesExt;
+        #[cfg(windows)]
+        use std::os::windows::fs::FileTimesExt;
+        #[cfg(any(target_os = "macos", windows))]
+        fs::OpenOptions::new()
+            .write(true)
+            .open(&output)
+            .unwrap()
+            .set_times(fs::FileTimes::new().set_created(SystemTime::now()))
+            .unwrap();
+        assert!(verify_with_options(&input, &output, &Limits::default(), &options).is_err());
+        assert!(
+            publish_advanced_staged(
+                &input,
+                &output,
+                Some(&directory.path().join("published.png")),
+                &mut staged_report,
+                &Limits::default(),
+                &options
+            )
+            .is_err()
+        );
+        assert!(!directory.path().join("published.png").exists());
+    } else {
+        assert!(matches!(result, Err(fileveil_core::Error::Unsupported(_))));
+        assert!(!output.exists());
+    }
+    assert_eq!(
+        fs::metadata(&input).unwrap().created().ok(),
+        original_created
+    );
+    assert_eq!(fs::read(&input).unwrap(), bytes);
 }

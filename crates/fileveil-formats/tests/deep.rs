@@ -459,28 +459,77 @@ fn independent_python_zip_and_xml_interoperability() {
         }),
     )
     .unwrap();
-    let script = r#"import io,sys,zipfile,xml.etree.ElementTree as E
-z=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read()))
+    let row_body = format!(
+        r#"<w:document xmlns:w="{W}"><w:body><w:tbl><w:tblGrid><w:gridCol w:w="2400"/><w:tblGridChange w:author="PRIVATE_GRID"><w:tblGrid><w:gridCol w:w="1200"/></w:tblGrid></w:tblGridChange></w:tblGrid><w:tr><w:tc><w:p><w:r><w:t>Retained table cell</w:t></w:r></w:p></w:tc></w:tr><w:tr><w:trPr><w:ins w:author="PRIVATE_INSERT"/></w:trPr><w:tc><w:p><w:ins><w:r><w:t>Inserted table cell</w:t></w:r></w:ins></w:p></w:tc></w:tr><w:tr><w:trPr><w:del w:author="PRIVATE_DELETE"/></w:trPr><w:tc><w:p><w:del><w:r><w:delText>PRIVATE_DELETED_CELL</w:delText></w:r></w:del></w:p></w:tc></w:tr></w:tbl><w:p><w:r><w:fldChar w:fldCharType="begin"><w:numberingChange w:author="PRIVATE_NUMBER" w:original="1."/></w:fldChar></w:r><w:r><w:instrText>LISTNUM</w:instrText></w:r><w:r><w:fldChar w:fldCharType="separate"/></w:r><w:r><w:t>2.</w:t></w:r><w:r><w:fldChar w:fldCharType="end"/></w:r></w:p></w:body></w:document>"#
+    );
+    let conflict_body = format!(
+        r#"<w:document xmlns:w="{W}" xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml"><w:body><w:p><w14:conflictIns w:author="PRIVATE_INSERT"><w:r><w:t>Conflict insertion</w:t></w:r></w14:conflictIns><w14:conflictDel w:author="PRIVATE_DELETE"><w:r><w:delText>PRIVATE_CONFLICT</w:delText></w:r></w14:conflictDel><w:customXmlDelRangeStart w:id="1" w:author="PRIVATE_RANGE"/><w:customXml w:element="PRIVATE_SCHEMA"><w:r><w:t>Cached XML text</w:t></w:r></w:customXml><w:customXmlDelRangeEnd w:id="1"/></w:p></w:body></w:document>"#
+    );
+    let mut outputs = vec![(output, "word/document.xml", "Independent visible text")];
+    for (body, expected) in [
+        (row_body, "Retained table cell"),
+        (conflict_body, "Conflict insertion"),
+    ] {
+        let original = package(Format::Docx, &body, &[]);
+        let options = deep(DeepOptions {
+            accept_revisions: true,
+            remove_custom_xml: true,
+            ..Default::default()
+        });
+        let output =
+            sanitize_with_options(&original, Format::Docx, &Limits::default(), &options).unwrap();
+        outputs.push((output, "word/document.xml", expected));
+    }
+    let modern =
+        modern_powerpoint("http://schemas.microsoft.com/office/2018/10/relationships/comments");
+    let output = sanitize_with_options(
+        &modern,
+        Format::Pptx,
+        &Limits::default(),
+        &deep(DeepOptions {
+            remove_comments: true,
+            ..Default::default()
+        }),
+    )
+    .unwrap();
+    outputs.push((output, "ppt/slides/slide1.xml", "Keep visible slide text"));
+    let script = r#"import importlib.util,io,sys,zipfile,xml.etree.ElementTree as E
+data=sys.stdin.buffer.read()
+z=zipfile.ZipFile(io.BytesIO(data))
 assert z.testzip() is None
 assert 'word/comments.xml' not in z.namelist()
 for name in z.namelist():
  if name.endswith(('.xml','.rels')): E.fromstring(z.read(name))
-s=z.read('word/document.xml')
-assert b'Independent visible text' in s
+s=z.read(sys.argv[1])
+assert sys.argv[2].encode() in s
 assert b'PRIVATE_' not in s
+if sys.argv[1]=='word/document.xml' and importlib.util.find_spec('docx'):
+ from docx import Document
+ doc=Document(io.BytesIO(data))
+ text=' '.join(p.text for p in doc.paragraphs)
+ text+=' '.join(c.text for t in doc.tables for row in t.rows for c in row.cells)
+ assert sys.argv[2] in text
+ print('python_docx_open_passed')
 print('independent_zip_crc_and_xml_passed')
 "#;
     let python = std::env::var_os("FILEVEIL_TEST_PYTHON").unwrap_or_else(|| "python3".into());
-    let mut child = Command::new(python)
-        .args(["-I", "-c", script])
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .spawn()
-        .unwrap();
-    child.stdin.take().unwrap().write_all(&output).unwrap();
-    let result = child.wait_with_output().unwrap();
-    assert!(result.status.success());
-    assert_eq!(result.stdout, b"independent_zip_crc_and_xml_passed\n");
+    for (output, main, expected) in outputs {
+        let mut child = Command::new(&python)
+            .args(["-I", "-c", script, main, expected])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .spawn()
+            .unwrap();
+        child.stdin.take().unwrap().write_all(&output).unwrap();
+        let result = child.wait_with_output().unwrap();
+        assert!(
+            result.status.success(),
+            "independent open failed for {expected}"
+        );
+        let stdout = String::from_utf8(result.stdout).unwrap();
+        assert!(stdout.ends_with("independent_zip_crc_and_xml_passed\n"));
+        print!("{expected}: {stdout}");
+    }
 }
 
 #[test]
@@ -724,4 +773,432 @@ fn hidden_sheet_deletion_blocks_complex_outbound_and_inbound_relationships() {
         sanitize_with_options(&original, Format::Xlsx, &Limits::default(), &options),
         Err(Error::Blocked(_))
     ));
+}
+
+#[test]
+fn accepted_property_history_keeps_current_grid_and_listnum_result() {
+    let body = format!(
+        r#"<w:document xmlns:w="{W}"><w:body><w:tbl><w:tblGrid><w:gridCol w:w="2400"/><w:tblGridChange w:author="PRIVATE_GRID"><w:tblGrid><w:gridCol w:w="1200"/></w:tblGrid></w:tblGridChange></w:tblGrid><w:tr><w:tc><w:p><w:r><w:t>Keep current cell</w:t></w:r></w:p></w:tc></w:tr></w:tbl><w:p><w:r><w:fldChar w:fldCharType="begin"><w:numberingChange w:author="PRIVATE_NUMBER" w:original="1."/></w:fldChar></w:r><w:r><w:instrText>LISTNUM</w:instrText></w:r><w:r><w:fldChar w:fldCharType="separate"/></w:r><w:r><w:t>2.</w:t></w:r><w:r><w:fldChar w:fldCharType="end"/></w:r></w:p></w:body></w:document>"#
+    );
+    let original = package(Format::Docx, &body, &[]);
+    let scanned = inspect(&original, Path::new("grid.docx"), &Limits::default()).unwrap();
+    assert!(
+        scanned
+            .findings
+            .iter()
+            .any(|finding| finding.code == "ooxml.revisions")
+    );
+    let safe = sanitize(&original, Format::Docx, &Limits::default()).unwrap();
+    assert_eq!(part(&safe, "word/document.xml").unwrap(), body.as_bytes());
+    let options = deep(DeepOptions {
+        accept_revisions: true,
+        ..Default::default()
+    });
+    let output =
+        sanitize_with_options(&original, Format::Docx, &Limits::default(), &options).unwrap();
+    let document = String::from_utf8(part(&output, "word/document.xml").unwrap()).unwrap();
+    assert!(document.contains(r#"<w:gridCol w:w="2400"/>"#));
+    assert!(document.contains("LISTNUM") && document.contains(">2.</w:t>"));
+    assert!(!document.contains("1200") && !document.contains("PRIVATE_"));
+    assert!(!document.contains("Change"));
+    verify_scoped(
+        &original,
+        &output,
+        Format::Docx,
+        &Limits::default(),
+        &options,
+    )
+    .unwrap();
+}
+
+#[test]
+fn accepted_simple_table_rows_preserve_retained_rows_and_current_properties() {
+    let body = format!(
+        r#"<w:document xmlns:w="{W}"><w:body><w:tbl><w:tblGrid><w:gridCol w:w="2400"/></w:tblGrid><w:tr><w:tc><w:p><w:r><w:t>Keep original row</w:t></w:r></w:p></w:tc></w:tr><w:tr><w:trPr><w:ins w:author="PRIVATE_INSERT"/><w:trPrChange w:author="PRIVATE_OLD"><w:trPr><w:del w:author="PRIVATE_OLD_ROW"/></w:trPr></w:trPrChange></w:trPr><w:tc><w:p><w:ins w:author="PRIVATE_INSERT"><w:r><w:t>Keep inserted row</w:t></w:r></w:ins></w:p></w:tc></w:tr><w:tr><w:trPr><w:del w:author="PRIVATE_DELETE"/></w:trPr><w:tc><w:p><w:del w:author="PRIVATE_DELETE"><w:r><w:delText>PRIVATE_DELETED_ROW</w:delText></w:r></w:del></w:p></w:tc></w:tr></w:tbl></w:body></w:document>"#
+    );
+    let original = package(Format::Docx, &body, &[]);
+    let options = deep(DeepOptions {
+        accept_revisions: true,
+        ..Default::default()
+    });
+    let output =
+        sanitize_with_options(&original, Format::Docx, &Limits::default(), &options).unwrap();
+    let bytes = part(&output, "word/document.xml").unwrap();
+    let document = std::str::from_utf8(&bytes).unwrap();
+    let parsed = roxmltree::Document::parse(document).unwrap();
+    assert_eq!(
+        parsed
+            .descendants()
+            .filter(|node| node.tag_name().name() == "tr")
+            .count(),
+        2
+    );
+    assert!(document.contains("Keep original row") && document.contains("Keep inserted row"));
+    assert!(
+        !document.contains("PRIVATE_")
+            && !document.contains("<w:ins")
+            && !document.contains("<w:del")
+    );
+    verify_scoped(
+        &original,
+        &output,
+        Format::Docx,
+        &Limits::default(),
+        &options,
+    )
+    .unwrap();
+}
+
+#[test]
+fn tracked_row_deletion_protects_live_cells_vertical_merges_and_empty_tables() {
+    let options = deep(DeepOptions {
+        accept_revisions: true,
+        ..Default::default()
+    });
+    let keep = "<w:tr><w:tc><w:p><w:r><w:t>Keep</w:t></w:r></w:p></w:tc></w:tr>";
+    let deleted = "<w:tr><w:trPr><w:del/></w:trPr><w:tc><w:p><w:del><w:r><w:delText>Old</w:delText></w:r></w:del></w:p></w:tc></w:tr>";
+    for rows in [
+        format!(
+            "{keep}<w:tr><w:trPr><w:del/></w:trPr><w:tc><w:p><w:r><w:t>Live content</w:t></w:r></w:p></w:tc></w:tr>"
+        ),
+        format!(
+            "{keep}<w:tr><w:trPr><w:del/></w:trPr><w:tc><w:p><w:fldSimple w:instr=\"PAGE\"/></w:p></w:tc></w:tr>"
+        ),
+        format!("{keep}<w:tr><w:trPr><w:del/></w:trPr><w:tc><w:altChunk/></w:tc></w:tr>"),
+        deleted.to_string(),
+        format!(
+            "{}{}",
+            keep.replace(
+                "<w:tc>",
+                "<w:tc><w:tcPr><w:vMerge w:val=\"restart\"/></w:tcPr>"
+            ),
+            deleted
+        ),
+    ] {
+        let body = format!(
+            r#"<w:document xmlns:w="{W}"><w:body><w:tbl>{rows}</w:tbl></w:body></w:document>"#
+        );
+        let original = package(Format::Docx, &body, &[]);
+        assert!(matches!(
+            sanitize_with_options(&original, Format::Docx, &Limits::default(), &options),
+            Err(Error::Blocked(_))
+        ));
+        assert_eq!(
+            part(&original, "word/document.xml").unwrap(),
+            body.as_bytes()
+        );
+    }
+}
+
+#[test]
+fn tracked_row_deletion_protects_foreign_content_and_accepts_deleted_math() {
+    let options = deep(DeepOptions {
+        accept_revisions: true,
+        ..Default::default()
+    });
+    let keep = "<w:tr><w:tc><w:p><w:r><w:t>Keep original row</w:t></w:r></w:p></w:tc></w:tr>";
+    let math = "<m:oMath><m:r><m:t>PRIVATE_EQUATION</m:t></m:r></m:oMath>";
+    let drawing = "<a:r><a:t>PRIVATE_DRAWING_TEXT</a:t></a:r>";
+    for (content, allowed) in [
+        (math.to_string(), false),
+        (drawing.to_string(), false),
+        (format!("<w:del>{math}</w:del>"), true),
+    ] {
+        let body = format!(
+            r#"<w:document xmlns:w="{W}" xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><w:body><w:tbl>{keep}<w:tr><w:trPr><w:del/></w:trPr><w:tc><w:p>{content}</w:p></w:tc></w:tr></w:tbl></w:body></w:document>"#
+        );
+        let original = package(Format::Docx, &body, &[]);
+        let original_hash = digest(&original);
+        let result = sanitize_with_options(&original, Format::Docx, &Limits::default(), &options);
+        if allowed {
+            let output = result.unwrap();
+            let document = String::from_utf8(part(&output, "word/document.xml").unwrap()).unwrap();
+            assert!(document.contains("Keep original row"));
+            assert!(!document.contains("PRIVATE_") && !document.contains("oMath"));
+            verify_scoped(
+                &original,
+                &output,
+                Format::Docx,
+                &Limits::default(),
+                &options,
+            )
+            .unwrap();
+        } else {
+            assert!(matches!(result, Err(Error::Blocked(_))));
+        }
+        assert_eq!(digest(&original), original_hash);
+    }
+}
+
+#[test]
+fn accepted_word_conflicts_and_moves_keep_inserted_runs_with_namespace_guards() {
+    let w14 = "http://schemas.microsoft.com/office/word/2010/wordml";
+    let body = format!(
+        r#"<w:document xmlns:w="{W}" xmlns:co="{w14}" xmlns:other="urn:unrelated"><w:body><w:p><co:conflictIns w:author="PRIVATE_ACCEPT"><w:r><w:t>Keep conflict insertion</w:t></w:r></co:conflictIns><co:conflictDel w:author="PRIVATE_DISCARD"><w:r><w:delText>PRIVATE_CONFLICT</w:delText></w:r></co:conflictDel><w:moveFromRangeStart w:id="1"/><w:moveFrom w:author="PRIVATE_MOVE"><w:r><w:t>PRIVATE_OLD_POSITION</w:t></w:r></w:moveFrom><w:moveFromRangeEnd w:id="1"/><w:moveToRangeStart w:id="2"/><w:moveTo w:author="PRIVATE_MOVE"><w:r><w:t>Keep moved first</w:t></w:r><w:r><w:t> and second run</w:t></w:r></w:moveTo><w:moveToRangeEnd w:id="2"/><other:conflictDel>Keep unrelated content</other:conflictDel></w:p></w:body></w:document>"#
+    );
+    let original = package(Format::Docx, &body, &[]);
+    let options = deep(DeepOptions {
+        accept_revisions: true,
+        ..Default::default()
+    });
+    let output =
+        sanitize_with_options(&original, Format::Docx, &Limits::default(), &options).unwrap();
+    let document = String::from_utf8(part(&output, "word/document.xml").unwrap()).unwrap();
+    for retained in [
+        "Keep conflict insertion",
+        "Keep moved first",
+        " and second run",
+        "<other:conflictDel>Keep unrelated content</other:conflictDel>",
+    ] {
+        assert!(document.contains(retained));
+    }
+    assert!(!document.contains("PRIVATE_") && !document.contains("<co:conflict"));
+    verify_scoped(
+        &original,
+        &output,
+        Format::Docx,
+        &Limits::default(),
+        &options,
+    )
+    .unwrap();
+}
+
+#[test]
+fn custom_xml_revision_ranges_require_explicit_unbinding_and_keep_cached_text() {
+    let w14 = "http://schemas.microsoft.com/office/word/2010/wordml";
+    let body = format!(
+        r#"<w:document xmlns:w="{W}" xmlns:co="{w14}"><w:body><w:p><w:customXmlDelRangeStart w:id="1" w:author="PRIVATE_RANGE"/><w:customXml w:element="PRIVATE_SCHEMA"><w:r><w:t>Keep cached text</w:t></w:r></w:customXml><w:customXmlDelRangeEnd w:id="1"/><co:customXmlConflictInsRangeStart w:id="2" w:author="PRIVATE_CONFLICT"/><w:r><w:t>Keep conflict cached text</w:t></w:r><co:customXmlConflictInsRangeEnd w:id="2"/></w:p></w:body></w:document>"#
+    );
+    let original = package(Format::Docx, &body, &[]);
+    let options = deep(DeepOptions {
+        accept_revisions: true,
+        ..Default::default()
+    });
+    assert!(matches!(
+        sanitize_with_options(&original, Format::Docx, &Limits::default(), &options),
+        Err(Error::Blocked(_))
+    ));
+    for accept_revisions in [false, true] {
+        let options = deep(DeepOptions {
+            accept_revisions,
+            remove_custom_xml: true,
+            ..Default::default()
+        });
+        let output =
+            sanitize_with_options(&original, Format::Docx, &Limits::default(), &options).unwrap();
+        let document = String::from_utf8(part(&output, "word/document.xml").unwrap()).unwrap();
+        assert!(
+            document.contains("Keep cached text") && document.contains("Keep conflict cached text")
+        );
+        assert!(
+            !document.contains("<w:customXml")
+                && !document.contains("<co:customXml")
+                && !document.contains("PRIVATE_")
+        );
+        verify_scoped(
+            &original,
+            &output,
+            Format::Docx,
+            &Limits::default(),
+            &options,
+        )
+        .unwrap();
+    }
+}
+
+fn with_type_overrides(data: &[u8], overrides: &str) -> Vec<u8> {
+    let mut source = ZipArchive::new(Cursor::new(data)).unwrap();
+    let mut writer = ZipWriter::new(Cursor::new(Vec::new()));
+    for index in 0..source.len() {
+        let mut file = source.by_index(index).unwrap();
+        let name = file.name().unwrap().into_owned();
+        let mut bytes = Vec::new();
+        file.read_to_end(&mut bytes).unwrap();
+        if name == "[Content_Types].xml" {
+            bytes = String::from_utf8(bytes)
+                .unwrap()
+                .replace("</Types>", &format!("{overrides}</Types>"))
+                .into_bytes();
+        }
+        writer
+            .start_file(&name, SimpleFileOptions::default())
+            .unwrap();
+        writer.write_all(&bytes).unwrap();
+    }
+    writer.finish().unwrap().into_inner()
+}
+
+fn modern_powerpoint(comment_target: &str) -> Vec<u8> {
+    let p = "http://schemas.openxmlformats.org/presentationml/2006/main";
+    let p18 = "http://schemas.microsoft.com/office/powerpoint/2018/8/main";
+    let presentation = format!(
+        r#"<p:presentation xmlns:p="{p}" xmlns:r="{R}"><p:sldIdLst><p:sldId id="256" r:id="slide"/></p:sldIdLst></p:presentation>"#
+    );
+    let presentation_rels = format!(
+        r#"<Relationships xmlns="{REL}"><Relationship Id="slide" Type="{R}/slide" Target="slides/slide1.xml"/><Relationship Id="authors" Type="http://schemas.microsoft.com/office/2018/10/relationships/authors" Target="../review/identity.xml"/></Relationships>"#
+    );
+    let slide = format!(
+        r#"<p:sld xmlns:p="{p}" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:p18="{p18}" xmlns:r="{R}"><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr/><p:sp><p:nvSpPr><p:cNvPr id="2" name="Text"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr/><p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:r><a:t>Keep visible slide text</a:t></a:r></a:p></p:txBody></p:sp></p:spTree></p:cSld><p:extLst><p:ext uri="{{6950BFC3-D8DA-4A85-94F7-54DA5524770B}}"><p18:commentRel r:id="comments"/></p:ext></p:extLst></p:sld>"#
+    );
+    let slide_rels = format!(
+        r#"<Relationships xmlns="{REL}"><Relationship Id="comments" Type="{comment_target}" Target="../../review/notes.xml"/></Relationships>"#
+    );
+    let authors = format!(
+        r#"<p18:authorLst xmlns:p18="{p18}"><p18:author id="{{00000000-0000-0000-0000-000000000001}}" name="PRIVATE_AUTHOR" userId="PRIVATE_ACCOUNT" providerId="PRIVATE_PROVIDER"/></p18:authorLst>"#
+    );
+    let comments = format!(
+        r#"<p18:cmLst xmlns:p18="{p18}"><p18:cm id="{{00000000-0000-0000-0000-000000000002}}" authorId="{{00000000-0000-0000-0000-000000000001}}" created="2000-01-01T00:00:00Z"/></p18:cmLst>"#
+    );
+    let data = package(
+        Format::Pptx,
+        &presentation,
+        &[
+            (
+                "ppt/_rels/presentation.xml.rels",
+                presentation_rels.as_bytes(),
+            ),
+            ("ppt/slides/slide1.xml", slide.as_bytes()),
+            ("ppt/slides/_rels/slide1.xml.rels", slide_rels.as_bytes()),
+            ("review/identity.xml", authors.as_bytes()),
+            ("review/notes.xml", comments.as_bytes()),
+        ],
+    );
+    with_type_overrides(
+        &data,
+        r#"<Override PartName="/review/identity.xml" ContentType="application/vnd.ms-powerpoint.authors+xml"/><Override PartName="/review/notes.xml" ContentType="application/vnd.ms-powerpoint.comments+xml"/>"#,
+    )
+}
+
+#[test]
+fn modern_powerpoint_comments_authors_and_explicit_refs_are_removed_together() {
+    let original =
+        modern_powerpoint("http://schemas.microsoft.com/office/2018/10/relationships/comments");
+    let original_hash = digest(&original);
+    let scan = inspect(&original, Path::new("modern.pptx"), &Limits::default()).unwrap();
+    assert!(
+        scan.findings
+            .iter()
+            .any(|finding| finding.code == "ooxml.comments")
+    );
+    let safe = sanitize(&original, Format::Pptx, &Limits::default()).unwrap();
+    assert_eq!(
+        part(&safe, "review/identity.xml"),
+        part(&original, "review/identity.xml")
+    );
+    let options = deep(DeepOptions {
+        remove_comments: true,
+        ..Default::default()
+    });
+    let output =
+        sanitize_with_options(&original, Format::Pptx, &Limits::default(), &options).unwrap();
+    assert!(part(&output, "review/identity.xml").is_none());
+    assert!(part(&output, "review/notes.xml").is_none());
+    let slide = String::from_utf8(part(&output, "ppt/slides/slide1.xml").unwrap()).unwrap();
+    assert!(slide.contains("Keep visible slide text") && !slide.contains("commentRel"));
+    assert!(!slide.contains("<p:ext "));
+    assert!(!String::from_utf8_lossy(&output).contains("PRIVATE_"));
+    verify_scoped(
+        &original,
+        &output,
+        Format::Pptx,
+        &Limits::default(),
+        &options,
+    )
+    .unwrap();
+    assert_eq!(digest(&original), original_hash);
+}
+
+#[test]
+fn modern_comment_reference_to_an_unselected_part_is_protected() {
+    let original = modern_powerpoint(
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image",
+    );
+    let options = deep(DeepOptions {
+        remove_comments: true,
+        ..Default::default()
+    });
+    // Its content type still declares a comments part, so first make that target an ordinary XML part.
+    let bytes = part(&original, "[Content_Types].xml").unwrap();
+    let replacement = String::from_utf8(bytes).unwrap().replace(
+        "application/vnd.ms-powerpoint.comments+xml",
+        "application/xml",
+    );
+    let mut zip = ZipArchive::new(Cursor::new(&original)).unwrap();
+    let mut writer = ZipWriter::new(Cursor::new(Vec::new()));
+    for index in 0..zip.len() {
+        let mut file = zip.by_index(index).unwrap();
+        let name = file.name().unwrap().into_owned();
+        let mut bytes = Vec::new();
+        file.read_to_end(&mut bytes).unwrap();
+        writer
+            .start_file(&name, SimpleFileOptions::default())
+            .unwrap();
+        writer
+            .write_all(if name == "[Content_Types].xml" {
+                replacement.as_bytes()
+            } else {
+                &bytes
+            })
+            .unwrap();
+    }
+    let original = writer.finish().unwrap().into_inner();
+    assert!(matches!(
+        sanitize_with_options(&original, Format::Pptx, &Limits::default(), &options),
+        Err(Error::Blocked(_))
+    ));
+}
+
+#[test]
+fn strict_spreadsheet_objects_and_links_are_removed_without_touching_cells() {
+    let s = "http://purl.oclc.org/ooxml/spreadsheetml/main";
+    let r = "http://purl.oclc.org/ooxml/officeDocument/relationships";
+    let workbook = format!(
+        r#"<workbook xmlns="{s}" xmlns:r="{r}"><sheets><sheet name="Visible" sheetId="1" r:id="sheet"/></sheets></workbook>"#
+    );
+    let workbook_rels = format!(
+        r#"<Relationships xmlns="{REL}"><Relationship Id="sheet" Type="{r}/worksheet" Target="worksheets/sheet1.xml"/></Relationships>"#
+    );
+    let sheet = format!(
+        r#"<worksheet xmlns="{s}" xmlns:r="{r}"><sheetData><row r="1"><c r="A1"><v>42</v></c></row></sheetData><hyperlinks><hyperlink ref="A1" r:id="link"/></hyperlinks><oleObjects><oleObject progId="Package" shapeId="1" r:id="object"/></oleObjects></worksheet>"#
+    );
+    let sheet_rels = format!(
+        r#"<Relationships xmlns="{REL}"><Relationship Id="link" Type="{r}/hyperlink" Target="https://example.invalid/PRIVATE_SOURCE" TargetMode="External"/><Relationship Id="object" Type="{r}/oleObject" Target="../embeddings/object.bin"/></Relationships>"#
+    );
+    let original = package(
+        Format::Xlsx,
+        &workbook,
+        &[
+            ("xl/_rels/workbook.xml.rels", workbook_rels.as_bytes()),
+            ("xl/worksheets/sheet1.xml", sheet.as_bytes()),
+            ("xl/worksheets/_rels/sheet1.xml.rels", sheet_rels.as_bytes()),
+            ("xl/embeddings/object.bin", b"PRIVATE_EMBEDDED"),
+        ],
+    );
+    let original_hash = digest(&original);
+    let safe = sanitize(&original, Format::Xlsx, &Limits::default()).unwrap();
+    assert_eq!(
+        part(&safe, "xl/worksheets/sheet1.xml").unwrap(),
+        sheet.as_bytes()
+    );
+    let options = deep(DeepOptions {
+        remove_embedded_objects: true,
+        remove_external_relationships: true,
+        ..Default::default()
+    });
+    let output =
+        sanitize_with_options(&original, Format::Xlsx, &Limits::default(), &options).unwrap();
+    let sheet = String::from_utf8(part(&output, "xl/worksheets/sheet1.xml").unwrap()).unwrap();
+    assert!(sheet.contains(r#"<c r="A1"><v>42</v></c>"#));
+    assert!(!sheet.contains("oleObject") && !sheet.contains("r:id=\"link\""));
+    assert!(part(&output, "xl/embeddings/object.bin").is_none());
+    assert!(!String::from_utf8_lossy(&output).contains("PRIVATE_"));
+    verify_scoped(
+        &original,
+        &output,
+        Format::Xlsx,
+        &Limits::default(),
+        &options,
+    )
+    .unwrap();
+    assert_eq!(digest(&original), original_hash);
 }

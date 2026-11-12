@@ -17,6 +17,8 @@ pub fn findings(attributes: &[Attribute]) -> Vec<Finding> {
             "com.apple.quarantine" => ("filesystem.quarantine", "com.apple.quarantine".into(), Action::Preserve, "macOS quarantine security marker is preserved"),
             ":Zone.Identifier:$DATA" => ("filesystem.motw", "Zone.Identifier".into(), Action::Preserve, "Windows Mark-of-the-Web security marker is preserved"),
             "com.apple.metadata:kMDItemWhereFroms" => ("filesystem.download_origin", "com.apple.metadata:kMDItemWhereFroms".into(), Action::AskUser, "Download-origin attribute remains on the copy"),
+            "com.apple.metadata:kMDItemDownloadedDate" => ("filesystem.download_date", "com.apple.metadata:kMDItemDownloadedDate".into(), Action::AskUser, "Download-date attribute remains on the copy"),
+            "com.apple.lastuseddate#PS" | "com.apple.metadata:kMDItemLastUsedDate" => ("filesystem.usage_time", name.to_string(), Action::AskUser, "Last-use timestamp attribute remains on the copy"),
             "com.apple.metadata:_kMDItemUserTags" => ("filesystem.finder_tags", "com.apple.metadata:_kMDItemUserTags".into(), Action::AskUser, "Finder tags remain on the copy"),
             _ => ("filesystem.extended_attribute", format!("Platform attribute {}", index + 1), Action::AskUser, "Platform metadata is preserved; its privacy impact requires review"),
         };

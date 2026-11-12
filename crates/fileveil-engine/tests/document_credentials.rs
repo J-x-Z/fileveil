@@ -28,7 +28,9 @@ fn signed_pdf_normal_entry_points_protect_default_and_verify_explicit_removal() 
     assert_eq!(summary.store_count, 1);
     assert!(!summary.digital_signatures_present);
     let report = scan(&input, &Limits::default()).unwrap();
-    assert_eq!(report.result, Outcome::Blocked);
+    assert_eq!(report.result, Outcome::PartiallyVerified);
+    assert_eq!(report.pdf.as_ref().unwrap()["scan_status"], "complete");
+    assert_eq!(report.pdf.as_ref().unwrap()["safe_rewrite_allowed"], false);
     assert_eq!(report.provenance.as_ref().unwrap()["signature"], "valid");
     assert!(fileveil_engine::sanitize(&input, Some(&output), &Limits::default()).is_err());
     assert!(!output.exists());

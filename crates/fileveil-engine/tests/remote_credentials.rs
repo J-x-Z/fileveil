@@ -129,7 +129,12 @@ fn standard_remote_references_protect_safe_and_allow_explicit_deep_removal() {
         );
         assert!(evidence.offline);
         let report = scan(&input, &limits).unwrap();
-        assert_eq!(report.result, Outcome::Blocked, "{name}");
+        if format == Format::Pdf {
+            assert_eq!(report.result, Outcome::PartiallyVerified, "{name}");
+            assert_eq!(report.pdf.as_ref().unwrap()["safe_rewrite_allowed"], false);
+        } else {
+            assert_eq!(report.result, Outcome::Blocked, "{name}");
+        }
         assert_eq!(
             report.provenance.as_ref().unwrap()["presence"],
             "remote_reference"

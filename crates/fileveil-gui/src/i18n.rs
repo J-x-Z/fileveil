@@ -720,6 +720,8 @@ pub fn finding_title(language: Language, finding: &Finding) -> String {
         "filesystem.quarantine" => ("macOS 隔离来源标记", "macOS quarantine marker"),
         "filesystem.motw" => ("Windows 下载来源标记", "Windows Mark-of-the-Web"),
         "filesystem.download_origin" => ("下载来源属性", "Download-origin attribute"),
+        "filesystem.download_date" => ("下载日期属性", "Download-date attribute"),
+        "filesystem.usage_time" => ("最近使用时间属性", "Last-use timestamp attribute"),
         "filesystem.finder_tags" => ("Finder 标签", "Finder tags"),
         "filesystem.extended_attribute" => ("平台扩展属性", "Platform extended attribute"),
         "text.bom" => ("文本 BOM", "Text byte-order mark"),
@@ -873,6 +875,8 @@ pub fn finding_summary(language: Language, finding: &Finding) -> String {
             "Windows 下载来源标记影响系统和 Office 安全行为，净化副本会保留该标记。"
         }
         "filesystem.download_origin" => "下载来源属性已保留，可能包含来源地址，报告省略具体值。",
+        "filesystem.download_date" => "下载日期属性包含文件来源时间，可在明确选择后移除。",
+        "filesystem.usage_time" => "最近使用时间属性可在明确选择后移除。",
         "filesystem.finder_tags" => "Finder 标签已保留，可能包含个人分类信息。",
         "filesystem.extended_attribute" => {
             "平台属性已保留，其隐私影响需要复核，报告省略名称和具体值。"

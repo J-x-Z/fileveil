@@ -856,7 +856,7 @@ fn inspect_package(package: &Package, limits: &Limits) -> Result<Inspection> {
                 Action::AskUser,
             ));
         }
-        if lower.contains("comment") {
+        if lower.contains("comment") || deep::comments_type(ct) {
             codes.insert("ooxml.comments");
         }
         if lower.contains("/embeddings/") || ct.contains("oleObject") {
@@ -900,19 +900,15 @@ fn inspect_package(package: &Package, limits: &Limits) -> Result<Inspection> {
                                     | "http://purl.oclc.org/ooxml/wordprocessingml/main"
                             ))
                         );
-                        if word_namespace
-                            && matches!(
-                                e.local_name().as_ref(),
-                                "ins"
-                                    | "del"
-                                    | "moveFrom"
-                                    | "moveTo"
-                                    | "rPrChange"
-                                    | "pPrChange"
-                                    | "sectPrChange"
-                            )
-                        {
+                        let namespace_uri = match namespace {
+                            ResolveResult::Bound(value) => value.0,
+                            _ => "",
+                        };
+                        if deep::revision_element(namespace_uri, local.as_ref()) {
                             codes.insert("ooxml.revisions");
+                        }
+                        if deep::custom_xml_element(namespace_uri, local.as_ref()) {
+                            codes.insert("ooxml.custom_xml");
                         }
                         if word_namespace
                             && matches!(e.local_name().as_ref(), "vanish" | "webHidden")
@@ -1157,6 +1153,7 @@ fn known_part(name: &str, format: Format) -> bool {
                 "charts/",
                 "embeddings/",
                 "comments/",
+                "authors/",
             ]
             .iter()
             .any(|p| tail.starts_with(p))

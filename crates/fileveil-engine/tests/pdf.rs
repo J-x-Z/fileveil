@@ -560,6 +560,35 @@ fn malformed_c2pa_descriptors_are_protected_and_native_pdf_signatures_stay_block
 }
 
 #[test]
+fn protected_pdf_scan_completes_with_a_separate_rewrite_restriction() {
+    require_backend();
+    let directory = tempfile::tempdir().unwrap();
+    let input = directory.path().join("signed.pdf");
+    let output = directory.path().join("copy.pdf");
+    let bytes = fixture(
+        "Native signature source",
+        "/AcroForm << /Fields [8 0 R] >>",
+        vec![b"<< /Type /Sig /ByteRange [0 1 2 3] /Contents <00> >>".to_vec()],
+    );
+    fs::write(&input, &bytes).unwrap();
+    let report = fileveil_engine::scan(&input, &Limits::default()).unwrap();
+    assert_eq!(report.result, Outcome::PartiallyVerified);
+    assert!(report.integrity.parseable);
+    let details = report.pdf.unwrap();
+    assert_eq!(details["scan_status"], "complete");
+    assert_eq!(details["safe_rewrite_allowed"], false);
+    assert!(
+        !details["rewrite_restrictions"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    assert!(fileveil_engine::sanitize(&input, Some(&output), &Limits::default()).is_err());
+    assert!(!output.exists());
+    assert_eq!(fs::read(&input).unwrap(), bytes);
+}
+
+#[test]
 fn shared_metadata_and_page_content_stream_is_blocked_before_any_deletion() {
     require_backend();
     let source=assemble(&[

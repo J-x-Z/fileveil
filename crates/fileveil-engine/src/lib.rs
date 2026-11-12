@@ -363,7 +363,14 @@ pub fn scan(path: &Path, limits: &Limits) -> Result<Report> {
     let inspection = inspect_snapshot(&snapshot.bytes, path, limits)?;
     let mut report = report_for("scan", &inspection, &snapshot);
     if inspection.format == Format::Pdf {
-        report.pdf = Some(pdf::inspect(&snapshot.bytes, limits)?.details);
+        let mut details = pdf::inspect(&snapshot.bytes, limits)?.details;
+        details["scan_status"] = serde_json::json!("complete");
+        details["safe_rewrite_allowed"] = serde_json::json!(inspection.blockers.is_empty());
+        details["rewrite_restrictions"] = serde_json::json!(inspection.blockers);
+        report.pdf = Some(details);
+        if report.result == Outcome::Blocked {
+            report.result = Outcome::PartiallyVerified;
+        }
     }
     attach_provenance(&mut report, &snapshot, inspection.format, limits, path)?;
     report

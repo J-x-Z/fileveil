@@ -7,6 +7,10 @@ use quick_xml::events::BytesStart;
 
 const W_NS: &str = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
 const W_STRICT: &str = "http://purl.oclc.org/ooxml/wordprocessingml/main";
+const W14_NS: &str = "http://schemas.microsoft.com/office/word/2010/wordml";
+const P18_NS: &str = "http://schemas.microsoft.com/office/powerpoint/2018/8/main";
+const P_NS: &str = "http://schemas.openxmlformats.org/presentationml/2006/main";
+const P_STRICT: &str = "http://purl.oclc.org/ooxml/presentationml/main";
 const R_NS: &str = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
 const R_STRICT: &str = "http://purl.oclc.org/ooxml/officeDocument/relationships";
 const S_NS: &str = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
@@ -25,11 +29,13 @@ struct Node {
     local: String,
     attributes: Vec<Attribute>,
     parent: Option<usize>,
+    children: usize,
     start: usize,
     open_end: usize,
     close_start: usize,
     end: usize,
     empty: bool,
+    previous_properties: bool,
     opening: BytesStart<'static>,
 }
 impl Node {
@@ -55,7 +61,7 @@ impl Node {
 fn nodes(data: &[u8], limits: &Limits) -> Result<Vec<Node>> {
     let mut reader = NsReader::from_str(std::str::from_utf8(data).map_err(|_| xml_error())?);
     let mut result: Vec<Node> = Vec::new();
-    let mut stack = Vec::new();
+    let mut stack: Vec<usize> = Vec::new();
     loop {
         let before = reader.buffer_position() as usize;
         let event = reader.read_event().map_err(|_| xml_error())?;
@@ -88,16 +94,37 @@ fn nodes(data: &[u8], limits: &Limits) -> Result<Vec<Node>> {
                     });
                 }
                 let index = result.len();
+                if let Some(parent) = stack.last() {
+                    result[*parent].children += 1;
+                }
+                let previous_properties = stack.last().is_some_and(|parent| {
+                    let parent: &Node = &result[*parent];
+                    parent.previous_properties
+                        || (parent.word()
+                            && matches!(
+                                parent.local.as_str(),
+                                "rPrChange"
+                                    | "pPrChange"
+                                    | "sectPrChange"
+                                    | "tblPrChange"
+                                    | "trPrChange"
+                                    | "tcPrChange"
+                                    | "tblGridChange"
+                                    | "numberingChange"
+                            ))
+                });
                 result.push(Node {
                     namespace,
                     local: local.as_ref().to_string(),
                     attributes: attrs,
                     parent: stack.last().copied(),
+                    children: 0,
                     start: before,
                     open_end: after,
                     close_start: after,
                     end: after,
                     empty: matches!(event, Event::Empty(_)),
+                    previous_properties,
                     opening: element.clone().into_owned(),
                 });
                 if matches!(event, Event::Start(_)) {
@@ -186,6 +213,7 @@ fn comments_part(name: &str) -> bool {
                     .is_some_and(|tail| tail.starts_with("comments") && tail.ends_with(".xml"))))
         || name.starts_with("ppt/comments/")
         || name == "ppt/commentAuthors.xml"
+        || name.starts_with("ppt/authors/")
 }
 fn embedded_part(name: &str) -> bool {
     ["word/embeddings/", "xl/embeddings/", "ppt/embeddings/"]
@@ -225,6 +253,153 @@ fn is_revision(local: &str) -> bool {
             | "cellDel"
             | "cellMerge"
     )
+}
+fn custom_xml_revision(namespace: &str, local: &str) -> bool {
+    (matches!(namespace, W_NS | W_STRICT)
+        && matches!(
+            local,
+            "customXmlInsRangeStart"
+                | "customXmlInsRangeEnd"
+                | "customXmlDelRangeStart"
+                | "customXmlDelRangeEnd"
+                | "customXmlMoveFromRangeStart"
+                | "customXmlMoveFromRangeEnd"
+                | "customXmlMoveToRangeStart"
+                | "customXmlMoveToRangeEnd"
+        ))
+        || (namespace == W14_NS
+            && matches!(
+                local,
+                "customXmlConflictInsRangeStart"
+                    | "customXmlConflictInsRangeEnd"
+                    | "customXmlConflictDelRangeStart"
+                    | "customXmlConflictDelRangeEnd"
+            ))
+}
+pub(super) fn revision_element(namespace: &str, local: &str) -> bool {
+    (matches!(namespace, W_NS | W_STRICT) && is_revision(local))
+        || (namespace == W14_NS && matches!(local, "conflictIns" | "conflictDel"))
+        || custom_xml_revision(namespace, local)
+}
+pub(super) fn custom_xml_element(namespace: &str, local: &str) -> bool {
+    (matches!(namespace, W_NS | W_STRICT)
+        && matches!(local, "customXml" | "customXmlPr" | "dataBinding"))
+        || custom_xml_revision(namespace, local)
+}
+fn revision_insertion(node: &Node) -> bool {
+    (node.word() && matches!(node.local.as_str(), "ins" | "moveTo"))
+        || (node.namespace == W14_NS && node.local == "conflictIns")
+}
+fn revision_deletion(node: &Node) -> bool {
+    (node.word() && matches!(node.local.as_str(), "del" | "moveFrom"))
+        || (node.namespace == W14_NS && node.local == "conflictDel")
+}
+fn deleted_rows(nodes: &[Node]) -> Result<BTreeMap<usize, usize>> {
+    let mut markers = BTreeMap::new();
+    let mut deleted = BTreeSet::new();
+    for (index, node) in nodes.iter().enumerate() {
+        if !node.previous_properties
+            && revision_deletion(node)
+            && let Some(properties) = node
+                .parent
+                .filter(|parent| nodes[*parent].word() && nodes[*parent].local == "trPr")
+        {
+            let row = nodes[properties].parent.ok_or_else(xml_error)?;
+            if !nodes[row].word() || nodes[row].local != "tr" {
+                return Err(xml_error());
+            }
+            markers.insert(index, row);
+            deleted.insert(row);
+        }
+    }
+    if markers.is_empty() {
+        return Ok(markers);
+    }
+    let mut remaining: BTreeMap<usize, usize> = BTreeMap::new();
+    let mut merged_tables = BTreeSet::new();
+    let mut retained_content = BTreeSet::new();
+    for (index, node) in nodes.iter().enumerate() {
+        if node.previous_properties {
+            continue;
+        }
+        if node.word()
+            && node.local == "tr"
+            && !deleted.contains(&index)
+            && let Some(table) = node
+                .parent
+                .filter(|parent| nodes[*parent].word() && nodes[*parent].local == "tbl")
+        {
+            *remaining.entry(table).or_default() += 1;
+        }
+        if node.word() && node.local == "vMerge" {
+            let mut current = node.parent;
+            while let Some(parent) = current {
+                if nodes[parent].word() && nodes[parent].local == "tbl" {
+                    merged_tables.insert(parent);
+                }
+                current = nodes[parent].parent;
+            }
+        }
+        if !node.word()
+            || matches!(
+                node.local.as_str(),
+                "t" | "delText"
+                    | "instrText"
+                    | "delInstrText"
+                    | "drawing"
+                    | "object"
+                    | "pict"
+                    | "sym"
+                    | "tab"
+                    | "br"
+                    | "cr"
+                    | "footnoteReference"
+                    | "endnoteReference"
+                    | "tbl"
+                    | "fldSimple"
+                    | "pgNum"
+                    | "contentPart"
+                    | "altChunk"
+                    | "subDoc"
+            )
+        {
+            let mut current = node.parent;
+            let mut in_deletion = revision_deletion(node);
+            while let Some(parent) = current {
+                if nodes[parent].word() && nodes[parent].local == "tr" {
+                    if !in_deletion {
+                        retained_content.insert(parent);
+                    }
+                    break;
+                }
+                in_deletion |= revision_deletion(&nodes[parent]);
+                current = nodes[parent].parent;
+            }
+        }
+    }
+    for row in deleted {
+        let table = nodes[row].parent.filter(|parent| {
+            nodes[*parent].word() && nodes[*parent].local == "tbl"
+        }).ok_or_else(|| Error::Blocked(
+            "Tracked row deletion inside a wrapped table structure requires additional dependency handling".into()
+        ))?;
+        if merged_tables.contains(&table) {
+            return Err(Error::Blocked(
+                "Tracked row deletion with vertical cell merges requires merge-aware table handling".into(),
+            ));
+        }
+        if !remaining.contains_key(&table) {
+            return Err(Error::Blocked(
+                "Accepting every row deletion would leave an empty table and requires a whole-table decision".into(),
+            ));
+        }
+        if retained_content.contains(&row) {
+            return Err(Error::Blocked(
+                "Tracked row deletion contains retained cell content that requires an explicit content decision".into(),
+            ));
+        }
+    }
+    Ok(markers)
 }
 fn hidden(node: &Node) -> bool {
     node.word()
@@ -502,7 +677,7 @@ fn selected_relationship(kind: &str, choices: &DeepOptions) -> Option<&'static s
     }
     let name = kind.rsplit('/').next().unwrap_or("");
     if choices.remove_comments
-        && matches!(
+        && (matches!(
             name,
             "comments"
                 | "commentAuthors"
@@ -513,7 +688,7 @@ fn selected_relationship(kind: &str, choices: &DeepOptions) -> Option<&'static s
                 | "threadedComment"
                 | "threadedComments"
                 | "person"
-        )
+        ) || kind == "http://schemas.microsoft.com/office/2018/10/relationships/authors")
     {
         return Some("ooxml.comments");
     }
@@ -528,7 +703,7 @@ fn selected_relationship(kind: &str, choices: &DeepOptions) -> Option<&'static s
     }
     None
 }
-fn comments_type(content_type: &str) -> bool {
+pub(super) fn comments_type(content_type: &str) -> bool {
     let lower = content_type.to_ascii_lowercase();
     [
         "application/vnd.openxmlformats-officedocument.",
@@ -538,7 +713,10 @@ fn comments_type(content_type: &str) -> bool {
     ]
     .iter()
     .any(|prefix| lower.starts_with(prefix))
-        && (lower.contains("comment") || lower.ends_with(".person+xml"))
+        && (lower.contains("comment")
+            || lower.ends_with(".person+xml")
+            || lower == "application/vnd.ms-powerpoint.authors+xml"
+            || lower == "application/vnd.ms-word.people+xml")
 }
 fn plan(package: &Package, options: &SanitizeOptions, limits: &Limits) -> Result<Plan> {
     if options.policy != Policy::Deep && options.deep.any() {
@@ -603,6 +781,7 @@ fn plan(package: &Package, options: &SanitizeOptions, limits: &Limits) -> Result
         }
     }
     let mut external_ids: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    let mut removed_relationship_ids: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
     for part in package
         .parts
         .iter()
@@ -619,6 +798,12 @@ fn plan(package: &Package, options: &SanitizeOptions, limits: &Limits) -> Result
                 && result
                     .removed
                     .contains(&relationship_target(&source, target)?);
+            if remove_target {
+                removed_relationship_ids
+                    .entry(source.clone())
+                    .or_default()
+                    .insert(node.attribute("Id").ok_or_else(xml_error)?.into());
+            }
             if external && choices.remove_external_relationships {
                 if !node
                     .attribute("Type")
@@ -668,8 +853,19 @@ fn plan(package: &Package, options: &SanitizeOptions, limits: &Limits) -> Result
             continue;
         }
         let parsed = nodes(&part.data, limits)?;
+        let rows = if choices.accept_revisions {
+            deleted_rows(&parsed)?
+        } else {
+            BTreeMap::new()
+        };
         let edits = result.edits.entry(part.name.clone()).or_default();
+        let mut discarded_until = 0;
         for (index, node) in parsed.iter().enumerate() {
+            if node.start < discarded_until
+                || (choices.accept_revisions && node.previous_properties)
+            {
+                continue;
+            }
             if choices.remove_comments
                 && node.word()
                 && matches!(
@@ -678,6 +874,27 @@ fn plan(package: &Package, options: &SanitizeOptions, limits: &Limits) -> Result
                 )
             {
                 edits.push(remove(node));
+                result.codes.insert("ooxml.comments");
+            }
+            if choices.remove_comments && node.namespace == P18_NS && node.local == "commentRel" {
+                if !removed_relationship_ids
+                    .get(&part.name)
+                    .is_some_and(|ids| node.relationship_id().is_some_and(|id| ids.contains(id)))
+                {
+                    return Err(Error::Blocked(
+                        "Modern presentation comment reference does not identify a selected comment part".into(),
+                    ));
+                }
+                let target = node
+                    .parent
+                    .filter(|parent| {
+                        let parent = &parsed[*parent];
+                        matches!(parent.namespace.as_str(), P_NS | P_STRICT)
+                            && parent.local == "ext"
+                            && parent.children == 1
+                    })
+                    .unwrap_or(index);
+                edits.push(remove(&parsed[target]));
                 result.codes.insert("ooxml.comments");
             }
             if choices.remove_comments
@@ -691,22 +908,39 @@ fn plan(package: &Package, options: &SanitizeOptions, limits: &Limits) -> Result
                 edits.push(remove(&parsed[shape]));
                 result.codes.insert("ooxml.comments");
             }
-            if choices.accept_revisions && node.word() && is_revision(&node.local) {
-                let parent = node.parent.map(|i| &parsed[i]);
-                if matches!(
-                    node.local.as_str(),
-                    "cellIns" | "cellDel" | "cellMerge" | "tblGridChange" | "numberingChange"
-                ) || (matches!(node.local.as_str(), "ins" | "del")
-                    && parent.is_some_and(|parent| {
-                        matches!(parent.local.as_str(), "rPr" | "trPr" | "tcPr")
-                    }))
-                {
-                    return Err(Error::Blocked("Accepting tracked paragraph-mark, table-grid or numbering changes requires an Office layout-aware revision engine".into()));
+            if custom_xml_revision(&node.namespace, &node.local) {
+                if choices.remove_custom_xml {
+                    edits.push(remove(node));
+                    result.codes.insert("ooxml.custom_xml");
+                    result.codes.insert("ooxml.revisions");
+                    continue;
                 }
-                if matches!(node.local.as_str(), "ins" | "moveTo") {
+                if choices.accept_revisions {
+                    return Err(Error::Blocked(
+                        "Accepting custom XML range revisions requires selecting custom XML removal".into(),
+                    ));
+                }
+            }
+            if choices.accept_revisions && revision_element(&node.namespace, &node.local) {
+                let parent = node.parent.map(|i| &parsed[i]);
+                if matches!(node.local.as_str(), "cellIns" | "cellDel" | "cellMerge")
+                    || ((revision_insertion(node) || revision_deletion(node))
+                        && parent.is_some_and(|parent| {
+                            parent.word() && matches!(parent.local.as_str(), "rPr" | "tcPr")
+                        }))
+                {
+                    return Err(Error::Blocked("Accepting tracked paragraph-mark or cell-merge changes requires an Office layout-aware revision engine".into()));
+                }
+                if let Some(row) = rows.get(&index) {
+                    edits.push(remove(&parsed[*row]));
+                    discarded_until = parsed[*row].end;
+                } else if parent.is_some_and(|parent| parent.word() && parent.local == "trPr") {
+                    edits.push(remove(node));
+                } else if revision_insertion(node) {
                     unwrap(node, edits);
                 } else {
                     edits.push(remove(node));
+                    discarded_until = node.end;
                 }
                 result.codes.insert("ooxml.revisions");
             }
@@ -736,7 +970,7 @@ fn plan(package: &Package, options: &SanitizeOptions, limits: &Limits) -> Result
                     edits.push(remove(node));
                     result.codes.insert("ooxml.embedded_object");
                 }
-                if node.namespace == S_NS && node.local == "oleObjects" {
+                if spreadsheet(&node.namespace) && node.local == "oleObjects" {
                     edits.push(remove(node));
                     result.codes.insert("ooxml.embedded_object");
                 }
@@ -753,7 +987,7 @@ fn plan(package: &Package, options: &SanitizeOptions, limits: &Limits) -> Result
                 if node.word() && node.local == "hyperlink" {
                     unwrap(node, edits);
                 } else if matches!(node.local.as_str(), "hlinkClick" | "hlinkMouseOver")
-                    || (node.namespace == S_NS && node.local == "hyperlink")
+                    || (spreadsheet(&node.namespace) && node.local == "hyperlink")
                 {
                     edits.push(remove(node));
                 } else {
@@ -933,13 +1167,12 @@ fn independent_postconditions(
                     && node
                         .attribute("state")
                         .is_some_and(|state| matches!(state, "hidden" | "veryHidden")))
-                || (choices.accept_revisions && word && is_revision(local))
-                || (choices.remove_custom_xml
-                    && word
-                    && matches!(local, "customXml" | "customXmlPr" | "dataBinding"))
+                || (choices.accept_revisions && revision_element(ns, local))
+                || (choices.remove_custom_xml && custom_xml_element(ns, local))
+                || (choices.remove_comments && ns == P18_NS && local == "commentRel")
                 || (choices.remove_embedded_objects
                     && ((word && local == "object")
-                        || (ns == S_NS && local == "oleObjects")
+                        || (spreadsheet(ns) && local == "oleObjects")
                         || (ns.contains("presentationml") && local == "oleObj")))
                 || (choices.remove_internal_identifiers && word && local == "rsids")
                 || (choices.remove_hidden_text

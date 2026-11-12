@@ -14,7 +14,11 @@ fn retained_attributes(
             let name = attribute.name.to_string_lossy();
             match name.as_ref() {
                 name if name.eq_ignore_ascii_case(":Zone.Identifier:$DATA") => true,
-                "com.apple.metadata:kMDItemWhereFroms" => !options.remove_download_origin,
+                "com.apple.metadata:kMDItemWhereFroms"
+                | "com.apple.metadata:kMDItemDownloadedDate" => !options.remove_download_origin,
+                "com.apple.lastuseddate#PS" | "com.apple.metadata:kMDItemLastUsedDate" => {
+                    !options.remove_usage_metadata
+                }
                 "com.apple.metadata:_kMDItemUserTags" => !options.remove_finder_tags,
                 "com.apple.quarantine" | "com.apple.ResourceFork" | ":Zone.Identifier:$DATA" => {
                     true
@@ -31,6 +35,11 @@ fn retained_attributes(
 }
 
 fn validate_options(options: &SanitizeOptions) -> Result<()> {
+    if options.filesystem.normalize_creation_time && !cfg!(any(target_os = "macos", windows)) {
+        return Err(Error::Unsupported(
+            "Creation-time normalization is available on macOS and Windows filesystems".into(),
+        ));
+    }
     if options.remove_provenance && options.policy != Policy::Deep {
         return Err(Error::Input(
             "Removing provenance credentials requires the Deep policy".into(),
@@ -293,6 +302,12 @@ fn compare_advanced(
         } else {
             "not_assessed"
         });
+    details["creation_time_scope"] =
+        serde_json::json!(if options.filesystem.normalize_creation_time {
+            "output_creation_time_verified"
+        } else {
+            "not_assessed"
+        });
     if options.remove_provenance {
         let mime = if before.format == Format::Text {
             text_credential_mime(hint)
@@ -333,7 +348,21 @@ fn compare_advanced(
                 "Output modification timestamp normalization failed".into(),
             ));
         }
-        report.warnings.push("The output modification time is verified as 2000-01-01 UTC. Access time is set initially and can change during reading. Access and creation times, filesystem journals, snapshots and backups remain outside the verification scope.".into());
+        report.warnings.push("The output modification time is verified as 2000-01-01 UTC. Access time is set initially and can change during reading. Access time, filesystem journals, snapshots and backups remain outside this modification-time verification scope. Creation time has a separate optional check.".into());
+    }
+    if options.filesystem.normalize_creation_time {
+        if output
+            .file
+            .metadata()
+            .ok()
+            .and_then(|metadata| metadata.created().ok())
+            != Some(normalized_time())
+        {
+            return Err(Error::Verification(
+                "Output creation timestamp normalization failed".into(),
+            ));
+        }
+        report.warnings.push("The new copy creation time is verified as 2000-01-01 UTC. Filesystem change times, journals, snapshots and backups remain outside this scope.".into());
     }
     if report
         .findings
@@ -347,6 +376,27 @@ fn compare_advanced(
 
 fn normalized_time() -> SystemTime {
     SystemTime::UNIX_EPOCH + Duration::from_secs(946_684_800)
+}
+
+#[cfg(any(target_os = "macos", windows))]
+fn normalize_creation_time(file: &fs::File) -> Result<()> {
+    #[cfg(target_os = "macos")]
+    use std::os::darwin::fs::FileTimesExt;
+    #[cfg(windows)]
+    use std::os::windows::fs::FileTimesExt;
+    file.set_times(fs::FileTimes::new().set_created(normalized_time()))
+        .map_err(|_| {
+            Error::Unsupported(
+                "Creation-time normalization is unavailable on this filesystem".into(),
+            )
+        })
+}
+
+#[cfg(not(any(target_os = "macos", windows)))]
+fn normalize_creation_time(_file: &fs::File) -> Result<()> {
+    Err(Error::Unsupported(
+        "Creation-time normalization is unavailable on this platform".into(),
+    ))
 }
 
 pub fn sanitize_with_options(
@@ -456,6 +506,9 @@ pub fn sanitize_with_options_in(
                 )
             })?;
     }
+    if options.filesystem.normalize_creation_time {
+        normalize_creation_time(temporary.as_file())?;
+    }
     temporary
         .as_file()
         .sync_all()
@@ -551,6 +604,18 @@ pub fn publish_advanced_staged(
     {
         return Err(Error::Verification(
             "Staged output modification time changed before publication".into(),
+        ));
+    }
+    if options.filesystem.normalize_creation_time
+        && artifact
+            .file
+            .metadata()
+            .ok()
+            .and_then(|metadata| metadata.created().ok())
+            != Some(normalized_time())
+    {
+        return Err(Error::Verification(
+            "Staged output creation time changed before publication".into(),
         ));
     }
     drop(artifact);

@@ -253,6 +253,13 @@ impl Session {
 
     pub fn can_sanitize(&self, id: u64) -> bool {
         self.eligible_scan(id).is_some_and(|report| {
+            if report
+                .pdf
+                .as_ref()
+                .is_some_and(|pdf| pdf["safe_rewrite_allowed"] == false)
+            {
+                return false;
+            }
             report.findings.iter().any(|finding| {
                 matches!(
                     finding.action,
@@ -647,6 +654,11 @@ mod tests {
         assert!(!session.can_sanitize(1));
         session.cancel_all();
         assert!(session.can_sanitize(1));
+        session.items[0].scan.as_mut().unwrap().pdf =
+            Some(serde_json::json!({"scan_status":"complete", "safe_rewrite_allowed":false}));
+        session.items[0].scan.as_mut().unwrap().result = Outcome::PartiallyVerified;
+        assert!(!session.can_sanitize(1));
+        session.items[0].scan.as_mut().unwrap().pdf = None;
         session.items[0].scan.as_mut().unwrap().findings[0].action = Action::Rebuild;
         assert!(session.can_sanitize(1));
         session.items[0].scan.as_mut().unwrap().findings[0].action = Action::Preserve;

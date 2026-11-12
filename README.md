@@ -143,4 +143,4 @@ WAV/FLAC 标准隐私标签清理保留编码音频负载，技术声道和增�
 
 ### Rust 调用方迁移
 
-原有 scan/sanitize/verify 和图片处理函数继续保留。新范围参数使用 SanitizeOptions 与 advanced 模块，默认 Safe 行为保持原契约。新增格式和 not_assessed 结果需要同步更新调用方的穷尽 match。Report 新增可选字段后，直接构造完整结构体的调用方可改用 Report::new 并设置所需字段。0.3 读取器兼容旧 JSON，严格 schema 校验器应采用本仓库更新后的 0.3 schema。is_image 继续表示现有 JPEG/PNG 像素处理范围，媒体容器与音频通过独立能力分类判断。
+原有 scan/sanitize/verify 和图片处理函数继续保留。新范围参数使用 SanitizeOptions 与 advanced 模块，默认 Safe 行为保持原契约。新增格式和 not_assessed 结果需要同步更新调用方的穷尽 match。Report 新增可选字段后，直接构造完整结构体的调用方可改用 Report::new 并设置所需字段。0.3 读取器兼容旧 JSON，严格 schema 校验器应采用本仓库更新后的 0.3 schema。is_image 继续表示现有 JPEG/PNG 像素处理范围，媒体容器与音频通过独立能力分类判断。FilesystemOptions 新增默认关闭的 normalize_creation_time 与 remove_usage_metadata，Rust 结构体字面量可通过 ..Default::default() 保留默认选项。

@@ -44,6 +44,8 @@ pub struct FilesystemOptions {
     pub remove_user_attributes: bool,
     pub remove_ntfs_private_streams: bool,
     pub normalize_output_timestamps: bool,
+    pub normalize_creation_time: bool,
+    pub remove_usage_metadata: bool,
 }
 impl FilesystemOptions {
     pub fn any(&self) -> bool {
@@ -52,6 +54,8 @@ impl FilesystemOptions {
             || self.remove_user_attributes
             || self.remove_ntfs_private_streams
             || self.normalize_output_timestamps
+            || self.normalize_creation_time
+            || self.remove_usage_metadata
     }
 }
 

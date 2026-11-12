@@ -1589,6 +1589,14 @@ fn item_status(language: Language, item: &FileItem) -> &'static str {
     }
 }
 fn report_status(language: Language, report: &Report) -> &'static str {
+    if report.operation == "scan"
+        && report
+            .pdf
+            .as_ref()
+            .is_some_and(|pdf| pdf["scan_status"] == "complete")
+    {
+        return tr(language, "Scan complete");
+    }
     if report.operation == "scan" && report.result == Outcome::VerifiedWithinScope {
         if report.findings.iter().any(|finding| {
             matches!(

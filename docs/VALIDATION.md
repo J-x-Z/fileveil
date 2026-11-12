@@ -232,3 +232,9 @@ macOS 独立 ImageIO/AVAssetReader 回归实际通过，覆盖 HEIC、AVIF、H.2
 2026-11-12 增加 Stable Diffusion 1/SDXL 实际公开消息检测、原分辨率信号观察、灰阶预览和用户参考组。独立 Python 上游编码器及解码器在 NASA 512×512 自然照片上确认 PNG 和 JPEG 4:4:4 正样本分别匹配 136/136 与 48/48 位。Rust CLI Signal 处理后的输出由同一独立上游解码器复检，分别匹配 86/136 与 26/48 位，均低于对应检测阈值。普通 JPEG 4:2:0 重编码、未知消息与干净照片作为阴性或编码对照。版本、哈希及分数位于 `crates/fileveil-engine/tests/fixtures/watermark/upstream-evidence.json`，可复现脚本与第三方 MIT 声明随源码保留。
 
 Lab、公开检测器、CLI/MCP 分组入口及 GUI 结果显示均有针对性回归。OpenAI、Anthropic、Google 的专有检测器保持明确的未配置或受限状态。当前版本未配置在线凭据，检测全程离线。
+
+### Deep、系统属性与 PDF 状态修正
+
+2026-11-12 增加 Word 旧网格/编号历史、受支持表格行修订、w14 冲突与自定义 XML 修订范围，以及现代 PowerPoint 批注、作者和显式关系清理。复杂纵向合并、仍有活动内容的删除行及未选关系继续安全阻断。25 项 Deep 回归全部通过，包含 Python 独立 ZIP CRC/XML 验证，以及 python-docx 打开新增 Word 输出。
+
+Engine 系统属性与 Deep 选项回归 15 项通过，覆盖下载日期、最近使用时间属性、新副本创建时间规范化、原件不变及时间被篡改时禁止发布。创建时间选项在 macOS 本机 APFS 已验证，Windows 将由原生 CI 回归，Linux 对该选项明确报告不支持。PDF 签名扫描状态回归通过，成功扫描与禁止改写独立记录，保护副本输出。
