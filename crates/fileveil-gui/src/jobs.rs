@@ -31,6 +31,14 @@ const MAX_REPORT_BYTES: u64 = 16 * 1024 * 1024;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "operation", rename_all = "snake_case")]
 pub enum JobKind {
+    Heritage {
+        path: PathBuf,
+        output: Option<PathBuf>,
+        request: Box<fileveil_engine::heritage::HeritageRequest>,
+    },
+    HeritageKeygen {
+        output: PathBuf,
+    },
     SanitizeAdvanced {
         input: PathBuf,
         output: Option<PathBuf>,
@@ -80,6 +88,8 @@ pub enum JobKind {
 impl JobKind {
     pub fn operation(&self) -> &'static str {
         match self {
+            Self::Heritage { .. } => "heritage",
+            Self::HeritageKeygen { .. } => "heritage_keygen",
             Self::Scan { .. } => "scan",
             Self::Sanitize { .. } | Self::ProcessImage { .. } | Self::SanitizeAdvanced { .. } => {
                 "sanitize"
@@ -95,6 +105,11 @@ impl JobKind {
 
     fn output_target(&self) -> Option<(&Path, Option<&Path>)> {
         match self {
+            Self::Heritage {
+                path,
+                output,
+                request,
+            } if request.writes_file() => Some((path, output.as_deref())),
             Self::Sanitize { input, output }
             | Self::ProcessImage { input, output, .. }
             | Self::SanitizeAdvanced { input, output, .. } => Some((input, output.as_deref())),
@@ -363,7 +378,8 @@ fn supervise(
     let mut worker_request = request.clone();
     if let Some(staged) = &staged_output {
         match &mut worker_request.kind {
-            JobKind::Sanitize { output, .. }
+            JobKind::Heritage { output, .. }
+            | JobKind::Sanitize { output, .. }
             | JobKind::ProcessImage { output, .. }
             | JobKind::SanitizeAdvanced { output, .. } => {
                 *output = Some(staged.clone());
@@ -474,6 +490,13 @@ fn supervise(
                     && report.result == Outcome::PartiallyVerified
             }
             (None, None) => match &request.kind {
+                JobKind::Heritage { request, .. } => {
+                    report.policy == request.policy()
+                        && report.advanced.as_ref().is_some_and(|details| {
+                            details["heritage"]["request_sha256"]
+                                == request.digest().unwrap_or_default()
+                        })
+                }
                 JobKind::SanitizeAdvanced { options, .. }
                 | JobKind::VerifyAdvanced { options, .. } => {
                     report.policy == options.policy
@@ -510,7 +533,19 @@ fn supervise(
                 "Operation cancelled before artifact publication and staging was cleaned".into(),
             ));
         }
-        if matches!(request.kind, JobKind::ProcessImage { .. }) {
+        if let JobKind::Heritage {
+            request: options, ..
+        } = &request.kind
+        {
+            fileveil_engine::heritage::publish_staged(
+                input,
+                staged,
+                output,
+                options,
+                &mut report,
+                &request.limits,
+            )?;
+        } else if matches!(request.kind, JobKind::ProcessImage { .. }) {
             fileveil_engine::image_processing::publish_processed_staged(
                 input,
                 staged,
@@ -648,6 +683,19 @@ fn execute_worker(request: &JobRequest) -> fileveil_core::Result<Report> {
 fn execute_bound_worker(request: &JobRequest) -> fileveil_core::Result<Report> {
     request.validate()?;
     match &request.kind {
+        JobKind::Heritage {
+            path,
+            output,
+            request: options,
+        } => {
+            if options.writes_file() && output.is_none() {
+                return Err(Error::Input(
+                    "Heritage worker requires a private staging output".into(),
+                ));
+            }
+            fileveil_engine::heritage::run(path, output.as_deref(), options, &request.limits)
+        }
+        JobKind::HeritageKeygen { output } => fileveil_engine::heritage::keygen(output),
         JobKind::SanitizeAdvanced {
             input,
             output,

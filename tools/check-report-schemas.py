@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import tempfile
 from pathlib import Path
 import subprocess
 
@@ -26,6 +27,7 @@ def main() -> None:
     Draft202012Validator.check_schema(batch)
     validator = Draft202012Validator(single)
     commands = [
+        ["heritage", "detect", "tests/fixtures/png_clean.png", "--json"],
         ["scan", "tests/fixtures/png_clean.png", "--json"],
         ["provenance", "crates/fileveil-engine/tests/fixtures/provenance/signed.png", "--json"],
         ["provenance", "crates/fileveil-engine/tests/fixtures/provenance/signed.pdf", "--json"],
@@ -51,15 +53,36 @@ def main() -> None:
         report = json.loads(result.stdout)
         validator.validate(report)
         reports.append(report)
-    legacy = {key: value for key, value in reports[0].items()
+    with tempfile.TemporaryDirectory(prefix="heritage-schema-", dir=scratch) as directory:
+        directory = Path(directory)
+        key = directory / "owner.key"
+        marked = directory / "marked.png"
+        cleaned = directory / "cleaned.png"
+        options = json.dumps({"key_paths":[str(key)], "mark":{"work_id":"schema-synthetic-work", "author":"Synthetic author"}})
+        workflow = [
+            ["heritage-keygen", "-o", str(key), "--json"],
+            ["heritage", "mark", "tests/fixtures/png_clean.png", "-o", str(marked), "--options-json", options, "--json"],
+            ["heritage", "verify", str(marked), "--json"],
+            ["heritage", "clean", str(marked), "-o", str(cleaned), "--json"],
+        ]
+        for command in workflow:
+            result = subprocess.run([str(executable), *command], cwd=ROOT, env=environment,
+                                    capture_output=True, text=True, encoding="utf-8", timeout=60)
+            assert result.returncode in (0, 4), (command[0:2], result.stderr, result.stdout)
+            report = json.loads(result.stdout)
+            validator.validate(report)
+            reports.append(report)
+        assert cleaned.read_bytes() == (ROOT / "tests/fixtures/png_clean.png").read_bytes()
+    legacy_source = next(report for report in reports if report["operation"] == "scan" and report["input_format"] == "image/png")
+    legacy = {key: value for key, value in legacy_source.items()
               if key not in ("pdf", "provenance", "advanced", "image_processing")}
-    for version in ("0.1", "0.2"):
+    for version in ("0.1", "0.2", "0.3"):
         legacy["schema_version"] = version
         validator.validate(legacy)
-    envelope = {"schema_version": "0.3", "tool": "FileVeil", "version": "0.3.0",
+    envelope = {"schema_version": reports[0]["schema_version"], "tool": "FileVeil", "version": reports[0]["version"],
                 "operation": "batch_export", "reports": reports}
     Draft202012Validator(batch).validate(envelope)
-    print(json.dumps({"real_reports": len(reports), "legacy_reports": 2,
+    print(json.dumps({"real_reports": len(reports), "legacy_reports": 3,
                       "batch_validated": True, "draft": "2020-12"}))
 
 

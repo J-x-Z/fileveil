@@ -18,6 +18,7 @@ pub const MAX_AUTHORIZED_ROOTS: usize = 64;
 pub struct McpAccessConfig {
     pub read_roots: Vec<PathBuf>,
     pub write_roots: Vec<PathBuf>,
+    pub signing_keys: Vec<PathBuf>,
     pub max_operations: u32,
 }
 impl Default for McpAccessConfig {
@@ -25,6 +26,7 @@ impl Default for McpAccessConfig {
         Self {
             read_roots: Vec::new(),
             write_roots: Vec::new(),
+            signing_keys: Vec::new(),
             max_operations: 64,
         }
     }
@@ -93,6 +95,7 @@ impl Root {
 pub(crate) struct AccessPolicy {
     read: Vec<Root>,
     write: Vec<Root>,
+    signers: Vec<BoundInput>,
     maximum: u32,
     used: u32,
 }
@@ -101,12 +104,14 @@ impl AccessPolicy {
         if !(1..=10_000).contains(&config.max_operations) {
             return Err(denied("The operation limit must be between 1 and 10000"));
         }
-        if config.read_roots.len() + config.write_roots.len() > MAX_AUTHORIZED_ROOTS {
+        if config.read_roots.len() + config.write_roots.len() + config.signing_keys.len()
+            > MAX_AUTHORIZED_ROOTS
+        {
             return Err(denied(
                 "At most 64 authorized read and write roots may be configured",
             ));
         }
-        Ok(Self {
+        let mut policy = Self {
             read: config
                 .read_roots
                 .iter()
@@ -117,12 +122,27 @@ impl AccessPolicy {
                 .iter()
                 .map(|path| Root::new(path))
                 .collect::<Result<_>>()?,
+            signers: Vec::new(),
             maximum: config.max_operations,
             used: 0,
-        })
+        };
+        for path in &config.signing_keys {
+            let signer = policy.input(path)?;
+            if signer
+                .file
+                .metadata()
+                .map_err(|_| denied("Signing key metadata is unavailable"))?
+                .len()
+                > 16 * 1024
+            {
+                return Err(denied("Authorized signing keys must be at most 16 KiB"));
+            }
+            policy.signers.push(signer);
+        }
+        Ok(policy)
     }
     pub(crate) fn summary(&self) -> serde_json::Value {
-        serde_json::json!({"read_root_count":self.read.len(),"write_root_count":self.write.len(),"max_operations":self.maximum,"operations_used":self.used,"original_writes":false,"symbolic_links":false,"hard_link_inputs":false})
+        serde_json::json!({"read_root_count":self.read.len(),"write_root_count":self.write.len(),"max_operations":self.maximum,"operations_used":self.used,"original_writes":false,"signing_key_count":self.signers.len(),"symbolic_links":false,"hard_link_inputs":false})
     }
     pub(crate) fn authorize(&mut self, request: JobRequest) -> Result<AuthorizedJob> {
         if self.used >= self.maximum {
@@ -137,6 +157,48 @@ impl AccessPolicy {
             output: None,
         };
         match job.request.kind.clone() {
+            JobKind::HeritageKeygen { .. } => {
+                return Err(denied("MCP cannot generate or write private signing keys"));
+            }
+            JobKind::Heritage {
+                path,
+                output,
+                mut request,
+            } => {
+                request.validate()?;
+                let input = self.input(&path)?;
+                let destination = request
+                    .writes_file()
+                    .then(|| self.output(&input.original, output.as_deref()))
+                    .transpose()?;
+                let signing_paths: Vec<_> = request
+                    .signing_paths()
+                    .into_iter()
+                    .map(Path::to_path_buf)
+                    .collect();
+                for path in request.auxiliary_paths_mut() {
+                    let bound = self.input(path)?;
+                    if signing_paths.contains(path)
+                        && !self
+                            .signers
+                            .iter()
+                            .any(|signer| signer.identity == bound.identity)
+                    {
+                        return Err(denied(
+                            "This signing key is not explicitly authorized for MCP signing",
+                        ));
+                    }
+                    *path = bound.alias.clone();
+                    job.inputs.push(bound);
+                }
+                job.request.kind = JobKind::Heritage {
+                    path: input.alias.clone(),
+                    output: destination.as_ref().and_then(|value| value.alias.clone()),
+                    request,
+                };
+                job.inputs.push(input);
+                job.output = destination;
+            }
             JobKind::SanitizeAdvanced {
                 input,
                 output,

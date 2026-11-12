@@ -26,6 +26,39 @@ impl McpSettings {
             &mut self.access.read_roots,
         );
         changed |= root_controls(ui, language, "Output folders", &mut self.access.write_roots);
+        ui.add_space(10.0);
+        ui.label(if language == Language::Chinese {
+            "允许 MCP 使用的签名密钥"
+        } else {
+            "Explicit MCP signing keys"
+        });
+        ui.small(if language == Language::Chinese { "默认禁止签名。所选密钥还需位于可读目录中，连接期间绑定文件身份。" } else { "Signing is disabled by default. Selected keys must also be inside readable folders and remain identity-bound during the connection." });
+        let mut remove_key = None;
+        for (index, key) in self.access.signing_keys.iter().enumerate() {
+            ui.horizontal(|ui| {
+                ui.label(key.file_name().unwrap_or(key.as_os_str()).to_string_lossy());
+                if ui.small_button(tr(language, "Remove")).clicked() {
+                    remove_key = Some(index);
+                }
+            });
+        }
+        if let Some(index) = remove_key {
+            self.access.signing_keys.remove(index);
+            changed = true;
+        }
+        if ui
+            .button(if language == Language::Chinese {
+                "授权签名密钥"
+            } else {
+                "Authorize signing key"
+            })
+            .clicked()
+            && let Some(key) = rfd::FileDialog::new().pick_file()
+            && !self.access.signing_keys.contains(&key)
+        {
+            self.access.signing_keys.push(key);
+            changed = true;
+        }
         ui.horizontal(|ui| {
             ui.label(tr(language, "Operations per MCP connection"));
             changed |= ui
@@ -63,6 +96,7 @@ impl McpSettings {
         for (option, roots) in [
             ("--mcp-read-root", &self.access.read_roots),
             ("--mcp-write-root", &self.access.write_roots),
+            ("--mcp-signing-key", &self.access.signing_keys),
         ] {
             for root in roots {
                 let path = root

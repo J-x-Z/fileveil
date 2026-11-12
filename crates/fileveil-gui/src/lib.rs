@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 //! FileVeil native desktop interface and isolated background jobs.
 pub mod app;
+pub mod heritage_ui;
 pub mod i18n;
 pub mod image_processing;
 pub mod jobs;

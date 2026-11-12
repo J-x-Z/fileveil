@@ -308,7 +308,7 @@ fn negotiation_tool_discovery_capabilities_and_protocol_errors() {
         let mut client = Client::new(version);
         let listed = client.request("tools/list", json!({}));
         let tools = listed["result"]["tools"].as_array().unwrap();
-        assert_eq!(tools.len(), 8);
+        assert_eq!(tools.len(), 9);
         for tool in tools {
             let read_only = matches!(
                 tool["name"].as_str().unwrap(),

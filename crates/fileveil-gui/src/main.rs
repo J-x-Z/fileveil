@@ -46,7 +46,7 @@ fn main() -> ExitCode {
         .any(|arg| arg == OsStr::new("--help"))
     {
         println!(
-            "FileVeil {}\n\nUsage\n  fileveil-gui [FILES...]\n  fileveil-gui --mcp [--mcp-read-root DIR] [--mcp-write-root DIR] [--mcp-max-operations 64]\n\nNative offline privacy workbench. Selected files are added to the read-only scan queue.\nMCP file access requires explicit authorized roots. Repeat root options to grant multiple directories.\nUse -- before filenames beginning with a dash.",
+            "FileVeil {}\n\nUsage\n  fileveil-gui [FILES...]\n  fileveil-gui --mcp [--mcp-read-root DIR] [--mcp-write-root DIR] [--mcp-signing-key FILE] [--mcp-max-operations 64]\n\nNative offline privacy workbench. Selected files are added to the read-only scan queue.\nMCP file access requires explicit authorized roots. Repeat root options to grant multiple directories.\nUse -- before filenames beginning with a dash.",
             env!("CARGO_PKG_VERSION")
         );
         return ExitCode::SUCCESS;
@@ -120,6 +120,7 @@ fn mcp_configuration(arguments: &[std::ffi::OsString]) -> Result<McpAccessConfig
         match option.to_str() {
             Some("--mcp-read-root") => configuration.read_roots.push(PathBuf::from(value)),
             Some("--mcp-write-root") => configuration.write_roots.push(PathBuf::from(value)),
+            Some("--mcp-signing-key") => configuration.signing_keys.push(PathBuf::from(value)),
             Some("--mcp-max-operations") => {
                 configuration.max_operations = value
                     .to_str()

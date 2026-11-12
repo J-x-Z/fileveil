@@ -22,6 +22,7 @@ pub enum Workspace {
     Lab,
     Provenance,
     Tasks,
+    Heritage,
 }
 impl Workspace {
     pub fn label(self, language: Language) -> &'static str {
@@ -32,6 +33,7 @@ impl Workspace {
             Self::Lab => t(language, "差异实验室", "Diff Lab"),
             Self::Provenance => t(language, "AI 来源", "AI Provenance"),
             Self::Tasks => t(language, "批量与验证", "Tasks & verification"),
+            Self::Heritage => t(language, "Heritage 引擎", "Heritage Engine"),
         }
     }
 }
@@ -51,6 +53,7 @@ pub struct Workspaces {
     last_output: Option<PathBuf>,
     notice: Option<String>,
     preview_textures: HashMap<String, egui::TextureHandle>,
+    heritage_panel: crate::heritage_ui::HeritagePanel,
 }
 impl Default for Workspaces {
     fn default() -> Self {
@@ -72,6 +75,7 @@ impl Default for Workspaces {
             last_output: None,
             notice: None,
             preview_textures: HashMap::new(),
+            heritage_panel: Default::default(),
         }
     }
 }
@@ -130,6 +134,7 @@ impl Workspaces {
                 Workspace::Lab,
                 Workspace::Provenance,
                 Workspace::Tasks,
+                Workspace::Heritage,
             ] {
                 let response =
                     ui.selectable_value(&mut self.selected, workspace, workspace.label(language));
@@ -172,7 +177,9 @@ impl Workspaces {
             | JobKind::VerifyImage { original, .. } => Some(original.clone()),
             JobKind::Provenance { path, .. }
             | JobKind::DetectWatermark { path }
-            | JobKind::Scan { path } => Some(path.clone()),
+            | JobKind::Scan { path }
+            | JobKind::Heritage { path, .. } => Some(path.clone()),
+            JobKind::HeritageKeygen { .. } => None,
             JobKind::Lab { .. } | JobKind::LabGrouped { .. } => None,
         };
         if matches!(kind, JobKind::SanitizeAdvanced { .. }) {
@@ -468,6 +475,11 @@ impl Workspaces {
                     });
                 }
                 ui.label(t(language,"文件工作区保留每个副本的二次验证、原件哈希和报告导出。","The Files workspace retains each copy’s second-pass verification, original hash and report export."));
+            }
+            Workspace::Heritage => {
+                if let Some(job) = self.heritage_panel.ui(ui, language, session, idle) {
+                    self.start(job, session, ui.ctx());
+                }
             }
             Workspace::Files => {}
         }
@@ -823,6 +835,9 @@ impl Workspaces {
             ui.label(t(language,"本次未取得可读取的 C2PA 来源凭据，未知 AI 水印仍未评估。","This run obtained no readable C2PA credentials. Unknown AI watermarks remain unassessed."));
         }
         if let Some(details) = &result.report.advanced {
+            if let Some(heritage) = details.get("heritage") {
+                heritage_report_ui(ui, language, heritage);
+            }
             if details["media"]["retained_encoded_payload_and_structure_equal"] == true {
                 ui.label(t(
                     language,
@@ -1580,6 +1595,202 @@ fn t<'a>(language: Language, zh: &'a str, en: &'a str) -> &'a str {
         zh
     } else {
         en
+    }
+}
+
+fn heritage_report_ui(ui: &mut egui::Ui, language: Language, details: &serde_json::Value) {
+    ui.separator();
+    ui.strong(t(language, "Heritage 实际结果", "Heritage results"));
+    if let Some(public) = details.get("public_key") {
+        ui.label(t(
+            language,
+            "本地 Ed25519 密钥已创建",
+            "Local Ed25519 key created",
+        ));
+        ui.monospace(public["key_id"].as_str().unwrap_or_default());
+        if ui
+            .button(t(
+                language,
+                "复制公钥信任策略",
+                "Copy public-key trust policy",
+            ))
+            .clicked()
+        {
+            let policy =
+                serde_json::json!({"trusted_issuers":[public],"minimum_issuer_signatures":1});
+            ui.ctx()
+                .copy_text(serde_json::to_string_pretty(&policy).unwrap_or_default());
+        }
+    }
+    let label = |value: &serde_json::Value| -> String {
+        let text = value.as_str().unwrap_or("not_assessed");
+        if language == Language::English {
+            return text.replace('_', " ");
+        }
+        match text {
+            "valid" => "有效",
+            "invalid" => "无效",
+            "untrusted" => "未受本地信任",
+            "detected" => "检测到",
+            "not_detected" => "未检测到",
+            "indeterminate" => "无法判断",
+            "unsupported" => "不支持",
+            _ => "未评估",
+        }
+        .into()
+    };
+    if let Some(legacy) = details.get("legacy") {
+        ui.label(format!(
+            "{} · {}",
+            t(language, "历史结构", "Legacy structures"),
+            label(&legacy["status"])
+        ));
+        if let Some(locations) = legacy["locations"].as_array() {
+            for location in locations {
+                ui.horizontal_wrapped(|ui| {
+                    ui.monospace(location["kind"].as_str().unwrap_or_default());
+                    ui.label(format!(
+                        "{} {} · {} {} · {} {}",
+                        t(language, "偏移", "offset"),
+                        location["offset"],
+                        t(language, "字节", "bytes"),
+                        location["bytes"],
+                        t(language, "记录", "records"),
+                        location["record_count"]
+                    ));
+                });
+                ui.small(location["evidence_status"].as_str().unwrap_or_default());
+            }
+        }
+        if let Some(records) = legacy["decoded_records"].as_array() {
+            for record in records {
+                if let Some(identifier) = record["identifier"].as_str() {
+                    ui.monospace(identifier);
+                }
+                ui.small(record["key_profile"].as_str().unwrap_or_default());
+            }
+        }
+    }
+    if let Some(verification) = details.get("verification") {
+        egui::Grid::new("heritage_verification")
+            .num_columns(2)
+            .show(ui, |ui| {
+                for (key, zh, en) in [
+                    ("signature", "密码学签名", "Cryptographic signature"),
+                    ("content_binding", "当前文件绑定", "Current asset binding"),
+                    ("chain", "传播记录链", "Custody chain"),
+                    ("trust", "本地发行者信任", "Local issuer trust"),
+                ] {
+                    ui.label(t(language, zh, en));
+                    ui.label(label(&verification[key]));
+                    ui.end_row();
+                }
+            });
+    }
+    for key in ["robust", "robust_recheck"] {
+        if let Some(signal) = details.get(key) {
+            ui.label(format!(
+                "{} · {}",
+                t(
+                    language,
+                    "Heritage DCT 公开摘要",
+                    "Heritage DCT public reference"
+                ),
+                label(&signal["status"])
+            ));
+            if let Some(work) = signal["work_id_digest"].as_str() {
+                ui.monospace(work);
+            }
+        }
+    }
+    if let Some(matched) = details["trace_reference_match"].as_bool() {
+        ui.label(if matched {
+            t(
+                language,
+                "恢复的作品摘要与所选参考一致",
+                "Recovered work reference matches the selected reference",
+            )
+        } else {
+            t(
+                language,
+                "恢复的作品摘要与所选参考不匹配",
+                "Recovered work reference does not match the selected reference",
+            )
+        });
+        ui.small(t(
+            language,
+            "摘要匹配与当前内容绑定分别验证。",
+            "Reference recovery and current asset binding are assessed separately.",
+        ));
+    }
+    for key in ["records", "reference_records"] {
+        if let Some(records) = details[key].as_array() {
+            for record in records {
+                ui.collapsing(
+                    format!(
+                        "{} {} · {}",
+                        t(language, "签名记录", "Signed record"),
+                        record["sequence"],
+                        record["kind"].as_str().unwrap_or_default()
+                    ),
+                    |ui| {
+                        for field in [
+                            "work_id",
+                            "author",
+                            "edition",
+                            "version",
+                            "parent_version",
+                            "actor_key_id",
+                            "transfer_to_key_id",
+                            "record_sha256",
+                            "content_sha256",
+                        ] {
+                            if let Some(value) = record[field].as_str() {
+                                ui.label(format!("{field}  {value}"));
+                            }
+                        }
+                    },
+                );
+            }
+        }
+    }
+    if let Some(lab) = details.get("lab") {
+        ui.label(format!(
+            "{} {} / {}",
+            t(language, "已检出变体", "Detected variants"),
+            lab["detected_variants"],
+            lab["tested_variants"]
+        ));
+        if let Some(rows) = lab["rows"].as_array() {
+            for row in rows {
+                ui.label(format!(
+                    "{} · {}",
+                    row["operation"].as_str().unwrap_or_default(),
+                    label(&row["robust"]["status"])
+                ));
+            }
+        }
+        ui.label(format!(
+            "{} {} / {}",
+            t(language, "阴性对照检出数", "Negative-control positives"),
+            lab["control_positive_count"],
+            lab["control_count"]
+        ));
+        ui.small(t(
+            language,
+            "统计仅覆盖这些输入、操作与声明为阴性的对照。",
+            "Measurements cover these inputs, operations and user-declared negative controls.",
+        ));
+    }
+    if details["modern_manifest_removed"] == true {
+        ui.label(t(
+            language,
+            "FileVeil 结构水印已移除并复检",
+            "FileVeil structural watermark removed and rechecked",
+        ));
+    }
+    if let Some(mse) = details["pixel_mse_rgba8"].as_f64() {
+        ui.label(format!("RGBA8 MSE  {mse:.4}"));
     }
 }
 

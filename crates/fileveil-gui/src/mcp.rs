@@ -357,6 +357,7 @@ impl Server {
             "fileveil_detect_watermark" => "detect_watermark",
             "fileveil_lab" => "lab",
             "fileveil_provenance" => "provenance",
+            "fileveil_heritage" => "heritage",
             "fileveil_scan" => "scan",
             "fileveil_verify" => "verify",
             _ => "sanitize",
@@ -371,6 +372,7 @@ impl Server {
             "fileveil_detect_watermark" => "detect_watermark",
             "fileveil_lab" => "lab",
             "fileveil_provenance" => "provenance",
+            "fileveil_heritage" => "heritage",
             "fileveil_scan" => "scan",
             "fileveil_verify" => "verify",
             _ => "sanitize",
@@ -409,6 +411,30 @@ fn path(arguments: &Map<String, Value>, name: &str) -> PathBuf {
     PathBuf::from(arguments[name].as_str().expect("validated path parameter"))
 }
 fn job_kind(name: &str, arguments: &Map<String, Value>) -> Result<JobKind, String> {
+    if name == "fileveil_heritage" {
+        let mut request: fileveil_engine::heritage::HeritageRequest = arguments
+            .get("options_json")
+            .and_then(Value::as_str)
+            .map(serde_json::from_str)
+            .transpose()
+            .map_err(|_| "Invalid HeritageRequest JSON".to_string())?
+            .unwrap_or_default();
+        request.action = serde_json::from_value(arguments["action"].clone())
+            .map_err(|_| "Unsupported Heritage action".to_string())?;
+        let output = arguments
+            .get("output")
+            .and_then(Value::as_str)
+            .map(PathBuf::from);
+        if output.is_some() && !request.writes_file() {
+            return Err("Read-only Heritage actions do not accept an output path".into());
+        }
+        request.validate().map_err(|error| error.to_string())?;
+        return Ok(JobKind::Heritage {
+            path: path(arguments, "path"),
+            output,
+            request: Box::new(request),
+        });
+    }
     let output = arguments
         .get("output")
         .and_then(Value::as_str)
@@ -554,6 +580,14 @@ fn tools() -> Vec<Value> {
         "timeout_seconds":{"type":"integer","minimum":1,"maximum":3600,"default":120}
     });
     let definitions = vec![
+        (
+            "fileveil_heritage",
+            "RedStar Heritage Engine",
+            "Offline legacy decode/clean, modern Ed25519 marking, verification, custody tracing and attack lab. Signing additionally requires an explicit server signing-key whitelist. All writes create new copies.",
+            json!({"path":file,"action":{"type":"string","enum":["detect","mark","clean","verify","trace","lab","c2pa_mark"]},"output":file,"options_json":{"type":"string","description":"HeritageRequest JSON. key_paths and PEM private_key are local paths, never secret key bytes."}}),
+            vec!["path", "action"],
+            false,
+        ),
         (
             "fileveil_scan",
             "Scan file",

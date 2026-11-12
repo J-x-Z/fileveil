@@ -119,6 +119,36 @@ jobs:
             work/pdf-path-probe.json
       - name: Generate synthetic samples
         run: cargo run --locked -p fixture-generator -- work/ci-fixtures
+      - name: Pinned historical Heritage compatibility
+        shell: python {0}
+        run: |
+          import pathlib
+          import subprocess
+          import sys
+          subprocess.run([sys.executable, 'tools/fetch-heritage-reference-samples.py'], check=True, timeout=120)
+          result = subprocess.run(['cargo', 'test', '--locked', '-p', 'fileveil-engine', '--test', 'heritage_legacy', 'real_upstream_samples_match_independent_openssl_and_original_bytes', '--', '--ignored', '--exact'], capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=120)
+          pathlib.Path('work/heritage-legacy-reference.log').write_text(result.stdout + result.stderr, encoding='utf-8')
+          print(result.stdout + result.stderr)
+          sys.exit(result.returncode)
+      - name: Offline C2PA creation interoperability
+        shell: python {0}
+        run: |
+          import json
+          import os
+          import pathlib
+          import shutil
+          import subprocess
+          candidates = [pathlib.Path('/opt/homebrew/opt/openssl@3/bin/openssl'), pathlib.Path('/usr/local/opt/openssl@3/bin/openssl'), pathlib.Path('C:/Program Files/Git/usr/bin/openssl.exe')]
+          program = next((str(path) for path in candidates if path.is_file()), shutil.which('openssl'))
+          if program is None:
+              pathlib.Path('work/heritage-c2pa-creation.log').write_text(json.dumps({'result':'not_assessed','reason':'OpenSSL interoperability prerequisite unavailable'}))
+          else:
+              environment = dict(os.environ, PATH=str(pathlib.Path(program).parent) + os.pathsep + os.environ['PATH'])
+              result = subprocess.run(['cargo', 'test', '--locked', '-p', 'fileveil-engine', '--lib', 'heritage::c2pa_mark::tests::creates_c2pa_with_local_certificate_and_rechecks_pixels_signature_and_binding', '--', '--ignored', '--exact'], env=environment, capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=180)
+              pathlib.Path('work/heritage-c2pa-creation.log').write_text(result.stdout + result.stderr, encoding='utf-8')
+              print(result.stdout + result.stderr)
+              if result.returncode:
+                  raise SystemExit(result.returncode)
       - name: Independent macOS native media decode
         if: runner.os == 'macOS'
         run: |
@@ -308,6 +338,8 @@ jobs:
             work/native-gui.*
             work/native-interaction.*
             work/native-media-interop.log
+            work/heritage-legacy-reference.log
+            work/heritage-c2pa-creation.log
             work/packaged-cli.json
             work/native-signature.json
       - name: Save platform Cargo cache
