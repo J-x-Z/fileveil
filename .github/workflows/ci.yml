@@ -71,17 +71,29 @@ jobs:
           with tempfile.TemporaryDirectory(prefix='.fileveil-backend-job-') as directory:
               snapshot = pathlib.Path(directory) / 'snapshot.pdf'
               snapshot.write_bytes(pathlib.Path('crates/fileveil-engine/tests/fixtures/provenance/signed.pdf').read_bytes())
-              for style in ['dos', 'verbatim']:
+              for style in ['dos', 'verbatim', 'relative-cwd']:
                   program = str(pathlib.Path(os.environ['FILEVEIL_QPDF']).resolve())
                   path = str(snapshot.resolve())
-                  if style == 'verbatim':
+                  working_directory = None
+                  if style in ['verbatim', 'relative-cwd']:
                       program = '\\\\?\\' + program
+                  if style == 'verbatim':
                       path = '\\\\?\\' + path
+                  if style == 'relative-cwd':
+                      working_directory = '\\\\?\\' + str(snapshot.parent.resolve())
+                      path = snapshot.name
                   arguments = [program, '--suppress-recovery', '--json-output=2', '--json-key=qpdf', '--json-key=pages', '--json-stream-data=inline', '--decode-level=none', path]
-                  result = subprocess.run(arguments, capture_output=True, timeout=30)
+                  result = subprocess.run(arguments, cwd=working_directory, capture_output=True, timeout=30)
                   reports.append({'style':style, 'exit_code':result.returncode, 'stdout_bytes':len(result.stdout), 'stdout_sha256':hashlib.sha256(result.stdout).hexdigest(), 'stderr':result.stderr.decode('utf-8', errors='replace')[:2048]})
           pathlib.Path('work/pdf-path-probe.json').write_text(json.dumps(reports, indent=2), encoding='utf-8')
           print(json.dumps(reports))
+          assert all(report['exit_code'] == 0 for report in reports if report['style'] in ['dos', 'relative-cwd']), reports
+      - name: Save Windows backend path evidence
+        uses: actions/upload-artifact@v4
+        if: always() && runner.os == 'Windows'
+        with:
+          name: backend-path-evidence-windows
+          path: work/pdf-path-probe.json
       - name: Format
         run: cargo fmt --all --check
       - name: Clippy
