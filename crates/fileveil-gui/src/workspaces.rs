@@ -1765,7 +1765,9 @@ fn heritage_report_ui(ui: &mut egui::Ui, language: Language, details: &serde_jso
                             ui.monospace(value);
                         }
                     }
-                    if let Some(authenticated) = signal["authenticated"].as_bool() {
+                    if let Some(authenticated) = signal["authenticated"].as_bool()
+                        && signal["method_id"] == fileveil_engine::heritage::robust_v2::METHOD_ID
+                    {
                         ui.small(if authenticated { t(language,"水印载荷 MAC 验证通过。作者及当前文件绑定另行验证。","Watermark payload MAC verified. Authorship and current asset binding are checked separately.") }
                             else { t(language,"水印载荷尚未通过密钥认证。","The watermark payload has no successful key authentication.") });
                     }
@@ -1782,7 +1784,12 @@ fn heritage_report_ui(ui: &mut egui::Ui, language: Language, details: &serde_jso
                         ));
                     }
                     if let Some(scope) = signal["scope"].as_str() {
-                        ui.small(crate::i18n::tr(language, scope));
+                        ui.small(match scope {
+                            "blind_keyed_work_and_copy_reference_with_bch_and_96_bit_mac" => t(language,"密钥盲检作品与副本摘要，采用 BCH 纠错与 96 位 MAC。","Blind keyed work and copy references with BCH correction and a 96-bit MAC."),
+                            "public_work_reference_signal_without_identity_authentication" => t(language,"公开作品参考信号，身份认证单独评估。","Public work-reference signal with identity assessed separately."),
+                            "explicit_watermark_key_required" => t(language,"请选择明确授权的水印密钥以检测 2.0 载荷。","Choose an explicitly authorized watermark key to detect the Engine 2 payload."),
+                            _ => crate::i18n::tr(language,scope),
+                        });
                     }
                 } else if signal["method_id"].as_str().is_some() {
                     detection_ui(ui, language, &signal);

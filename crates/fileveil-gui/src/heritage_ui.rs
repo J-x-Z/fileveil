@@ -143,9 +143,12 @@ impl HeritagePanel {
                 Tab::Trace => {
                     egui::ComboBox::from_id_salt("provenance_action").selected_text(provenance_label(self.trace_action,language)).show_ui(ui,|ui| {
                         for action in [HeritageAction::Trace,HeritageAction::Checkpoint,HeritageAction::EvidenceExport,HeritageAction::EvidenceVerify,HeritageAction::TimestampQuery,HeritageAction::TimestampVerify,HeritageAction::TransferPrepare,HeritageAction::TransferAccept] {
-                            ui.selectable_value(&mut self.trace_action,action,provenance_label(action,language));
+                            if ui.selectable_value(&mut self.trace_action,action,provenance_label(action,language)).clicked() { ui.close(); }
                         }
                     });
+                    if matches!(self.trace_action,HeritageAction::EvidenceExport|HeritageAction::TransferPrepare|HeritageAction::TransferAccept) {
+                        ui.small(t(language,"导出的证据文件包含已签声明中的作者、作品与副本原文。","Exported evidence includes the signed author, work and copy claims in full."));
+                    }
                     if matches!(self.trace_action,HeritageAction::Checkpoint|HeritageAction::EvidenceExport|HeritageAction::TransferPrepare|HeritageAction::TransferAccept) {
                         self.signer_sources(ui,language);
                     }
@@ -473,13 +476,13 @@ impl HeritagePanel {
     }
 
     fn clean_ui(&mut self, ui: &mut egui::Ui, language: Language) {
-        ui.label(t(language, "移除可识别的 FileVeil 来源载体和已确认的历史标记，并核对保留内容。NATISIGN 未验证候选受到保护。", "Remove recognized FileVeil provenance carriers and confirmed legacy markers, then check retained content. Unverified NATISIGN candidates are protected."));
+        ui.label(t(language, "清理标准隐私元数据与已识别的结构水印，并复验保留内容。受保护的签名结构需要明确选择。", "Clean standard privacy metadata and recognized structural watermarks, then verify retained content. Protected signature structures require an explicit selection."));
         ui.checkbox(
             &mut self.clean_signal,
             t(
                 language,
-                "处理检测到的 FileVeil 图像像素标记",
-                "Process a detected FileVeil image pixel marker",
+                "定向处理已检出的受支持图像水印",
+                "Target detected supported image watermarks",
             ),
         );
         if self.clean_signal {

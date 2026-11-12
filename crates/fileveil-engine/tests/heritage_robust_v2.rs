@@ -117,7 +117,11 @@ fn wrong_keys_clean_controls_and_budget_failures_never_authenticate() {
 #[test]
 #[ignore = "Uses explicitly generated independent Pillow geometric fixtures"]
 fn independent_pillow_rotation_sync_and_cleaning() {
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../work/v05-research");
+    let root = std::env::var_os("FILEVEIL_ROTATION_FIXTURES")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| {
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../work/v05-research")
+        });
     let limits = Limits::default();
     let key = std::array::from_fn(|i| i as u8);
     for angle in [3, 5, 15, 27, 43] {

@@ -14,6 +14,10 @@ pub fn tr(language: Language, english: &str) -> &str {
         return english;
     }
     match english {
+        "Watermark signals can be copied. Signatures, current content binding, issuer trust and trusted time are assessed separately. Offline dates are user assertions." => {
+            "水印信号可以被复制。数字签名、当前内容绑定、发行者信任与可信时间分别评估。离线时间属于用户声明。"
+        }
+
         "Historical DES records and public DCT work references do not authenticate a device or author. Modern signatures validate keys and content within their separately reported chain and trust scopes. Offline dates are user assertions." => {
             "历史 DES 记录和公开 DCT 摘要不能认证设备或作者。现代签名分别验证密钥、当前内容、所提供的记录链及本地信任策略。离线时间属于用户声明。"
         }

@@ -119,6 +119,23 @@ jobs:
           path: work/pdf-path-probe.json
       - name: Format
         run: cargo fmt --all --check
+      - name: Benchmark measurement and independent geometry checks
+        shell: python {0}
+        run: |
+          import os
+          import pathlib
+          import subprocess
+          import sys
+          subprocess.run([sys.executable, '-m', 'pip', 'install', '--disable-pip-version-check', '--only-binary=:all:', 'numpy==2.2.6', 'Pillow==12.0.0', 'opencv-python-headless==4.12.0.88'], check=True)
+          subprocess.run([sys.executable, 'tests/support/benchmark_metrics_test.py'], check=True)
+          output = pathlib.Path('work/independent-v2-geometry').resolve()
+          output.mkdir(parents=True, exist_ok=True)
+          subprocess.run([sys.executable, 'tests/support/watermark_v2_oracle.py', 'crates/fileveil-engine/tests/fixtures/watermark/astronaut.png', '--encode', str(output / 'independent.png'), '--rotation-fixtures', str(output), '--output-json', str(output / 'oracle.json')], check=True, timeout=120)
+          environment = dict(os.environ, FILEVEIL_ROTATION_FIXTURES=str(output))
+          result = subprocess.run(['cargo', 'test', '--locked', '-p', 'fileveil-engine', '--test', 'heritage_robust_v2', 'independent_pillow_rotation_sync_and_cleaning', '--', '--ignored', '--exact'], env=environment, capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=180)
+          pathlib.Path('work/independent-v2-geometry.log').write_text(result.stdout + result.stderr, encoding='utf-8')
+          print(result.stdout + result.stderr)
+          assert result.returncode == 0 and '1 passed;' in result.stdout, result.stdout + result.stderr
       - name: Clippy
         run: cargo clippy --locked --all-targets -- -D warnings
       - name: Test
@@ -409,6 +426,7 @@ jobs:
             work/heritage-legacy-reference.log
             work/heritage-c2pa-creation.log
             work/provenance-v2-interop.log
+            work/independent-v2-geometry.log
             work/packaged-cli.json
             work/native-signature.json
       - name: Save platform Cargo cache

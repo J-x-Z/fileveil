@@ -1176,7 +1176,7 @@ pub fn run(
     report.integrity.original_unchanged = Some(true);
     report.integrity.parseable = true;
     report.advanced = Some(json!({"heritage":details}));
-    report.warnings.push("Historical DES records and public DCT work references do not authenticate a device or author. Modern signatures validate keys and content within their separately reported chain and trust scopes. Offline dates are user assertions.".into());
+    report.warnings.push("Watermark signals can be copied. Signatures, current content binding, issuer trust and trusted time are assessed separately. Offline dates are user assertions.".into());
     Ok(report)
 }
 
