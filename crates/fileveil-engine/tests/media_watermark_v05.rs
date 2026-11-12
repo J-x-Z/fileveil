@@ -314,6 +314,43 @@ fn real_heic_avif_v2_mark_verify_clean_preserves_profiles_and_originals() {
         assert_eq!(details["robust"]["frame_valid"], true, "{details}");
         assert_eq!(details["robust"]["authenticated"], true);
         assert_eq!(details["verification"]["content_binding"], "valid");
+        let marked_hash = digest(&fs::read(&marked).unwrap());
+        let lab_report = heritage::run(
+            &marked,
+            None,
+            &HeritageRequest {
+                action: HeritageAction::Lab,
+                watermark_key: Some(key.clone()),
+                controls: vec![input.clone()],
+                ..Default::default()
+            },
+            &limits,
+        )
+        .unwrap();
+        let lab = &lab_report.advanced.as_ref().unwrap()["heritage"]["lab"];
+        assert_eq!(
+            lab["source_method"],
+            heritage::robust_v2::METHOD_ID,
+            "{lab}"
+        );
+        let rows = lab["rows"].as_array().unwrap();
+        let original_row = rows
+            .iter()
+            .find(|row| row["operation"] == "original")
+            .unwrap();
+        assert_eq!(original_row["robust"]["status"], "detected", "{lab}");
+        assert_eq!(original_row["robust"]["frame_valid"], true);
+        let clean_row = rows
+            .iter()
+            .find(|row| row["operation"] == "targeted_fileveil_dct_clean")
+            .unwrap();
+        assert_eq!(clean_row["robust"]["status"], "not_detected", "{lab}");
+        assert_eq!(clean_row["robust"]["frame_valid"], false);
+        assert_eq!(lab["control_count"], 1);
+        assert_eq!(lab["control_positive_count"], 0, "{lab}");
+        assert_eq!(lab_report.integrity.original_unchanged, Some(true));
+        assert_eq!(digest(&fs::read(&marked).unwrap()), marked_hash);
+        assert_eq!(digest(&fs::read(&input).unwrap()), source_hash);
         let marked_pixels =
             media_pixels::decode_rendered(&fs::read(&marked).unwrap(), format, &limits).unwrap();
         assert_eq!(marked_pixels.icc_profile, before.icc_profile);
