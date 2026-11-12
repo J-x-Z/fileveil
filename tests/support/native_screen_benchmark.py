@@ -15,10 +15,11 @@ import io
 import json
 from pathlib import Path
 import platform
-import selectors
+import queue
 import shutil
 import subprocess
 import tempfile
+import threading
 import time
 
 import cv2
@@ -46,15 +47,22 @@ class Capture:
             [str(executable)], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
             stderr=stderr, text=True, bufsize=1,
         )
-        self.selector = selectors.DefaultSelector()
-        self.selector.register(self.process.stdout, selectors.EVENT_READ)
+        self.responses = queue.Queue()
+        self.reader = threading.Thread(target=self.read_responses, daemon=True)
+        self.reader.start()
+
+    def read_responses(self):
+        for line in self.process.stdout:
+            self.responses.put(line)
+        self.responses.put(None)
 
     def call(self, request):
         self.process.stdin.write(json.dumps(request) + "\n")
         self.process.stdin.flush()
-        if not self.selector.select(timeout=30):
-            raise TimeoutError("Native framebuffer capture exceeded 30 seconds")
-        line = self.process.stdout.readline()
+        try:
+            line = self.responses.get(timeout=30)
+        except queue.Empty as error:
+            raise TimeoutError("Native framebuffer capture exceeded 30 seconds") from error
         if not line:
             raise RuntimeError(f"Capture window exited with {self.process.poll()}")
         response = json.loads(line)
@@ -77,7 +85,7 @@ class Capture:
         except subprocess.TimeoutExpired:
             self.process.kill()
             self.process.wait(timeout=10)
-        self.selector.close()
+        self.reader.join(timeout=1)
 
 
 def payload_matches(response, work, copy, protocol):
