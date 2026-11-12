@@ -1246,8 +1246,7 @@ fn attack_lab(
         let mut rows = Vec::new();
         for (index, frame) in frames.iter().enumerate() {
             let signal = crate::watermark_engine::inspect_pixels(frame, key.as_deref(), limits)?;
-            let public = crate::watermark::detect_decoded(Some(frame), Format::Png, limits)?;
-            rows.push(json!({"second":index,"dimensions":[frame.width(),frame.height()],"watermarks":signal,"public_detections":public}));
+            rows.push(json!({"second":index,"dimensions":[frame.width(),frame.height()],"watermarks":signal}));
         }
         return Ok(
             json!({"pixel_protocol":"selected_video_frames", "scope":"up_to_three_whole_second_frames",

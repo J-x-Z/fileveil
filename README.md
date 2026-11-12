@@ -24,7 +24,7 @@ fileveil evidence verify copyright.json --reference photo.marked.png --json
 
 `--strength 12` 与 `--strength 20` 提供基准中的质量和鲁棒性配置。净化像素会改变内容，报告包含 RGBA8 均方误差，可通过 `HeritageRequest.max_pixel_mse` 限制输出。已选检测器复检与未知水印状态分别记录。
 
-JPEG/PNG、PDF、Office 与 HEIC/AVIF/MP4/MOV 支持可逆原生签名载体。HEIC/AVIF 像素植入与定向清理由本地受限编解码器处理，保护 HDR、高位深、辅助图与集合结构。视频 Lab 可调用本地 FFmpeg 分析最多三个整秒采样帧，时域水印和全视频内容净化保持未评估。
+JPEG/PNG、PDF、Office 与 HEIC/AVIF/MP4/MOV 支持可逆原生签名载体。HEIC/AVIF 像素植入与定向清理由本地受限编解码器处理，保护 HDR、高位深、辅助图与集合结构。源 ICC 需要逐字节保留，后端自动省略或改写时会拒绝输出。视频 Lab 可调用本地 FFmpeg 分析最多三个整秒采样帧，时域水印和全视频内容净化保持未评估。
 
 签名 v2 支持双方共签交接、旧新密钥共签轮换、转换版本关联、外部签名检查点、RFC 3161 查询与响应文件和独立版权证据包。macOS Keychain、Windows Credential Manager 和 Linux Secret Service 提供显式系统密钥存储，Linux 需要可用的会话服务。`key-store generate` 才会新建系统密钥。C2PA ES256 签名可通过 `mark --certificate chain.pem --private-key signer.pem` 创建，并以 `--pixel --watermark-key owner.key` 绑定相同作品及副本标识。公开验证工具位于 `tools/verify-evidence.py`。
 
