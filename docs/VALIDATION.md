@@ -290,3 +290,33 @@ macOS 实际批量检测导出包含公开水印阳性与干净阴性两份报�
 三份发行归档及 `SHA256SUMS` 已更新至 `dist/`，摘要复验全部通过。每包内 1380 份源码对应 `ad1fa18`，MPL-2.0、MIT 水印适配及 qpdf 声明已核对。Windows 内嵌源码 ZIP 规范化了五个 checkout CRLF 差异，GUI、CLI 与其余资源保持 CI 原字节，原始 CI 成品保留。Linux 可执行位为 0755。后续文档和 LF checkout 规则追记独立于产品运行代码。
 
 macOS ad-hoc 严格签名验证通过，Gatekeeper 拒绝，当前 Developer ID Application 身份为 0，Apple Development 为 1。Windows Authenticode 为 NotSigned。正式发行签名及公证仍待相应凭据。发行收据为 `work/v03-audit/delivery-receipt.json`，旧归档保存在 `work/v03-audit/previous-release/`。复用现有 target，收尾时磁盘可用约 21.1 GiB。
+
+## 0.4 Heritage Engine 验收
+
+产品与三平台发行包对应 `400fbe5e3b091599831d8fb700d09bcc3ee1b128`。本节验收记录在发行产物冻结后独立提交。Rust 运行代码在 `39ff201` 后保持一致，后续修改限于私钥打包过滤、Linux CI 构建资源及 Windows 临时证书测试权限。
+
+| 平台 | 默认测试通过 | 失败 | 显式忽略 | 原生运行证据 |
+| --- | --- | --- | --- | --- |
+| macOS Apple Silicon | 373 | 0 | 12 | 本机 CUA 完成密钥生成、签名、C2PA 创建、Trace、Lab、清理与复验，`c0d731d` CI 成功 |
+| Windows x86_64 | 357 | 0 | 10 | 最终 `400fbe5` SendInput 图片页 4 次及 Heritage 页 6 次指针事件、包内 CLI 通过 |
+| Linux x86_64 | 367 | 0 | 10 | 最终 `400fbe5` Xvfb/XTEST 图片页 4 次及 Heritage 页 6 次指针事件、包内 CLI 通过 |
+
+各平台执行 39 个 Rust 测试目标，格式检查与全目标 Clippy 通过。7 项打包测试、16 份实际报告、3 份旧版报告及批量封套的 JSON Schema 检查通过。显式历史样本兼容测试和 C2PA ES256 创建互操作测试各 1 项通过。C2PA 测试覆盖 JPEG、PNG、PDF、正常 Core 文件路径、签名及资产绑定、正确与错误信任根，Poppler 可用的平台同时核对页数、文本与渲染。macOS 独立媒体解码测试另行通过。Windows 临时 PEM 使用当前 token SID 和单一受保护 owner-only DACL，生产私钥权限检查保持严格。
+
+最终 [CI 43285490025](https://github.com/J-x-Z/fileveil/actions/runs/43285490025) 的 Windows 与 Linux job 均成功。macOS ARM64 job 在首次排队及仅重试未成功任务后的第二次排队中，均未取得 hosted runner 并被 GitHub 取消。第二次 job `131445041720` 于 2026-11-12 20:00:06 UTC 结束，runner 名称为空。GitHub 明确记录 ARM64 容量约束，最新 macOS CI 复验属于外部阻塞。相同生产代码的 [c0d731d CI](https://github.com/J-x-Z/fileveil/actions/runs/43280906403) macOS job 已成功，本机最终包另有完整 CUA 功能证据及去签名代码区域等同性核对。macOS 最新复验待 hosted ARM64 runner 可用后执行，
+
+真实 `love.docx` 和作者公开的 first-user、second-user JPEG 完成正常 CLI Detect → Clean → Verify。JPEG 的一条及两条 DES 记录精确移除后，输出均恢复为作者原图 SHA-256 `5fa55db03f0cee1209939ace1576a8b42da3855af567fed222e479d5ed50a451`。DOCX 只将偏移 80–110 的 31 字节包归零，全部 12 个解压成员字节、CRC、文本与表格保持一致。独立 OpenSSL 核对 DES 密文和明文摘要，原件 SHA-256 保持不变。PNG 历史包及 Pyongyang 320 字节 NATISIGN 清理使用公开结构与独立编码向量，真实设备签名样本仍待补充。NATISIGN 清理报告部分验证，RSA/NV 密钥及 Woolim ABI 等价性保持未评估。
+
+现代结构载体覆盖 JPEG、PNG、PDF、DOCX、XLSX、PPTX。正常入口回归覆盖精确 Mark/Clean 往返、两发行方本地信任阈值、转移后接收方修改及版本关联、篡改、既有输出保护和原件不变。MCP stdio 测试覆盖默认拒绝签名、逐密钥身份授权、辅助路径授权、输入上限和默认隐私值隐藏。C2PA 创建的正常入口支持 JPEG、PNG、PDF。
+
+NASA 照片上的 FileVeil 原创 DCT 协议实测包含八项 Lab 变体，七项检出，定向清理项按预期未检出。四个阴性对照均未检出。独立 OpenCV 对十二个实际 CLI 或独立编码文件复核，PNG 与 JPEG 70 的定向清理均未恢复帧。sigma 2 模糊由 Rust 报告无法判断，独立检测未检出，保留该分歧。该样本集用于可重复兼容验证，整体人群误报率与任意图片鲁棒性仍未标定。新嵌入的 RGB MSE 为 11.1107、PSNR 为 37.6734 dB。512×512 Lab 的单次 release worker 测量为 0.09 s CPU、峰值 RSS 29.0 MiB，测量对象为独立 worker 进程。GUI 完成任务后的三次 `ps` 观察均为 0.0% 进程平均 CPU、约 175.6 MiB RSS。
+
+[依赖安全与许可工作流 43278101143](https://github.com/J-x-Z/fileveil/actions/runs/43278101143) 成功，检查 646 个 workspace 与依赖条目。640 个 registry 包的许可声明保留。RUSTSEC-2023-0071 沿用 `SECURITY.md` 记录的 RSA 公钥使用范围例外，四项维护状态提示继续记录。新增签名仅使用 Ed25519 和 ES256。
+
+最终三份 `0.4.0` 归档保存在 `dist/`，`SHA256SUMS` 同时复验旧 `0.3.0` 与新版本六份归档，全部一致。每包 1402 份源码逐字节对应 `400fbe5`，项目 MPL-2.0、第三方许可及 qpdf 声明已核对。Windows/Linux 包含 1234 份许可资源，macOS 包含 1226 份第三方许可。Windows/Linux 包内代码字节保持 CI 产物原样，Linux 可执行文件权限为 0755，CI 使用的 Mesa 未进入发行包。源码及许可资源打包使用有界流扫描排除有效的 FileVeil 和 PEM 私钥，包括带前导文本及跨块 BOM 的文件。
+
+macOS 本机包严格 ad-hoc 签名验证通过，Gatekeeper 拒绝。Windows Authenticode 为 NotSigned。正式签名与公证仍需对应凭据。私钥文件保存未加密种子或 PEM，采用当前用户专属权限，完整传播历史需要外部已知检查点。当前信任与历史验证范围见 `SECURITY.md` 和 `LEGACY_RESEARCH.md`。
+
+Linux 首轮 CI 因 runner 磁盘耗尽中止，错误和 SIGBUS 链接日志已保留。Linux-only 迁移一次旧 debug 缓存后，可用空间由 4.2 GiB 恢复至 13 GiB，保留 release 与依赖缓存。后续 job 正常复用 debug 4.2 GiB、release 3.2 GiB，空间保持 7.3 GiB，迁移不会重复清理。该设置使用同一 target，关闭增量与 CI 测试调试符号并限制两路构建。
+
+本机记录位于 `work/v04-research/`，包括 `acceptance-cli-final-summary.json`、`macos-native-acceptance.json`、`macos-cua-observations.json` 和 `ci-final/43285490025/`。原始三平台日志及容量异常记录位于 `work/v04-ci-evidence/`。发行包源码对应产品代码，后续验收记录提交独立标识。
