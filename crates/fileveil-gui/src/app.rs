@@ -99,12 +99,27 @@ impl Palette {
     }
 }
 
+#[derive(Default)]
+struct FindingView {
+    search: String,
+    layer: Option<RiskLayer>,
+    page: usize,
+    fingerprint: Option<u64>,
+    matching: Vec<usize>,
+}
+
+#[derive(Clone, Copy)]
+enum PlanAction {
+    Save,
+    Verify,
+    Process,
+}
+
 pub struct FileVeilApp {
     pub session: Session,
     language: Language,
     appearance: Appearance,
-    search: String,
-    layer_filter: Option<RiskLayer>,
+    finding_view: FindingView,
     settings_open: bool,
     json: Option<String>,
     image_processing: Option<ImageProcessingDialog>,
@@ -139,8 +154,7 @@ impl FileVeilApp {
             session,
             language: Language::Chinese,
             appearance,
-            search: String::new(),
-            layer_filter: None,
+            finding_view: FindingView::default(),
             settings_open: false,
             json: None,
             image_processing: None,
@@ -451,7 +465,8 @@ impl FileVeilApp {
                         }
                         if let Some(id) = selected {
                             self.session.selected = Some(id);
-                            self.search.clear();
+                            self.finding_view.search.clear();
+                            self.finding_view.page = 0;
                         }
                         if let Some(id) = remove {
                             self.session.remove(id);
@@ -649,8 +664,11 @@ impl FileVeilApp {
         let name = filename(&item.path);
         let full_path = item.path.clone();
         let size = item.size;
-        let report = item.latest.clone();
-        let scan = item.scan.clone();
+        let report = item.latest.as_ref();
+        let mut scan_requested = false;
+        let mut export_requested = false;
+        let mut json_requested = false;
+        let mut plan_action = None;
         ui.horizontal(|ui| {
             ui.vertical(|ui| {
                 ui.add(egui::Label::new(RichText::new(name).size(24.0).strong()).truncate())
@@ -675,7 +693,7 @@ impl FileVeilApp {
                 )
                 .clicked()
             {
-                self.session.queue_scan(selected_id);
+                scan_requested = true;
             }
             if ui
                 .add_enabled(
@@ -684,7 +702,7 @@ impl FileVeilApp {
                 )
                 .clicked()
             {
-                self.export_report(false);
+                export_requested = true;
             }
             if ui
                 .add_enabled(
@@ -693,9 +711,7 @@ impl FileVeilApp {
                 )
                 .clicked()
             {
-                self.json = report
-                    .as_ref()
-                    .and_then(|r| serde_json::to_string_pretty(r).ok());
+                json_requested = true;
             }
             if let Some(report) = &report {
                 ui.label(
@@ -716,24 +732,48 @@ impl FileVeilApp {
                 Vec2::new((width - right_width - 16.0).max(250.0), content_height),
                 Layout::top_down(Align::Min),
                 |ui| {
-                    self.findings(ui, report.as_ref(), colors, content_height);
+                    Self::findings(
+                        ui,
+                        report,
+                        colors,
+                        content_height,
+                        language,
+                        &mut self.finding_view,
+                    );
                 },
             );
             ui.allocate_ui_with_layout(
                 Vec2::new(right_width, content_height),
                 Layout::top_down(Align::Min),
                 |ui| {
-                    self.plan(
-                        ui,
-                        selected_id,
-                        scan.as_ref(),
-                        report.as_ref(),
-                        colors,
-                        content_height,
-                    );
+                    plan_action =
+                        Self::plan(ui, item, &self.session, language, colors, content_height);
                 },
             );
         });
+        if json_requested {
+            self.json = report.and_then(|report| serde_json::to_string_pretty(report).ok());
+        }
+        if scan_requested {
+            self.session.queue_scan(selected_id);
+        }
+        if export_requested {
+            self.export_report(false);
+        }
+        match plan_action {
+            Some(PlanAction::Save) => self.save_selected(),
+            Some(PlanAction::Verify) => self.verify_selected(),
+            Some(PlanAction::Process) => {
+                if let Some(item) = self.session.selected_item() {
+                    self.image_processing = Some(ImageProcessingDialog::new(
+                        item.id,
+                        item.path.clone(),
+                        self.session.output_directory.clone(),
+                    ));
+                }
+            }
+            None => {}
+        }
     }
     fn empty(&mut self, ui: &mut egui::Ui, colors: Palette) {
         ui.vertical_centered(|ui| {
@@ -765,13 +805,13 @@ impl FileVeilApp {
         });
     }
     fn findings(
-        &mut self,
         ui: &mut egui::Ui,
         report: Option<&Report>,
         colors: Palette,
         height: f32,
+        language: Language,
+        view: &mut FindingView,
     ) {
-        let language = self.language;
         Frame::new()
             .fill(colors.surface)
             .corner_radius(12)
@@ -790,24 +830,25 @@ impl FileVeilApp {
                     }
                 });
                 ui.add_space(12.0);
+                let old_filter = (view.search.clone(), view.layer);
                 ui.horizontal(|ui| {
                     let search_width = (ui.available_width() - 143.0).max(100.0);
                     ui.add_sized(
                         [search_width, 30.0],
-                        egui::TextEdit::singleline(&mut self.search)
+                        egui::TextEdit::singleline(&mut view.search)
                             .hint_text(tr(language, "Search findings")),
                     );
                     egui::ComboBox::from_id_salt("layer_filter")
                         .width(123.0)
                         .selected_text(
-                            self.layer_filter
+                            view.layer
                                 .map(|layer| i18n::layer(language, layer))
                                 .unwrap_or_else(|| tr(language, "All categories")),
                         )
                         .show_ui(ui, |ui| {
                             if ui
                                 .selectable_value(
-                                    &mut self.layer_filter,
+                                    &mut view.layer,
                                     None,
                                     tr(language, "All categories"),
                                 )
@@ -825,7 +866,7 @@ impl FileVeilApp {
                             ] {
                                 if ui
                                     .selectable_value(
-                                        &mut self.layer_filter,
+                                        &mut view.layer,
                                         Some(layer),
                                         i18n::layer(language, layer),
                                     )
@@ -836,6 +877,82 @@ impl FileVeilApp {
                             }
                         });
                 });
+                if old_filter != (view.search.clone(), view.layer) {
+                    view.page = 0;
+                }
+                let search = view.search.to_lowercase();
+                use std::hash::{Hash, Hasher};
+                let mut fingerprint = std::collections::hash_map::DefaultHasher::new();
+                (language as u8, &search, view.layer.map(|layer| layer as u8))
+                    .hash(&mut fingerprint);
+                if let Some(report) = report {
+                    report.findings.len().hash(&mut fingerprint);
+                    for finding in &report.findings {
+                        (
+                            &finding.code,
+                            &finding.summary,
+                            &finding.location,
+                            finding.layer as u8,
+                            finding.state as u8,
+                            finding.action as u8,
+                        )
+                            .hash(&mut fingerprint);
+                    }
+                }
+                let fingerprint = fingerprint.finish();
+                if view.fingerprint != Some(fingerprint) {
+                    view.matching = report
+                        .map(|report| {
+                            report
+                                .findings
+                                .iter()
+                                .enumerate()
+                                .filter(|(_, finding)| {
+                                    if view.layer.is_some_and(|layer| layer != finding.layer) {
+                                        return false;
+                                    }
+                                    search.is_empty()
+                                        || format!(
+                                            "{} {} {} {}",
+                                            i18n::finding_title(language, finding),
+                                            i18n::finding_summary(language, finding),
+                                            finding.code,
+                                            finding.location
+                                        )
+                                        .to_lowercase()
+                                        .contains(&search)
+                                })
+                                .map(|(index, _)| index)
+                                .collect()
+                        })
+                        .unwrap_or_default();
+                    view.fingerprint = Some(fingerprint);
+                }
+                let pages = view.matching.len().div_ceil(100).max(1);
+                view.page = view.page.min(pages - 1);
+                if pages > 1 {
+                    ui.horizontal(|ui| {
+                        if ui
+                            .add_enabled(
+                                view.page > 0,
+                                egui::Button::new(tr(language, "Previous page")),
+                            )
+                            .clicked()
+                        {
+                            view.page -= 1;
+                        }
+                        ui.label(format!("{} / {}", view.page + 1, pages));
+                        if ui
+                            .add_enabled(
+                                view.page + 1 < pages,
+                                egui::Button::new(tr(language, "Next page")),
+                            )
+                            .clicked()
+                        {
+                            view.page += 1;
+                        }
+                    });
+                }
                 ui.add_space(10.0);
                 let list_height = (height - 34.0 - (ui.cursor().top() - content_top)).max(40.0);
                 egui::ScrollArea::vertical()
@@ -847,28 +964,14 @@ impl FileVeilApp {
                             ui.label(tr(language, "No report yet"));
                             return;
                         };
-                        let mut found = false;
-                        let search = self.search.to_lowercase();
-                        for finding in &report.findings {
+                        for index in view.matching.iter().skip(view.page * 100).take(100) {
+                            let finding = &report.findings[*index];
                             let title = i18n::finding_title(language, finding);
                             let summary = i18n::finding_summary(language, finding);
-                            if self
-                                .layer_filter
-                                .is_some_and(|layer| layer != finding.layer)
-                                || !format!(
-                                    "{} {} {} {}",
-                                    title, summary, finding.code, finding.location
-                                )
-                                .to_lowercase()
-                                .contains(&search)
-                            {
-                                continue;
-                            }
-                            found = true;
                             finding_row(ui, finding, &title, &summary, language, colors);
                             ui.add_space(9.0);
                         }
-                        if !found {
+                        if view.matching.is_empty() {
                             ui.label(
                                 RichText::new(tr(language, "No findings match the filter"))
                                     .color(colors.muted),
@@ -878,15 +981,17 @@ impl FileVeilApp {
             });
     }
     fn plan(
-        &mut self,
         ui: &mut egui::Ui,
-        id: u64,
-        scan: Option<&Report>,
-        report: Option<&Report>,
+        item: &FileItem,
+        session: &Session,
+        language: Language,
         colors: Palette,
         height: f32,
-    ) {
-        let language = self.language;
+    ) -> Option<PlanAction> {
+        let id = item.id;
+        let scan = item.scan.as_ref();
+        let report = item.latest.as_ref();
+        let mut action = None;
         Frame::new()
             .fill(colors.surface)
             .corner_radius(12)
@@ -909,7 +1014,7 @@ impl FileVeilApp {
                         .size(12.0),
                 );
                 ui.add_space(10.0);
-                let can_save = self.session.can_sanitize(id);
+                let can_save = session.can_sanitize(id);
                 if ui
                     .add_enabled(
                         can_save,
@@ -921,32 +1026,27 @@ impl FileVeilApp {
                     )
                     .clicked()
                 {
-                    self.save_selected();
+                    action = Some(PlanAction::Save);
                 }
                 if ui
                     .add_enabled(
-                        scan.is_some() && !self.session.busy(id),
+                        scan.is_some() && !session.busy(id),
                         egui::Button::new(tr(language, "Verify copy"))
                             .min_size(Vec2::new(ui.available_width(), 32.0)),
                     )
                     .clicked()
                 {
-                    self.verify_selected();
+                    action = Some(PlanAction::Verify);
                 }
                 if ui
                     .add_enabled(
-                        self.session.can_process_image(id),
+                        session.can_process_image(id),
                         egui::Button::new(tr(language, "Image watermark processing"))
                             .min_size(Vec2::new(ui.available_width(), 32.0)),
                     )
                     .clicked()
-                    && let Some(item) = self.session.selected_item()
                 {
-                    self.image_processing = Some(ImageProcessingDialog::new(
-                        item.id,
-                        item.path.clone(),
-                        self.session.output_directory.clone(),
-                    ));
+                    action = Some(PlanAction::Process);
                 }
                 ui.add_space(12.0);
                 let list_height = (height - 34.0 - (ui.cursor().top() - content_top)).max(40.0);
@@ -956,16 +1056,18 @@ impl FileVeilApp {
                     .auto_shrink([false, false])
                     .show(ui, |ui| {
                         if let Some(scan) = scan {
-                            let removable: Vec<_> = scan
-                                .findings
-                                .iter()
-                                .filter(|finding| {
-                                    matches!(
-                                        finding.action,
-                                        Action::Remove | Action::Normalize | Action::Rebuild
-                                    )
-                                })
-                                .collect();
+                            let mut removable = std::collections::BTreeMap::new();
+                            for finding in scan.findings.iter().filter(|finding| {
+                                matches!(
+                                    finding.action,
+                                    Action::Remove | Action::Normalize | Action::Rebuild
+                                )
+                            }) {
+                                let entry = removable
+                                    .entry((finding.code.as_str(), finding.action as u8))
+                                    .or_insert((finding, 0usize));
+                                entry.1 += 1;
+                            }
                             if removable.is_empty() {
                                 ui.label(
                                     RichText::new(tr(language, "No supported fields to remove"))
@@ -973,7 +1075,7 @@ impl FileVeilApp {
                                         .color(colors.muted),
                                 );
                             }
-                            for finding in removable {
+                            for (finding, count) in removable.values() {
                                 ui.horizontal_wrapped(|ui| {
                                     ui.label(
                                         RichText::new(i18n::action(language, finding.action))
@@ -981,8 +1083,12 @@ impl FileVeilApp {
                                             .color(colors.primary),
                                     );
                                     ui.label(
-                                        RichText::new(i18n::finding_title(language, finding))
-                                            .size(12.0),
+                                        RichText::new(format!(
+                                            "{} · {}",
+                                            i18n::finding_title(language, finding),
+                                            count
+                                        ))
+                                        .size(12.0),
                                     );
                                 });
                                 ui.add_space(4.0);
@@ -1033,6 +1139,7 @@ impl FileVeilApp {
                         }
                     });
             });
+        action
     }
     fn verification(
         &self,
@@ -1245,6 +1352,7 @@ impl FileVeilApp {
                         }
                     });
                     ui.add_space(14.0);
+                    ui.small(tr(language, "Pixel and archive budgets constrain decoded images and archive/Lab inputs. They are separate from total process memory."));
                     let mut file_mib = self.session.limits.max_file_bytes / (1024 * 1024);
                     egui::Grid::new("settings_grid")
                         .spacing([24.0, 12.0])
@@ -1255,6 +1363,18 @@ impl FileVeilApp {
                                 .changed()
                             {
                                 self.session.limits.max_file_bytes = file_mib * 1024 * 1024;
+                            }
+                            ui.end_row();
+                            let mut megapixels = (self.session.limits.max_pixels / 1_000_000).max(1);
+                            ui.label(tr(language, "Image pixel budget (MP)"));
+                            if ui.add(egui::DragValue::new(&mut megapixels).range(1..=64)).changed() {
+                                self.session.limits.max_pixels = megapixels * 1_000_000;
+                            }
+                            ui.end_row();
+                            let mut aggregate_mib = self.session.limits.max_uncompressed_bytes / (1024 * 1024);
+                            ui.label(tr(language, "Archive and Lab budget (MiB)"));
+                            if ui.add(egui::DragValue::new(&mut aggregate_mib).range(1..=1024)).changed() {
+                                self.session.limits.max_uncompressed_bytes = aggregate_mib * 1024 * 1024;
                             }
                             ui.end_row();
                             ui.label(tr(language, "Timeout (seconds)"));
@@ -1291,7 +1411,7 @@ impl FileVeilApp {
                 context.request_repaint();
             }
         }
-        if let Some(json) = self.json.clone() {
+        if let Some(mut json) = self.json.take() {
             let mut open = true;
             egui::Window::new(tr(language, "JSON report"))
                 .id(egui::Id::unique("json_window"))
@@ -1302,10 +1422,9 @@ impl FileVeilApp {
                     if ui.button(tr(language, "Copy JSON")).clicked() {
                         ui.ctx().copy_text(json.clone());
                     }
-                    let mut text = json;
                     egui::ScrollArea::both().show(ui, |ui| {
                         ui.add(
-                            egui::TextEdit::multiline(&mut text)
+                            egui::TextEdit::multiline(&mut json)
                                 .code_editor()
                                 .desired_width(f32::INFINITY)
                                 .desired_rows(28)
@@ -1313,8 +1432,8 @@ impl FileVeilApp {
                         );
                     });
                 });
-            if !open {
-                self.json = None;
+            if open {
+                self.json = Some(json);
             }
         }
     }
@@ -2052,5 +2171,79 @@ mod tests {
     fn labels_do_not_infer_cleanup_from_extension() {
         assert_eq!(format_label("image/png"), "PNG");
         assert_eq!(format_size(2048), "2.0 KB");
+    }
+    #[test]
+    fn large_reports_keep_filter_results_accessible_on_bounded_pages() {
+        let context = egui::Context::default();
+        let mut report = Report::new("scan", fileveil_core::Format::Png);
+        report.findings = (0..10_001)
+            .map(|index| {
+                Finding::new(
+                    "png.text",
+                    RiskLayer::EmbeddedMetadata,
+                    &format!("chunk/{index}"),
+                    "Synthetic field",
+                    Action::Remove,
+                )
+            })
+            .collect();
+        let mut view = FindingView {
+            page: usize::MAX,
+            ..Default::default()
+        };
+        let start = std::time::Instant::now();
+        let output = context.run_ui(
+            egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(
+                    egui::Pos2::ZERO,
+                    egui::vec2(900.0, 700.0),
+                )),
+                ..Default::default()
+            },
+            |ui| {
+                FileVeilApp::findings(
+                    ui,
+                    Some(&report),
+                    Palette::new(Appearance::Dark),
+                    600.0,
+                    Language::English,
+                    &mut view,
+                );
+            },
+        );
+        output.drop_without_applying_deltas();
+        assert_eq!(view.page, 100);
+        view.search = "nonexistent-field".into();
+        let output = context.run_ui(Default::default(), |ui| {
+            FileVeilApp::findings(
+                ui,
+                Some(&report),
+                Palette::new(Appearance::Dark),
+                600.0,
+                Language::English,
+                &mut view,
+            );
+        });
+        output.drop_without_applying_deltas();
+        assert_eq!(view.page, 0);
+        assert!(view.matching.is_empty());
+        // Public report fields may change without changing the report allocation.
+        report.findings[0].location = "nonexistent-field".into();
+        let output = context.run_ui(Default::default(), |ui| {
+            FileVeilApp::findings(
+                ui,
+                Some(&report),
+                Palette::new(Appearance::Dark),
+                600.0,
+                Language::English,
+                &mut view,
+            );
+        });
+        output.drop_without_applying_deltas();
+        assert_eq!(view.matching, vec![0]);
+        eprintln!(
+            "10001 findings, three paginated frames including searches: {:?}",
+            start.elapsed()
+        );
     }
 }

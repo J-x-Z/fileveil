@@ -222,6 +222,35 @@ impl Workspaces {
                         ui.ctx(),
                     );
                 }
+                if ui
+                    .add_enabled(
+                        idle && session.has_detectable_images(),
+                        egui::Button::new(t(language, "检测队列图片", "Detect queued images")),
+                    )
+                    .clicked()
+                {
+                    session.queue_detect_images();
+                    self.result = None;
+                }
+                if let Some(item) = session.selected_item()
+                    && let Some(report) = item
+                        .latest
+                        .as_ref()
+                        .filter(|report| report.operation == "detect_watermark")
+                {
+                    ui.separator();
+                    ui.strong(t(language, "队列检测结果", "Queued detection result"));
+                    ui.label(outcome(language, report.result));
+                    if let Some(detections) = report
+                        .advanced
+                        .as_ref()
+                        .and_then(|details| details["detections"].as_array())
+                    {
+                        for detection in detections {
+                            detection_ui(ui, language, detection);
+                        }
+                    }
+                }
                 ui.add_space(12.0);
                 ui.strong(t(
                     language,
@@ -473,7 +502,7 @@ impl Workspaces {
         });
         let mime = session
             .selected_item()
-            .and_then(|item| item.scan.as_ref())
+            .and_then(|item| session.current_scan(item.id))
             .map(|report| report.input_format.as_str())
             .unwrap_or("");
         let office = mime.starts_with("application/vnd.openxmlformats-officedocument.");
@@ -550,7 +579,10 @@ impl Workspaces {
                 ui.label(t(language,"保留 Quarantine、Mark-of-the-Web 和受保护属性。资源叉会阻断重写。","Quarantine, Mark-of-the-Web and protected attributes are preserved. Resource forks block rewriting."));
             });
         });
-        if let Some(scan) = session.selected_item().and_then(|item| item.scan.as_ref()) {
+        if let Some(scan) = session
+            .selected_item()
+            .and_then(|item| session.current_scan(item.id))
+        {
             egui::CollapsingHeader::new(t(
                 language,
                 "文件系统属性计划",
@@ -591,7 +623,7 @@ impl Workspaces {
         }
         let supported = session
             .selected_item()
-            .and_then(|item| item.scan.as_ref())
+            .and_then(|item| session.current_scan(item.id))
             .is_some_and(|report| {
                 report.result != fileveil_core::Outcome::Unsupported
                     && !matches!(mime, "audio/mpeg" | "application/octet-stream")
@@ -814,6 +846,9 @@ impl Workspaces {
                 .get("signal_analysis")
                 .filter(|value| value.is_object())
             {
+                if observation["converted_to_rgb8"] == true {
+                    ui.small(t(language, "该样本已转换为 RGB8，低位统计采用转换后的样本。", "This sample was converted to RGB8. Low-bit statistics use the converted samples."));
+                }
                 ui.push_id("single-image-signal", |ui| {
                     signal_statistics_ui(ui, language, &observation["signal"]);
                 });
@@ -1024,8 +1059,9 @@ impl Workspaces {
         for warning in &result.report.warnings {
             ui.small(crate::i18n::tr(language, warning));
         }
-        let report = result.report.clone();
+        let report = &result.report;
         let verification = self.verification_request();
+        let mut verify_requested = false;
         ui.horizontal(|ui| {
             if ui
                 .button(t(language, "导出报告", "Export report"))
@@ -1034,7 +1070,7 @@ impl Workspaces {
                     .set_file_name("fileveil-report.json")
                     .save_file()
             {
-                let saved = serde_json::to_vec_pretty(&report)
+                let saved = serde_json::to_vec_pretty(report)
                     .map_err(|_| "Could not serialize report".to_string())
                     .and_then(|bytes| crate::app::save_report(&path, &bytes));
                 self.notice = Some(if saved.is_ok() {
@@ -1048,7 +1084,7 @@ impl Workspaces {
                     .into()
                 });
             }
-            if let Some(verification) = verification
+            if verification.is_some()
                 && ui
                     .add_enabled(
                         idle,
@@ -1056,9 +1092,12 @@ impl Workspaces {
                     )
                     .clicked()
             {
-                self.start(verification, session, ui.ctx());
+                verify_requested = true;
             }
         });
+        if verify_requested && let Some(verification) = verification {
+            self.start(verification, session, ui.ctx());
+        }
     }
 }
 fn status(language: Language, value: &str) -> &str {

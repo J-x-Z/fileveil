@@ -295,6 +295,9 @@ pub fn tr(language: Language, english: &str) -> &str {
         "Open folder" => "打开文件夹",
         "Scan" => "扫描",
         "Scan selected" => "扫描所选",
+        "Previous page" => "上一页",
+        "Next page" => "下一页",
+        "Detect queued images" => "检测队列图片",
         "Scan queue" => "扫描队列",
         "Scan all" => "扫描全部",
         "Scan files" => "扫描文件",
@@ -362,6 +365,11 @@ pub fn tr(language: Language, english: &str) -> &str {
         "Maximum file size" => "单文件大小上限",
         "Task timeout" => "任务时限",
         "Timeout" => "超时",
+        "Image pixel budget (MP)" => "图像像素预算（百万像素）",
+        "Archive and Lab budget (MiB)" => "归档和实验室总量（MiB）",
+        "Pixel and archive budgets constrain decoded images and archive/Lab inputs. They are separate from total process memory." => {
+            "像素预算限制解码图像，归档预算限制解压与实验室输入总量。进程总内存有独立的消耗范围。"
+        }
         "Timeout (seconds)" => "任务时限（秒）",
         "seconds" => "秒",
         "MiB" => "MiB",

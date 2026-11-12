@@ -4,7 +4,7 @@ use crate::jobs::{JobHandle, JobKind, JobRequest, JobResult};
 use eframe::egui;
 use fileveil_core::{Action, Format, ImageProcessOptions, Limits, Outcome, Report};
 use std::{
-    collections::{HashSet, VecDeque},
+    collections::{HashMap, HashSet, VecDeque},
     ffi::OsString,
     fs,
     path::{Path, PathBuf},
@@ -14,6 +14,7 @@ use std::{
 
 const MAX_FILES: usize = 2_000;
 const MAX_RETAINED_FINDINGS: usize = 100_000;
+const MAX_REPORT_BYTES: usize = 128 * 1024 * 1024;
 const MAX_IMPORT_ENTRIES: usize = 10_000;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -43,6 +44,7 @@ pub struct FileItem {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TaskKind {
     Scan,
+    DetectWatermark,
     Sanitize {
         output: Option<PathBuf>,
     },
@@ -84,6 +86,8 @@ pub struct Session {
     pub include_subfolders: bool,
     pub limits: Limits,
     pub timeout_seconds: u64,
+    report_bytes: HashMap<u64, usize>,
+    invalid_scans: HashSet<u64>,
     next_id: u64,
 }
 
@@ -99,6 +103,8 @@ impl Default for Session {
             include_subfolders: false,
             limits: Limits::default(),
             timeout_seconds: 120,
+            report_bytes: HashMap::new(),
+            invalid_scans: HashSet::new(),
             next_id: 1,
         }
     }
@@ -235,7 +241,7 @@ impl Session {
     }
 
     fn eligible_scan(&self, id: u64) -> Option<&Report> {
-        if self.busy(id) {
+        if self.busy(id) || self.invalid_scans.contains(&id) {
             return None;
         }
         let item = self.items.iter().find(|item| item.id == id)?;
@@ -272,6 +278,46 @@ impl Session {
     pub fn queue_sanitize(&mut self, id: u64, output: Option<PathBuf>) {
         if self.can_sanitize(id) {
             self.enqueue(id, TaskKind::Sanitize { output });
+        }
+    }
+
+    pub fn current_scan(&self, id: u64) -> Option<&Report> {
+        let item = self.items.iter().find(|item| item.id == id)?;
+        scan_evidence(item, self.invalid_scans.contains(&id))
+    }
+
+    pub fn has_detectable_images(&self) -> bool {
+        self.items
+            .iter()
+            .any(|item| image_scan(scan_evidence(item, self.invalid_scans.contains(&item.id))))
+    }
+
+    pub fn can_detect_image(&self, id: u64) -> bool {
+        !self.busy(id)
+            && self.current_scan(id).is_some_and(|report| {
+                report.integrity.parseable
+                    && matches!(report.input_format.as_str(), "image/png" | "image/jpeg")
+            })
+    }
+
+    pub fn queue_detect_images(&mut self) {
+        let mut busy: HashSet<_> = self
+            .pending
+            .iter()
+            .map(|task| task.id)
+            .chain(self.active.iter().map(|task| task.id))
+            .collect();
+        for item in &mut self.items {
+            if !busy.contains(&item.id)
+                && image_scan(scan_evidence(item, self.invalid_scans.contains(&item.id)))
+            {
+                item.status = ItemStatus::Queued;
+                self.pending.push_back(PendingTask {
+                    id: item.id,
+                    kind: TaskKind::DetectWatermark,
+                });
+                busy.insert(item.id);
+            }
         }
     }
 
@@ -326,7 +372,10 @@ impl Session {
                         .map_or(0, |report| report.findings.len())
             })
             .sum();
-        if !self.pending.is_empty() && retained_findings >= MAX_RETAINED_FINDINGS {
+        if !self.pending.is_empty()
+            && (retained_findings >= MAX_RETAINED_FINDINGS
+                || self.report_bytes.values().sum::<usize>() >= MAX_REPORT_BYTES)
+        {
             self.cancel_all();
             self.notice = Some("Report memory budget reached. Export reports and clear completed items to continue".into());
             return;
@@ -337,6 +386,12 @@ impl Session {
             };
             let mut kind = task.kind;
             let operation = match &mut kind {
+                TaskKind::DetectWatermark => {
+                    item.status = ItemStatus::Scanning;
+                    JobKind::DetectWatermark {
+                        path: item.path.clone(),
+                    }
+                }
                 TaskKind::Scan => {
                     item.status = ItemStatus::Scanning;
                     JobKind::Scan {
@@ -354,6 +409,11 @@ impl Session {
                                 report.result = Outcome::Failed;
                                 report.warnings.push(message.clone());
                                 item.latest = Some(report);
+                                self.report_bytes.insert(
+                                    item.id,
+                                    item.scan.as_ref().map_or(0, report_heap_bytes)
+                                        + item.latest.as_ref().map_or(0, report_heap_bytes),
+                                );
                                 item.status = ItemStatus::Finished;
                                 self.notice = Some(message);
                                 context.request_repaint();
@@ -441,10 +501,14 @@ impl Session {
                         && result.report.integrity.parseable
                         && result.report.input_format != Format::Unknown.mime()) =>
             {
+                self.invalid_scans.remove(&id);
                 item.scan = Some(result.report.clone());
                 if let Ok(metadata) = fs::metadata(&item.path) {
                     item.size = metadata.len();
                 }
+            }
+            TaskKind::Scan => {
+                self.invalid_scans.insert(id);
             }
             TaskKind::Sanitize { .. } | TaskKind::ProcessImage { .. }
                 if successful_report(&result.report) =>
@@ -477,6 +541,11 @@ impl Session {
             _ => {}
         }
         item.latest = Some(result.report);
+        self.report_bytes.insert(
+            id,
+            item.scan.as_ref().map_or(0, report_heap_bytes)
+                + item.latest.as_ref().map_or(0, report_heap_bytes),
+        );
     }
 
     pub fn cancel_all(&mut self) {
@@ -505,6 +574,8 @@ impl Session {
             return false;
         };
         self.items.remove(index);
+        self.report_bytes.remove(&id);
+        self.invalid_scans.remove(&id);
         if self.selected == Some(id) {
             self.selected = self
                 .items
@@ -524,6 +595,10 @@ impl Session {
             .collect();
         self.items
             .retain(|item| item.status != ItemStatus::Finished || busy.contains(&item.id));
+        self.report_bytes
+            .retain(|id, _| self.items.iter().any(|item| item.id == *id));
+        self.invalid_scans
+            .retain(|id| self.items.iter().any(|item| item.id == *id));
         if self
             .selected
             .is_some_and(|selected| !self.items.iter().any(|item| item.id == selected))
@@ -536,9 +611,95 @@ impl Session {
         self.cancel_all();
         drop(self.active.take());
         self.items.clear();
+        self.report_bytes.clear();
+        self.invalid_scans.clear();
         self.selected = None;
         self.notice = None;
     }
+}
+
+fn scan_evidence(item: &FileItem, invalid: bool) -> Option<&Report> {
+    if invalid
+        || item.latest.as_ref().is_some_and(|report| {
+            report.operation == "scan"
+                && !successful_report(report)
+                && !(report.result == Outcome::Blocked
+                    && report.integrity.parseable
+                    && report.input_format != Format::Unknown.mime())
+        })
+    {
+        return None;
+    }
+    item.scan.as_ref()
+}
+
+fn image_scan(report: Option<&Report>) -> bool {
+    report.is_some_and(|report| {
+        report.integrity.parseable
+            && matches!(report.input_format.as_str(), "image/png" | "image/jpeg")
+    })
+}
+
+// Estimate retained allocations once on completion, including JSON arrays of
+// preview pixels. The finding-count limit alone cannot bound those arrays.
+fn report_heap_bytes(report: &Report) -> usize {
+    fn json_bytes(value: &serde_json::Value) -> usize {
+        use serde_json::Value;
+        match value {
+            Value::String(text) => text.capacity(),
+            Value::Array(values) => {
+                values.capacity() * std::mem::size_of::<Value>()
+                    + values.iter().map(json_bytes).sum::<usize>()
+            }
+            Value::Object(values) => values
+                .iter()
+                .map(|(key, value)| {
+                    key.capacity() + std::mem::size_of::<Value>() + 64 + json_bytes(value)
+                })
+                .sum(),
+            _ => 0,
+        }
+    }
+    let fields = [
+        &report.schema_version,
+        &report.tool,
+        &report.version,
+        &report.operation,
+        &report.input_format,
+    ];
+    std::mem::size_of::<Report>()
+        + fields.iter().map(|text| text.capacity()).sum::<usize>()
+        + [
+            &report.input_sha256,
+            &report.output_sha256,
+            &report.output_name,
+        ]
+        .into_iter()
+        .flatten()
+        .map(String::capacity)
+        .sum::<usize>()
+        + report.findings.capacity() * std::mem::size_of::<fileveil_core::Finding>()
+        + report
+            .findings
+            .iter()
+            .map(|finding| {
+                finding.code.capacity()
+                    + finding.location.capacity()
+                    + finding.summary.capacity()
+                    + finding.impact.as_ref().map_or(0, String::capacity)
+            })
+            .sum::<usize>()
+        + report.warnings.capacity() * std::mem::size_of::<String>()
+        + report.warnings.iter().map(String::capacity).sum::<usize>()
+        + report
+            .image_processing
+            .as_ref()
+            .map_or(0, |processing| processing.detector_status.capacity())
+        + [&report.advanced, &report.pdf, &report.provenance]
+            .into_iter()
+            .flatten()
+            .map(json_bytes)
+            .sum::<usize>()
 }
 
 fn successful_report(report: &Report) -> bool {
@@ -934,5 +1095,79 @@ mod tests {
         );
         assert_eq!(session.items[10].status, ItemStatus::Ready);
         assert!(session.notice.as_ref().unwrap().contains("memory budget"));
+    }
+    #[test]
+    fn queued_watermark_detection_preserves_copy_and_scan_state() {
+        let mut session = Session::default();
+        session.items.push(FileItem {
+            id: 1,
+            path: "sample.png".into(),
+            size: 1,
+            scan: Some(report("scan")),
+            latest: None,
+            output_path: Some("copy.png".into()),
+            output_processing: None,
+            status: ItemStatus::Finished,
+        });
+        session.queue_detect_images();
+        assert_eq!(session.pending.len(), 1);
+        assert_eq!(session.pending[0].kind, TaskKind::DetectWatermark);
+        session.cancel_all();
+        let mut detected = report("detect_watermark");
+        detected.advanced = Some(serde_json::json!({"preview":vec![0; 8192]}));
+        assert!(report_heap_bytes(&detected) > 8192 * std::mem::size_of::<serde_json::Value>());
+        session.complete(
+            1,
+            &TaskKind::DetectWatermark,
+            JobResult {
+                report: detected,
+                exit_code: 4,
+                output_path: None,
+            },
+        );
+        assert_eq!(session.items[0].scan.as_ref().unwrap().operation, "scan");
+        assert_eq!(
+            session.items[0].output_path.as_ref().unwrap(),
+            &PathBuf::from("copy.png")
+        );
+        session.report_bytes.insert(1, MAX_REPORT_BYTES);
+        session.queue_detect_images();
+        session.start_next(&egui::Context::default());
+        assert!(session.active.is_none() && session.pending.is_empty());
+        assert!(session.items[0].latest.is_some());
+        session.clear_completed();
+        assert!(session.report_bytes.is_empty());
+    }
+    #[test]
+    fn failed_rescan_invalidates_cached_image_eligibility() {
+        let mut session = Session::default();
+        session.items.push(FileItem {
+            id: 1,
+            path: "sample.png".into(),
+            size: 1,
+            scan: Some(report("scan")),
+            latest: None,
+            output_path: None,
+            output_processing: None,
+            status: ItemStatus::Finished,
+        });
+        let mut failed = Report::new("scan", Format::Unknown);
+        failed.result = Outcome::Failed;
+        session.complete(
+            1,
+            &TaskKind::Scan,
+            JobResult {
+                report: failed,
+                exit_code: 2,
+                output_path: None,
+            },
+        );
+        assert!(session.items[0].scan.is_some());
+        assert!(session.current_scan(1).is_none());
+        session.items[0].latest = Some(report("detect_watermark"));
+        session.queue_detect_images();
+        assert!(session.pending.is_empty());
+        assert!(!session.can_sanitize(1));
+        assert!(!session.can_process_image(1));
     }
 }

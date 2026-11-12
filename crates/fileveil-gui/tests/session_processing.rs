@@ -47,12 +47,21 @@ fn prepared_session() -> (tempfile::TempDir, Session, PathBuf, PathBuf) {
 }
 
 fn finish_worker(session: &mut Session, kind: TaskKind, job: JobKind) {
-    session.items[0].status = match kind {
-        TaskKind::Scan => ItemStatus::Scanning,
+    finish_worker_for(session, 1, kind, job);
+}
+
+fn finish_worker_for(session: &mut Session, id: u64, kind: TaskKind, job: JobKind) {
+    session
+        .items
+        .iter_mut()
+        .find(|item| item.id == id)
+        .unwrap()
+        .status = match kind {
+        TaskKind::Scan | TaskKind::DetectWatermark => ItemStatus::Scanning,
         _ => ItemStatus::Sanitizing,
     };
     session.active = Some(ActiveTask {
-        id: 1,
+        id,
         kind,
         handle: JobHandle::spawn_with_executable(
             JobRequest::new(job),
@@ -129,4 +138,50 @@ fn a_new_unsupported_scan_disables_image_processing_until_rescanned() {
         Some(fileveil_engine::scan(&session.items[0].path, &Limits::default()).unwrap());
     assert!(!session.can_sanitize(1));
     assert!(!session.can_process_image(1));
+}
+
+#[test]
+fn queued_detection_runs_real_workers_and_keeps_existing_copy_recipes() {
+    let (_directory, mut session, processed, _) = prepared_session();
+    let mut second = session.items[0].clone();
+    second.id = 2;
+    second.path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../fileveil-engine/tests/fixtures/watermark/astronaut-sdxl.png");
+    session.items.push(second);
+    session.queue_detect_images();
+    let queued: Vec<_> = session.pending.drain(..).collect();
+    assert_eq!(queued.len(), 2);
+    for task in queued {
+        let job = JobKind::DetectWatermark {
+            path: session
+                .items
+                .iter()
+                .find(|item| item.id == task.id)
+                .unwrap()
+                .path
+                .clone(),
+        };
+        finish_worker_for(&mut session, task.id, task.kind, job);
+        let item = session
+            .items
+            .iter()
+            .find(|item| item.id == task.id)
+            .unwrap();
+        assert_eq!(item.latest.as_ref().unwrap().operation, "detect_watermark");
+        assert_eq!(item.scan.as_ref().unwrap().operation, "scan");
+        assert_eq!(item.output_path.as_ref().unwrap(), &processed);
+        assert!(item.output_processing.is_some());
+        if task.id == 2 {
+            assert!(
+                item.latest.as_ref().unwrap().advanced.as_ref().unwrap()["detections"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(
+                        |result| result["method_id"] == "stable_diffusion_xl_dwt_dct"
+                            && result["status"] == "detected"
+                    )
+            );
+        }
+    }
 }
