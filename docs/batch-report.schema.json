@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:fileveil:batch-report:0.3",
-  "title": "FileVeil batch report 0.3 with legacy 0.1 and 0.2 support",
+  "$id": "urn:fileveil:batch-report:0.4",
+  "title": "FileVeil batch report 0.4 with legacy 0.1, 0.2 and 0.3 support",
   "description": "GUI export envelope containing the latest available report for each queued file.",
   "type": "object",
   "additionalProperties": false,
@@ -17,7 +17,8 @@
       "enum": [
         "0.1",
         "0.2",
-        "0.3"
+        "0.3",
+        "0.4"
       ]
     },
     "tool": {
@@ -228,7 +229,8 @@
           "enum": [
             "0.1",
             "0.2",
-            "0.3"
+            "0.3",
+            "0.4"
           ]
         },
         "tool": {
@@ -244,7 +246,9 @@
             "verify",
             "detect_watermark",
             "lab",
-            "provenance"
+            "provenance",
+            "heritage",
+            "heritage_keygen"
           ]
         },
         "input_format": {

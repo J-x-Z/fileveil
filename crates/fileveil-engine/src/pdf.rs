@@ -1212,6 +1212,25 @@ pub fn verify(before: &[u8], after: &[u8], limits: &Limits) -> Result<PdfVerific
     verify_scoped(before, after, limits, &PdfOptions::default())
 }
 
+/// Heritage credentials can add metadata while retaining visible document content.
+/// This comparison reuses the bounded, independent Poppler checks without
+/// asserting that a metadata-removal or full-object-rewrite policy was applied.
+pub fn verify_heritage_display(before: &[u8], after: &[u8], limits: &Limits) -> Result<Value> {
+    let original = Document::open_selected(before, limits, true)?;
+    let output = Document::open_selected(after, limits, true)?;
+    let checks = independent(&original, &output, limits, false)?;
+    let complete =
+        checks.pages == Some(true) && checks.text == Some(true) && checks.render == Some(true);
+    Ok(json!({
+        "independent_page_count_equal": checks.pages,
+        "independent_text_equal": checks.text,
+        "independent_render_equal": checks.render,
+        "result": if complete { "verified_within_scope" } else { "partially_verified" },
+        "warnings": checks.warnings,
+        "scope": "Independent page count, extracted text and bounded-resolution rendered pages. Credential trust, arbitrary streams and full graph identity are separately assessed."
+    }))
+}
+
 pub fn verify_scoped(
     before: &[u8],
     after: &[u8],

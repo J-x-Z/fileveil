@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "date": "2026-11-12",
-  "cargo_lock_sha256": "96012a5a8b601de2a6ffba238c1212906635f01442e5df8ee4ea6968753cf4a1",
+  "cargo_lock_sha256": "ed5cc9a5d59ea9ec27d705f6d82ca26032ff2d87cc97a59b0a8c3fed7af4d5fe",
   "registry_packages": [
     {
       "name": "abnf",
@@ -3187,6 +3187,28 @@
           "path": "assets/licenses/deranged-0.5.9/LICENSE-MIT",
           "origin": "published_crate",
           "sha256": "231c837c45eb53f108fb48929e488965bc4fcc14e9ea21d35f50e6b99d98685b"
+        }
+      ]
+    },
+    {
+      "name": "des",
+      "version": "0.9.0",
+      "license": "MIT OR Apache-2.0",
+      "authors": [
+        "RustCrypto Developers"
+      ],
+      "crate_url": "https://crates.io/crates/des/0.9.0",
+      "repository": "https://github.com/RustCrypto/block-ciphers",
+      "files": [
+        {
+          "path": "assets/licenses/des-0.9.0/LICENSE-APACHE",
+          "origin": "published_crate",
+          "sha256": "15b3f2c71c37b46995aaa90362fe18bff234e6bb3037746319013aaf4174ec5c"
+        },
+        {
+          "path": "assets/licenses/des-0.9.0/LICENSE-MIT",
+          "origin": "published_crate",
+          "sha256": "39bec22df7525380b392c7ead6f098e8bce157600a020150955fd8aa86d63afb"
         }
       ]
     },

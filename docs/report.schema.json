@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:fileveil:report:0.3",
-  "title": "FileVeil report 0.3 with legacy 0.1 and 0.2 support",
+  "$id": "urn:fileveil:report:0.4",
+  "title": "FileVeil report 0.4 with legacy 0.1, 0.2 and 0.3 support",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -21,7 +21,8 @@
       "enum": [
         "0.1",
         "0.2",
-        "0.3"
+        "0.3",
+        "0.4"
       ]
     },
     "tool": {
@@ -37,7 +38,9 @@
         "verify",
         "detect_watermark",
         "lab",
-        "provenance"
+        "provenance",
+        "heritage",
+        "heritage_keygen"
       ]
     },
     "input_format": {

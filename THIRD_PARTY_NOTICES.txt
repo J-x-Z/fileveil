@@ -4,8 +4,8 @@ This inventory covers registry packages in Cargo.lock across build and target co
 The accompanying assets/licenses directory preserves published license and attribution texts.
 Supplemental upstream texts record their exact retrieval source in assets/licenses/index.json.
 
-Cargo.lock SHA-256 96012a5a8b601de2a6ffba238c1212906635f01442e5df8ee4ea6968753cf4a1
-Registry package count 639
+Cargo.lock SHA-256 ed5cc9a5d59ea9ec27d705f6d82ca26032ff2d87cc97a59b0a8c3fed7af4d5fe
+Registry package count 640
 
 Font notices
 assets/fonts/Inter-OFL.txt
@@ -4958,3 +4958,11 @@ Upstream source https://github.com/z-galaxy/zbus/
 Attribution Zeeshan Ali Khan <zeeshanak@gnome.org>, turbocooler <turbocooler@cocaine.ninja>
 License text assets/licenses/zvariant_utils-4.2.0/LICENSE
 
+
+des 0.9.0
+Declared license MIT OR Apache-2.0
+Package source https://crates.io/crates/des/0.9.0
+Upstream source https://github.com/RustCrypto/block-ciphers
+Attribution RustCrypto Developers
+License text assets/licenses/des-0.9.0/LICENSE-APACHE
+License text assets/licenses/des-0.9.0/LICENSE-MIT

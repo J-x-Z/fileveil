@@ -4,6 +4,7 @@ use fileveil_core::{
     Error, Format, ImageProcessMode, ImageProcessOptions, Limits, Outcome, Policy, Report, Result,
     SanitizeOptions,
 };
+use fileveil_engine::heritage::{HeritageAction, HeritageRequest};
 use fileveil_engine::worker::{WorkerGuard, configure_command};
 use std::{
     path::PathBuf,
@@ -89,6 +90,21 @@ enum Command {
         #[command(flatten)]
         options: ImageOptions,
     },
+    /// Audit, mark, clean, verify or trace local file-reference records offline
+    Heritage {
+        #[arg(value_enum)]
+        action: HeritageMode,
+        path: PathBuf,
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+        #[command(flatten)]
+        options: HeritageOptions,
+    },
+    /// Create a new owner-only local Ed25519 key without overwriting a file
+    HeritageKeygen {
+        #[arg(short, long)]
+        output: PathBuf,
+    },
     /// Show implemented adapters, platform support and resource limits
     Capabilities,
 }
@@ -116,6 +132,96 @@ fn sanitize_options(profile: Profile, encoded: Option<&str>) -> Result<SanitizeO
 enum ImageMode {
     LowBits,
     Signal,
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+enum HeritageMode {
+    Detect,
+    Mark,
+    Clean,
+    Verify,
+    Trace,
+    Lab,
+    C2paMark,
+}
+
+impl HeritageMode {
+    fn engine_action(self) -> HeritageAction {
+        match self {
+            Self::Detect => HeritageAction::Detect,
+            Self::Mark => HeritageAction::Mark,
+            Self::Clean => HeritageAction::Clean,
+            Self::Verify => HeritageAction::Verify,
+            Self::Trace => HeritageAction::Trace,
+            Self::Lab => HeritageAction::Lab,
+            Self::C2paMark => HeritageAction::C2paMark,
+        }
+    }
+
+    fn argument(self) -> &'static str {
+        match self {
+            Self::Detect => "detect",
+            Self::Mark => "mark",
+            Self::Clean => "clean",
+            Self::Verify => "verify",
+            Self::Trace => "trace",
+            Self::Lab => "lab",
+            Self::C2paMark => "c2pa-mark",
+        }
+    }
+
+    fn writes_file(self) -> bool {
+        matches!(self, Self::Mark | Self::Clean | Self::C2paMark)
+    }
+}
+
+#[derive(Debug, clap::Args)]
+struct HeritageOptions {
+    #[arg(long, help = "Explicit HeritageRequest JSON, shared with GUI and MCP")]
+    options_json: Option<String>,
+    #[arg(
+        long = "key",
+        help = "Explicit local Ed25519 key; repeat for multiple signers"
+    )]
+    key_paths: Vec<PathBuf>,
+    #[arg(long, help = "Public work reference; overrides the JSON mark.work_id")]
+    work_id: Option<String>,
+    #[arg(long, help = "Declared author; overrides the JSON mark.author")]
+    author: Option<String>,
+    #[arg(
+        long,
+        help = "User-asserted creation time; overrides the JSON mark.created_at"
+    )]
+    created_at: Option<String>,
+}
+
+impl HeritageOptions {
+    fn engine_request(&self, action: HeritageMode, has_output: bool) -> Result<HeritageRequest> {
+        if has_output && !action.writes_file() {
+            return Err(Error::Input(
+                "--output requires Heritage mark, clean or c2pa-mark".into(),
+            ));
+        }
+        let mut request: HeritageRequest = self
+            .options_json
+            .as_deref()
+            .map(serde_json::from_str)
+            .transpose()
+            .map_err(|_| Error::Input("Invalid HeritageRequest JSON".into()))?
+            .unwrap_or_default();
+        request.action = action.engine_action();
+        request.key_paths.extend(self.key_paths.iter().cloned());
+        if let Some(work_id) = &self.work_id {
+            request.mark.work_id.clone_from(work_id);
+        }
+        if let Some(author) = &self.author {
+            request.mark.author.clone_from(author);
+        }
+        if let Some(created_at) = &self.created_at {
+            request.mark.created_at.clone_from(created_at);
+        }
+        Ok(request)
+    }
 }
 
 #[derive(Debug, clap::Args)]
@@ -149,6 +255,12 @@ impl Command {
             Self::Sanitize { path, output, .. } | Self::ProcessImage { path, output, .. } => {
                 Some((path, output.as_deref()))
             }
+            Self::Heritage {
+                action,
+                path,
+                output,
+                ..
+            } if action.writes_file() => Some((path, output.as_deref())),
             _ => None,
         }
     }
@@ -180,6 +292,19 @@ fn print_report(report: &Report, json: bool) {
         }
     }
     if let Some(advanced) = &report.advanced {
+        if let Some(heritage) = advanced.get("heritage") {
+            if let Some(action) = heritage["action"].as_str() {
+                println!("  Heritage {action}");
+            }
+            for field in ["signature", "content_binding", "chain", "trust"] {
+                if let Some(value) = heritage["verification"][field].as_str() {
+                    println!("  Heritage {field} · {value}");
+                }
+            }
+            if let Some(status) = heritage["robust"]["status"].as_str() {
+                println!("  FileVeil DCT · {status}");
+            }
+        }
         if let Some(detections) = advanced
             .get("detections")
             .or_else(|| advanced.get("watermark_detections"))
@@ -226,6 +351,8 @@ fn operation(command: &Command) -> &'static str {
         Command::DetectWatermark { .. } => "detect_watermark",
         Command::Lab { .. } => "lab",
         Command::Provenance { .. } => "provenance",
+        Command::Heritage { .. } => "heritage",
+        Command::HeritageKeygen { .. } => "heritage_keygen",
         Command::Capabilities => "capabilities",
     }
 }
@@ -320,6 +447,16 @@ fn execute(cli: &Cli, limits: &Limits) -> Result<i32> {
             &options.engine_options(),
             limits,
         )?,
+        Command::Heritage {
+            action,
+            path,
+            output,
+            options,
+        } => {
+            let request = options.engine_request(*action, output.is_some())?;
+            fileveil_engine::heritage::run(path, output.as_deref(), &request, limits)?
+        }
+        Command::HeritageKeygen { output } => fileveil_engine::heritage::keygen(output)?,
         Command::Capabilities => {
             let value = fileveil_engine::capabilities(limits);
             if cli.json {
@@ -358,6 +495,15 @@ fn execute(cli: &Cli, limits: &Limits) -> Result<i32> {
     Ok(code)
 }
 fn supervise(cli: &Cli) -> Result<i32> {
+    if let Command::Heritage {
+        action,
+        output,
+        options,
+        ..
+    } = &cli.command
+    {
+        options.engine_request(*action, output.is_some())?;
+    }
     let scratch = tempfile::Builder::new()
         .prefix(".fileveil-scratch-")
         .tempdir()
@@ -478,6 +624,33 @@ fn supervise(cli: &Cli) -> Result<i32> {
             options.worker_arguments(&mut command);
             command.arg("--").arg(original).arg(output);
         }
+        Command::Heritage {
+            action,
+            path,
+            output,
+            options,
+        } => {
+            let request = options.engine_request(*action, output.is_some())?;
+            command
+                .arg("heritage")
+                .arg(action.argument())
+                .arg("--options-json")
+                .arg(
+                    serde_json::to_string(&request)
+                        .map_err(|_| Error::Input("Could not serialize Heritage request".into()))?,
+                );
+            if action.writes_file() {
+                command.arg("--output").arg(
+                    staged_output
+                        .as_ref()
+                        .expect("Heritage private staging path"),
+                );
+            }
+            command.arg("--").arg(path);
+        }
+        Command::HeritageKeygen { output } => {
+            command.arg("heritage-keygen").arg("--output").arg(output);
+        }
         Command::Capabilities => unreachable!("capabilities runs in the parent"),
     }
     configure_command(&mut command);
@@ -557,7 +730,20 @@ fn supervise(cli: &Cli) -> Result<i32> {
                     max_file_bytes: cli.max_file_mib * 1024 * 1024,
                     ..Limits::default()
                 };
-                if matches!(
+                if let Command::Heritage {
+                    action, options, ..
+                } = &cli.command
+                {
+                    let request = options.engine_request(*action, output.is_some())?;
+                    fileveil_engine::heritage::publish_staged(
+                        path,
+                        staged,
+                        output,
+                        &request,
+                        &mut report,
+                        &limits,
+                    )?;
+                } else if matches!(
                     cli.command,
                     Command::ProcessImage { .. }
                         | Command::Sanitize {

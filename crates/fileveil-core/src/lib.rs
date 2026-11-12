@@ -5,7 +5,7 @@ pub use options::{DeepOptions, FilesystemOptions, PdfOptions, SanitizeOptions, T
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-pub const SCHEMA_VERSION: &str = "0.3";
+pub const SCHEMA_VERSION: &str = "0.4";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

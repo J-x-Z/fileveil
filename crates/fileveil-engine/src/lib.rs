@@ -3,6 +3,7 @@
 pub mod access_guard;
 pub mod advanced;
 pub mod audits;
+pub mod heritage;
 pub mod image_processing;
 pub mod lab;
 pub mod os;
@@ -855,6 +856,7 @@ pub fn capabilities(limits: &Limits) -> serde_json::Value {
         "offline": true, "telemetry": false, "profiles": {"safe": "available", "deep": "selective", "research": "experimental_signal_processing"},
         "pdf": pdf::capabilities(), "provenance": provenance::capabilities(), "watermark_detectors": watermark::detectors(),
         "external_provenance_interfaces": provenance::external_interfaces(),
+        "heritage": {"actions":["detect","mark","clean","verify","trace","lab","c2pa_mark"],"formats":["jpeg","png","pdf","docx","xlsx","pptx"],"legacy":{"redstar_des":"reference_samples_and_static_binary_key_profiles","woolim_selfsign":"published_structure_only_crypto_not_assessed","woolim_natisign":"candidate_detection_only_original_specimen_unavailable"},"modern":{"self_sign":"ed25519","nati_sign":"distinct_local_trusted_issuer_threshold","chain":"signed_sequence_and_previous_record_digest","carriers":"native_reversible_structure","robust":"optional_public_dct_reference_v1_jpeg_png","c2pa_create":"offline_es256_user_certificate"},"mcp_signing":"explicit_identity_bound_key_whitelist_default_empty","historical_completeness":"external_checkpoints_required","privacy":"no_automatic_device_identifiers"},
         "difference_lab":{"available":true,"min_samples":2,"max_samples":8,"methods":["pixel_difference","rgb_lsb","entropy","dct","dft"],"oem_attribution":"not_assessed"},
         "image_processing": {"low_bits": "available", "signal": "experimental", "input": ["jpeg", "png"], "output": "png", "unknown_keyed_watermark_verification": "not_assessed", "changes_pixels": true},
         "formats": [

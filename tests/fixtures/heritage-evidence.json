@@ -1,0 +1,29 @@
+{
+  "tool": "OpenSSL 4.0.3 29 Sep 2026 (Library: OpenSSL 4.0.3 29 Sep 2026)",
+  "key_hex": "0706050403020100",
+  "mode": "DES-ECB no padding",
+  "records": [
+    {
+      "sample": "preview_bottle_firstuser.jpg",
+      "offset": 28616,
+      "record_count": 1,
+      "cipher_sha256": "e8839db44050f2626ba5072afeba409fa03f8b2c6930556fe5df598677bc8672",
+      "plaintext_sha256": "3cf019d2a3bae0577574597333cd9267fd17df0b8984b26dd50a33e34677f5f2"
+    },
+    {
+      "sample": "preview_bottle_seconduser.jpg",
+      "offset": 28616,
+      "record_count": 2,
+      "cipher_sha256": "da2483a18b08c425f82dab56c2a7e827987ce56a200a6c5816f3d4dad450430a",
+      "plaintext_sha256": "98f93e95ed9ab378828fa96ac37536004de972718c01b179d9b7f59ddb6550da"
+    },
+    {
+      "sample": "love.docx",
+      "offset": 80,
+      "record_count": 1,
+      "cipher_sha256": "066ff9a693c411aa6407d96e23ecfb9dabc6d256e0e28798fee0d3ca03a966d1",
+      "plaintext_sha256": "d3ca320c71b3b681d0b3937c4d2aec66c1b0b38fc6cc2b0bec368ed9372e10df"
+    }
+  ],
+  "scope": "Golden results independently obtained with OpenSSL on 2026-11-12. Device identifiers are withheld."
+}

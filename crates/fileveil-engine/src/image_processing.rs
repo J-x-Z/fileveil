@@ -115,7 +115,7 @@ fn jpeg_components(data: &[u8]) -> Result<u8> {
     }
     Err(Error::Blocked("JPEG frame header is missing".into()))
 }
-fn decode_profile(data: &[u8], limits: &Limits) -> Result<Option<Vec<u8>>> {
+pub(crate) fn decode_profile(data: &[u8], limits: &Limits) -> Result<Option<Vec<u8>>> {
     let reader = ImageReader::new(Cursor::new(data))
         .with_guessed_format()
         .map_err(|_| Error::Verification("Could not identify image color metadata".into()))?;
@@ -219,7 +219,7 @@ fn transform(
     }
 }
 
-fn color_chunks(data: &[u8]) -> Result<Vec<(&[u8], &[u8])>> {
+pub(crate) fn color_chunks(data: &[u8]) -> Result<Vec<(&[u8], &[u8])>> {
     if !data.starts_with(b"\x89PNG\r\n\x1a\n") {
         return Ok(Vec::new());
     }
@@ -264,7 +264,11 @@ fn color_chunks(data: &[u8]) -> Result<Vec<(&[u8], &[u8])>> {
     }
     Ok(chunks)
 }
-fn encode_png(image: &DynamicImage, source: &[u8], profile: Option<Vec<u8>>) -> Result<Vec<u8>> {
+pub(crate) fn encode_png(
+    image: &DynamicImage,
+    source: &[u8],
+    profile: Option<Vec<u8>>,
+) -> Result<Vec<u8>> {
     let retained = color_chunks(source)?;
     if retained.iter().any(|(kind, chunk)| {
         *kind == b"sBIT" && chunk.len() - 12 != usize::from(image.color().channel_count())

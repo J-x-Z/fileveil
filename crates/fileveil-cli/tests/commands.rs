@@ -17,7 +17,7 @@ fn capabilities_and_help_use_normal_entry_points() {
     let output = run(&["capabilities", "--json"]);
     assert!(output.status.success());
     let value: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
-    assert_eq!(value["schema_version"], "0.3");
+    assert_eq!(value["schema_version"], fileveil_core::SCHEMA_VERSION);
     assert_eq!(value["offline"], true);
     assert_eq!(value["profiles"]["deep"], "selective");
     assert!(run(&["--help"]).status.success());
