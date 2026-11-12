@@ -176,10 +176,10 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $asset = 'mesa3d-26.2.6-release-msvc.7z'
+          $asset = 'mesa3d-26.2.6-release-mingw.7z'
           Invoke-WebRequest "https://github.com/pal1000/mesa-dist-win/releases/download/26.2.6/$asset" -OutFile "work/$asset"
           $actual = (Get-FileHash "work/$asset" -Algorithm SHA256).Hash.ToLower()
-          if ($actual -ne 'b2e00615feaba45942343c265cc8c5f576142ca682c1ac6661922d4b72492877') { throw 'Mesa checksum mismatch' }
+          if ($actual -ne 'da0f71d9181b672c1918f3c342f11118c687f6059a46b16502845160733cc388') { throw 'Mesa checksum mismatch' }
           7z x "work/$asset" '-owork/mesa' -y | Out-Null
           if ($LASTEXITCODE -ne 0) { throw 'Mesa extraction failed' }
           $driver = Get-ChildItem work/mesa -Recurse -Filter opengl32.dll | Where-Object { $_.FullName -match '[\\/]x64[\\/]' } | Select-Object -First 1
@@ -207,7 +207,7 @@ jobs:
           if ($process.ExitCode -ne 0) { throw "GUI exit $($process.ExitCode)" }
           if (-not (Test-Path work/native-gui.json)) { throw 'GUI framebuffer report missing' }
           $evidence = Get-Content work/native-gui.json -Raw | ConvertFrom-Json
-          $evidence | Add-Member -NotePropertyName ci_renderer_requested -NotePropertyValue 'Mesa 26.2.6 llvmpipe software OpenGL'
+          $evidence | Add-Member -NotePropertyName ci_renderer_requested -NotePropertyValue 'Mesa 26.2.6 MinGW x64 llvmpipe software OpenGL'
           $evidence | ConvertTo-Json -Depth 20 | Set-Content work/native-gui.json
       - name: Validate native framebuffer evidence
         shell: python {0}
