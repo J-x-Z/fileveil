@@ -357,7 +357,13 @@ impl Server {
             "fileveil_detect_watermark" => "detect_watermark",
             "fileveil_lab" => "lab",
             "fileveil_provenance" => "provenance",
-            "fileveil_heritage" => "heritage",
+            "fileveil_heritage"
+            | "fileveil_mark"
+            | "fileveil_clean"
+            | "fileveil_trace"
+            | "fileveil_verify_watermark"
+            | "fileveil_watermark_lab"
+            | "fileveil_evidence" => "heritage",
             "fileveil_scan" => "scan",
             "fileveil_verify" => "verify",
             _ => "sanitize",
@@ -372,7 +378,13 @@ impl Server {
             "fileveil_detect_watermark" => "detect_watermark",
             "fileveil_lab" => "lab",
             "fileveil_provenance" => "provenance",
-            "fileveil_heritage" => "heritage",
+            "fileveil_heritage"
+            | "fileveil_mark"
+            | "fileveil_clean"
+            | "fileveil_trace"
+            | "fileveil_verify_watermark"
+            | "fileveil_watermark_lab"
+            | "fileveil_evidence" => "heritage",
             "fileveil_scan" => "scan",
             "fileveil_verify" => "verify",
             _ => "sanitize",
@@ -411,7 +423,16 @@ fn path(arguments: &Map<String, Value>, name: &str) -> PathBuf {
     PathBuf::from(arguments[name].as_str().expect("validated path parameter"))
 }
 fn job_kind(name: &str, arguments: &Map<String, Value>) -> Result<JobKind, String> {
-    if name == "fileveil_heritage" {
+    if matches!(
+        name,
+        "fileveil_heritage"
+            | "fileveil_mark"
+            | "fileveil_clean"
+            | "fileveil_trace"
+            | "fileveil_verify_watermark"
+            | "fileveil_watermark_lab"
+            | "fileveil_evidence"
+    ) {
         let mut request: fileveil_engine::heritage::HeritageRequest = arguments
             .get("options_json")
             .and_then(Value::as_str)
@@ -419,8 +440,43 @@ fn job_kind(name: &str, arguments: &Map<String, Value>) -> Result<JobKind, Strin
             .transpose()
             .map_err(|_| "Invalid HeritageRequest JSON".to_string())?
             .unwrap_or_default();
-        request.action = serde_json::from_value(arguments["action"].clone())
-            .map_err(|_| "Unsupported Heritage action".to_string())?;
+        let action = match name {
+            "fileveil_mark" if request.certificate.is_some() || request.private_key.is_some() => {
+                "c2pa_mark"
+            }
+            "fileveil_mark" => "mark",
+            "fileveil_clean" => "clean",
+            "fileveil_trace" => "trace",
+            "fileveil_verify_watermark" => "verify",
+            "fileveil_watermark_lab" => "lab",
+            _ => arguments["action"]
+                .as_str()
+                .ok_or("A watermark action is required")?,
+        };
+        request.action = serde_json::from_value(json!(action))
+            .map_err(|_| "Unsupported watermark action".to_string())?;
+        if name == "fileveil_mark" {
+            request.mark.signature_v2 = true;
+            let encoded: Value = arguments
+                .get("options_json")
+                .and_then(Value::as_str)
+                .map(serde_json::from_str)
+                .transpose()
+                .map_err(|_| "Invalid watermark options".to_string())?
+                .unwrap_or_default();
+            if encoded["mark"].get("watermark_version").is_none() {
+                request.mark.watermark_version = 2;
+            }
+            if encoded["mark"].get("strength").is_none() && request.mark.watermark_version == 2 {
+                request.mark.strength = fileveil_engine::heritage::robust_v2::DEFAULT_STRENGTH;
+            }
+            if request.mark.copy_id.is_empty() {
+                request.mark.copy_id = "original".into();
+            }
+        }
+        if name == "fileveil_clean" {
+            request.clean_metadata = true;
+        }
         let output = arguments
             .get("output")
             .and_then(Value::as_str)
@@ -579,12 +635,12 @@ fn tools() -> Vec<Value> {
         "max_file_mib":{"type":"integer","minimum":1,"maximum":512,"default":64},
         "timeout_seconds":{"type":"integer","minimum":1,"maximum":3600,"default":120}
     });
-    let definitions = vec![
+    let mut definitions = vec![
         (
             "fileveil_heritage",
-            "RedStar Heritage Engine",
+            "Watermark Engine compatibility entry",
             "Offline legacy decode/clean, modern Ed25519 marking, verification, custody tracing and attack lab. Signing additionally requires an explicit server signing-key whitelist. All writes create new copies.",
-            json!({"path":file,"action":{"type":"string","enum":["detect","mark","clean","verify","trace","lab","c2pa_mark"]},"output":file,"options_json":{"type":"string","description":"HeritageRequest JSON. key_paths and PEM private_key are local paths, never secret key bytes."}}),
+            json!({"path":file,"action":{"type":"string","enum":["detect","mark","clean","verify","trace","lab","c2pa_mark","checkpoint","evidence_export","evidence_verify","timestamp_query","timestamp_verify","transfer_prepare","transfer_accept"]},"output":file,"options_json":{"type":"string","description":"HeritageRequest JSON. key_paths and PEM private_key are local paths, never secret key bytes."}}),
             vec!["path", "action"],
             false,
         ),
@@ -653,6 +709,18 @@ fn tools() -> Vec<Value> {
             true,
         ),
     ];
+    for (name, title, read_only) in [
+        ("fileveil_mark", "Mark", false),
+        ("fileveil_clean", "Clean", false),
+        ("fileveil_trace", "Trace", true),
+        ("fileveil_verify_watermark", "Verify", true),
+        ("fileveil_watermark_lab", "Lab", true),
+    ] {
+        definitions.push((name,title,"Versioned offline watermark and copyright operation. Key files and system key references require separate explicit grants.",
+            json!({"path":file,"output":file,"options_json":{"type":"string","description":"HeritageRequest JSON with key paths, copy identifier and authorized external evidence paths. Secret key bytes are never supplied inline."}}),vec!["path"],read_only));
+    }
+    definitions.push(("fileveil_evidence","Trace evidence","Export and verify signed evidence, dual-party transfers, checkpoints and RFC3161 files offline.",
+        json!({"path":file,"action":{"type":"string","enum":["checkpoint","evidence_export","evidence_verify","timestamp_query","timestamp_verify","transfer_prepare","transfer_accept"]},"output":file,"options_json":{"type":"string"}}),vec!["path","action"],false));
     definitions.into_iter().map(|(name, title, description, mut properties, required, read_only)| {
         if name != "fileveil_capabilities" {
             properties.as_object_mut().expect("tool properties").extend(limits.as_object().expect("limit properties").clone());

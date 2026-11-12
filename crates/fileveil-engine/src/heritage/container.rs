@@ -19,7 +19,16 @@ fn bad() -> Error {
 pub fn supported(format: Format) -> bool {
     matches!(
         format,
-        Format::Jpeg | Format::Png | Format::Pdf | Format::Docx | Format::Xlsx | Format::Pptx
+        Format::Jpeg
+            | Format::Png
+            | Format::Pdf
+            | Format::Docx
+            | Format::Xlsx
+            | Format::Pptx
+            | Format::Heic
+            | Format::Avif
+            | Format::Mp4
+            | Format::Mov
     )
 }
 pub fn extract(data: &[u8], format: Format) -> Result<Extracted> {
@@ -28,8 +37,9 @@ pub fn extract(data: &[u8], format: Format) -> Result<Extracted> {
         Format::Png => png(data, None),
         Format::Pdf => pdf(data, None),
         Format::Docx | Format::Xlsx | Format::Pptx => office(data, None),
+        Format::Heic | Format::Avif | Format::Mp4 | Format::Mov => bmff(data, None),
         _ => Err(Error::Unsupported(
-            "Heritage carriers support JPEG, PNG, PDF and Office".into(),
+            "Watermark carriers support JPEG, PNG, PDF, Office and ISO media".into(),
         )),
     }
 }
@@ -43,6 +53,9 @@ pub fn embed(data: &[u8], format: Format, manifest: &[u8]) -> Result<Vec<u8>> {
         Format::Png => png(&clean.base, Some(manifest)),
         Format::Pdf => pdf(&clean.base, Some(manifest)),
         Format::Docx | Format::Xlsx | Format::Pptx => office(&clean.base, Some(manifest)),
+        Format::Heic | Format::Avif | Format::Mp4 | Format::Mov => {
+            bmff(&clean.base, Some(manifest))
+        }
         _ => return Err(Error::Unsupported("Unsupported Heritage carrier".into())),
     }?;
     Ok(result.base)
@@ -359,6 +372,88 @@ fn pdf_startxref(data: &[u8]) -> Result<usize> {
     // The normal PDF backend validates the referenced table or stream. Here the
     // bound only excludes impossible offsets while preserving exact base bytes.
     Ok(keyword)
+}
+
+// FileVeil structure carrier UUID. Offsets into the encoded media stay fixed.
+const MEDIA_UUID: [u8; 16] = [
+    0xc1, 0x2f, 0x95, 0x72, 0xd9, 0x5b, 0x4f, 0x2c, 0xa7, 0xb8, 0x1b, 0x38, 0x12, 0xf5, 0xe0, 0x02,
+];
+
+fn bmff(data: &[u8], replacement: Option<&[u8]>) -> Result<Extracted> {
+    let mut position = 0usize;
+    let mut carrier_start = None;
+    let mut manifest = None;
+    let mut terminal_open_box = false;
+    while position < data.len() {
+        let header = data.get(position..position + 8).ok_or_else(bad)?;
+        let short_size = u32::from_be_bytes(header[..4].try_into().map_err(|_| bad())?);
+        let (length, header_size) = match short_size {
+            0 => {
+                terminal_open_box = true;
+                (data.len() - position, 8)
+            }
+            1 => {
+                let size = data.get(position + 8..position + 16).ok_or_else(bad)?;
+                (
+                    usize::try_from(u64::from_be_bytes(size.try_into().map_err(|_| bad())?))
+                        .map_err(|_| bad())?,
+                    16,
+                )
+            }
+            size => (size as usize, 8),
+        };
+        if length < header_size {
+            return Err(bad());
+        }
+        let end = position
+            .checked_add(length)
+            .filter(|&v| v <= data.len())
+            .ok_or_else(bad)?;
+        if &header[4..8] == b"uuid" {
+            if length < header_size + 16 {
+                return Err(bad());
+            }
+            let payload = position + header_size;
+            let uuid = data.get(payload..payload + 16).ok_or_else(bad)?;
+            if uuid == MEDIA_UUID {
+                if manifest.is_some() || end != data.len() || short_size == 0 {
+                    return Err(bad());
+                }
+                let packet = data.get(payload + 16..end).ok_or_else(bad)?;
+                if !packet.starts_with(MAGIC)
+                    || packet.len() <= 8
+                    || packet.len() > MAX_MANIFEST + 8
+                {
+                    return Err(bad());
+                }
+                manifest = Some(packet[8..].to_vec());
+                carrier_start = Some(position);
+            }
+        }
+        position = end;
+    }
+    if position != data.len() {
+        return Err(bad());
+    }
+    let mut base = data[..carrier_start.unwrap_or(data.len())].to_vec();
+    if let Some(replacement) = replacement {
+        if terminal_open_box {
+            return Err(Error::Blocked(
+                "An open-ended ISO media box protects the payload from appending a carrier".into(),
+            ));
+        }
+        let length = 32usize.checked_add(replacement.len()).ok_or_else(bad)?;
+        base.extend_from_slice(&(length as u32).to_be_bytes());
+        base.extend_from_slice(b"uuid");
+        base.extend_from_slice(&MEDIA_UUID);
+        base.extend_from_slice(MAGIC);
+        base.extend_from_slice(replacement);
+    }
+    Ok(Extracted {
+        base,
+        manifest,
+        carrier: "iso_media_terminal_uuid_v2",
+    })
 }
 
 #[cfg(test)]

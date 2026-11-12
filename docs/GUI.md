@@ -174,3 +174,11 @@ macOS 包的 LSMinimumSystemVersion 按主程序实际 Mach-O 最低版本记录
 发现列表按每页 100 条显示，搜索和类别筛选覆盖完整列表。处理计划将相同编码与动作的发现合并计数。界面复用报告与搜索缓存，避免每帧复制全部 JSON。
 
 SD1/SDXL 检测器 1.1.0 对精确、非融合和 FMA 数值路径分别评分。分类分歧时显示无法判断，并在证据中保留匹配位数范围。单图统计报告说明源样本类型及 RGB8 转换，统计异常需要对照样本解释。
+
+## 0.5 水印与版权操作
+
+工作区以 Clean、Mark、Verify、Trace、Lab 命名，保留既有黑灰、灰白与半透明外观。Mark / Trace 内的五个操作使用共享 Core，2.0 像素水印需要作品、副本和明确的密钥来源。Verify / Clean / Trace / Lab 的水印密钥需单独选择。系统密钥通过公钥 SHA-256 标识选择，生成动作由用户明确触发。
+
+Trace 可导出检查点、证据包、RFC 3161 查询，也可验证响应文件。交接先由发送方导出签名提案，接收方使用自己的密钥联签，双方密钥可分别保留在各自设备。显式证据包包含作者和作品声明原文，默认结果报告只显示摘要。
+
+Settings 的 MCP 授权分别管理读取目录、输出目录、密钥文件和系统密钥公钥标识。默认授权均为空。新工具 fileveil_mark、fileveil_clean、fileveil_verify_watermark、fileveil_trace、fileveil_watermark_lab、fileveil_evidence 与原九个工具同时提供。高级参数继续使用同一 HeritageRequest JSON。

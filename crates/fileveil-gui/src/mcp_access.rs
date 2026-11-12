@@ -19,6 +19,7 @@ pub struct McpAccessConfig {
     pub read_roots: Vec<PathBuf>,
     pub write_roots: Vec<PathBuf>,
     pub signing_keys: Vec<PathBuf>,
+    pub signing_key_refs: Vec<String>,
     pub max_operations: u32,
 }
 impl Default for McpAccessConfig {
@@ -27,6 +28,7 @@ impl Default for McpAccessConfig {
             read_roots: Vec::new(),
             write_roots: Vec::new(),
             signing_keys: Vec::new(),
+            signing_key_refs: Vec::new(),
             max_operations: 64,
         }
     }
@@ -96,6 +98,7 @@ pub(crate) struct AccessPolicy {
     read: Vec<Root>,
     write: Vec<Root>,
     signers: Vec<BoundInput>,
+    key_refs: Vec<String>,
     maximum: u32,
     used: u32,
 }
@@ -104,11 +107,24 @@ impl AccessPolicy {
         if !(1..=10_000).contains(&config.max_operations) {
             return Err(denied("The operation limit must be between 1 and 10000"));
         }
-        if config.read_roots.len() + config.write_roots.len() + config.signing_keys.len()
+        if config.read_roots.len()
+            + config.write_roots.len()
+            + config.signing_keys.len()
+            + config.signing_key_refs.len()
             > MAX_AUTHORIZED_ROOTS
         {
             return Err(denied(
                 "At most 64 authorized read and write roots may be configured",
+            ));
+        }
+        if config.signing_key_refs.iter().any(|id| {
+            id.len() != 64
+                || !id
+                    .bytes()
+                    .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+        }) {
+            return Err(denied(
+                "System signing-key grants require lower-case public-key SHA-256 references",
             ));
         }
         let mut policy = Self {
@@ -123,6 +139,7 @@ impl AccessPolicy {
                 .map(|path| Root::new(path))
                 .collect::<Result<_>>()?,
             signers: Vec::new(),
+            key_refs: config.signing_key_refs.clone(),
             maximum: config.max_operations,
             used: 0,
         };
@@ -142,7 +159,7 @@ impl AccessPolicy {
         Ok(policy)
     }
     pub(crate) fn summary(&self) -> serde_json::Value {
-        serde_json::json!({"read_root_count":self.read.len(),"write_root_count":self.write.len(),"max_operations":self.maximum,"operations_used":self.used,"original_writes":false,"signing_key_count":self.signers.len(),"symbolic_links":false,"hard_link_inputs":false})
+        serde_json::json!({"read_root_count":self.read.len(),"write_root_count":self.write.len(),"max_operations":self.maximum,"operations_used":self.used,"original_writes":false,"signing_key_count":self.signers.len(),"system_signing_key_count":self.key_refs.len(),"symbolic_links":false,"hard_link_inputs":false})
     }
     pub(crate) fn authorize(&mut self, request: JobRequest) -> Result<AuthorizedJob> {
         if self.used >= self.maximum {
@@ -157,7 +174,7 @@ impl AccessPolicy {
             output: None,
         };
         match job.request.kind.clone() {
-            JobKind::HeritageKeygen { .. } => {
+            JobKind::HeritageKeygen { .. } | JobKind::SystemKeygen => {
                 return Err(denied("MCP cannot generate or write private signing keys"));
             }
             JobKind::Heritage {
@@ -166,6 +183,16 @@ impl AccessPolicy {
                 mut request,
             } => {
                 request.validate()?;
+                if request
+                    .key_refs
+                    .iter()
+                    .chain(request.watermark_key_ref.iter())
+                    .any(|reference| !self.key_refs.contains(&reference.key_id))
+                {
+                    return Err(denied(
+                        "This system signing-key reference is not explicitly authorized for MCP",
+                    ));
+                }
                 let input = self.input(&path)?;
                 let destination = request
                     .writes_file()

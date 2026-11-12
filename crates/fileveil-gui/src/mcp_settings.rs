@@ -11,6 +11,7 @@ use std::path::PathBuf;
 pub struct McpSettings {
     pub access: McpAccessConfig,
     notice: Option<String>,
+    key_ref_input: String,
 }
 impl McpSettings {
     pub fn ui(&mut self, ui: &mut egui::Ui, language: Language) {
@@ -60,6 +61,46 @@ impl McpSettings {
             self.access.signing_keys.push(key);
             changed = true;
         }
+        ui.label(if language == Language::Chinese {
+            "授权系统密钥的公钥标识"
+        } else {
+            "Authorize a system key by public-key identifier"
+        });
+        ui.text_edit_singleline(&mut self.key_ref_input);
+        if ui
+            .button(if language == Language::Chinese {
+                "授权系统密钥"
+            } else {
+                "Authorize system key"
+            })
+            .clicked()
+        {
+            let id = self.key_ref_input.trim().to_ascii_lowercase();
+            if id.len() == 64
+                && id.bytes().all(|b| b.is_ascii_hexdigit())
+                && !self.access.signing_key_refs.contains(&id)
+            {
+                self.access.signing_key_refs.push(id);
+                self.key_ref_input.clear();
+                changed = true;
+            } else {
+                self.notice =
+                    Some("A system key reference requires 64 hexadecimal characters".into());
+            }
+        }
+        let mut remove_ref = None;
+        for (index, id) in self.access.signing_key_refs.iter().enumerate() {
+            ui.horizontal(|ui| {
+                ui.monospace(id);
+                if ui.small_button(tr(language, "Remove")).clicked() {
+                    remove_ref = Some(index);
+                }
+            });
+        }
+        if let Some(index) = remove_ref {
+            self.access.signing_key_refs.remove(index);
+            changed = true;
+        }
         ui.horizontal(|ui| {
             ui.label(tr(language, "Operations per MCP connection"));
             changed |= ui
@@ -106,6 +147,9 @@ impl McpSettings {
                 arguments.push(option.into());
                 arguments.push(path.into());
             }
+        }
+        for id in &self.access.signing_key_refs {
+            arguments.extend(["--mcp-signing-key-ref".into(), id.clone()]);
         }
         arguments.extend([
             "--mcp-max-operations".into(),

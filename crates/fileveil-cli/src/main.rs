@@ -36,6 +36,8 @@ struct Cli {
 }
 #[derive(Subcommand, Debug)]
 enum Command {
+    #[command(flatten)]
+    Watermarks(WatermarkCommand),
     /// Read-only audit of one explicitly selected regular file
     Scan { path: PathBuf },
     /// Create a new, independently verified copy. Existing paths are protected
@@ -51,7 +53,11 @@ enum Command {
     /// Reparse an original and output and compare preserved content
     Verify {
         original: PathBuf,
-        output: PathBuf,
+        output: Option<PathBuf>,
+        #[arg(long)]
+        watermark_key: Option<PathBuf>,
+        #[arg(long)]
+        trust_policy: Option<PathBuf>,
         #[arg(long, value_enum, default_value = "safe")]
         profile: Profile,
         #[arg(long)]
@@ -61,13 +67,15 @@ enum Command {
     DetectWatermark { path: PathBuf },
     /// Compare 2 to 8 explicitly selected image control samples
     Lab {
-        #[arg(num_args = 2..=8)]
+        #[arg(num_args = 1..=8)]
         paths: Vec<PathBuf>,
         #[arg(
             long,
             help = "Optional reference groups JSON with labels and zero-based sample_indices"
         )]
         groups_json: Option<String>,
+        #[arg(long)]
+        watermark_key: Option<PathBuf>,
     },
     /// Validate embedded C2PA credentials offline and report AI detector availability
     Provenance {
@@ -108,6 +116,203 @@ enum Command {
     /// Show implemented adapters, platform support and resource limits
     Capabilities,
 }
+#[derive(Debug, Subcommand)]
+enum WatermarkCommand {
+    /// Embed a versioned watermark and signed copyright record
+    Mark {
+        path: PathBuf,
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+        #[command(flatten)]
+        options: HeritageOptions,
+    },
+    /// Clean standard metadata and recognized structural marks into a verified copy
+    Clean {
+        path: PathBuf,
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+        #[command(flatten)]
+        options: HeritageOptions,
+    },
+    /// Verify signed versions, dual-party transfers and external checkpoints
+    Trace {
+        path: PathBuf,
+        #[command(flatten)]
+        options: HeritageOptions,
+    },
+    /// Export or verify a portable copyright evidence package or timestamp
+    Evidence {
+        #[arg(value_enum)]
+        action: EvidenceMode,
+        path: PathBuf,
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+        #[command(flatten)]
+        options: HeritageOptions,
+    },
+    /// Explicit current-user system key storage. Secrets stay in the native backend
+    KeyStore {
+        #[arg(value_enum)]
+        action: KeyStoreMode,
+        #[arg(long)]
+        key: Option<PathBuf>,
+        #[arg(long)]
+        id: Option<String>,
+    },
+}
+#[derive(Debug, Clone, Copy, ValueEnum)]
+enum EvidenceMode {
+    Export,
+    Verify,
+    Checkpoint,
+    TimestampQuery,
+    TimestampVerify,
+    PrepareTransfer,
+    AcceptTransfer,
+}
+#[derive(Debug, Clone, Copy, ValueEnum)]
+enum KeyStoreMode {
+    Generate,
+    Import,
+    Public,
+}
+
+impl Cli {
+    fn normalize(&mut self) -> Result<()> {
+        let make =
+            |action: HeritageMode,
+             path: &PathBuf,
+             output: &Option<PathBuf>,
+             mut request: HeritageRequest|
+             -> Result<Command> {
+                request.action = action.engine_action();
+                Ok(Command::Heritage {
+                    action,
+                    path: path.clone(),
+                    output: output.clone(),
+                    options: HeritageOptions {
+                        options_json: Some(serde_json::to_string(&request).map_err(|_| {
+                            Error::Input("Could not encode watermark options".into())
+                        })?),
+                        ..Default::default()
+                    },
+                })
+            };
+        let replacement = match &self.command {
+            Command::Watermarks(WatermarkCommand::Mark {
+                path,
+                output,
+                options,
+            }) => {
+                let mut request = options.engine_request(HeritageMode::Mark, output.is_some())?;
+                request.mark.signature_v2 = true;
+                let encoded: serde_json::Value = options
+                    .options_json
+                    .as_deref()
+                    .map(serde_json::from_str)
+                    .transpose()
+                    .map_err(|_| Error::Input("Invalid watermark options".into()))?
+                    .unwrap_or_default();
+                if options.watermark_version.is_none()
+                    && encoded["mark"].get("watermark_version").is_none()
+                {
+                    request.mark.watermark_version = 2;
+                }
+                if options.strength.is_none()
+                    && encoded["mark"].get("strength").is_none()
+                    && request.mark.watermark_version == 2
+                {
+                    request.mark.strength = fileveil_engine::heritage::robust_v2::DEFAULT_STRENGTH;
+                }
+                if request.mark.copy_id.is_empty() {
+                    request.mark.copy_id = "original".into();
+                }
+                let mode = if request.certificate.is_some() || request.private_key.is_some() {
+                    HeritageMode::C2paMark
+                } else {
+                    HeritageMode::Mark
+                };
+                Some(make(mode, path, output, request)?)
+            }
+            Command::Watermarks(WatermarkCommand::Clean {
+                path,
+                output,
+                options,
+            }) => {
+                let mut request = options.engine_request(HeritageMode::Clean, output.is_some())?;
+                request.clean_metadata = true;
+                Some(make(HeritageMode::Clean, path, output, request)?)
+            }
+            Command::Watermarks(WatermarkCommand::Trace { path, options }) => Some(make(
+                HeritageMode::Trace,
+                path,
+                &None,
+                options.engine_request(HeritageMode::Trace, false)?,
+            )?),
+            Command::Watermarks(WatermarkCommand::Evidence {
+                action,
+                path,
+                output,
+                options,
+            }) => {
+                let mode = match action {
+                    EvidenceMode::Export => HeritageMode::EvidenceExport,
+                    EvidenceMode::Verify => HeritageMode::EvidenceVerify,
+                    EvidenceMode::Checkpoint => HeritageMode::Checkpoint,
+                    EvidenceMode::TimestampQuery => HeritageMode::TimestampQuery,
+                    EvidenceMode::TimestampVerify => HeritageMode::TimestampVerify,
+                    EvidenceMode::PrepareTransfer => HeritageMode::TransferPrepare,
+                    EvidenceMode::AcceptTransfer => HeritageMode::TransferAccept,
+                };
+                Some(make(
+                    mode,
+                    path,
+                    output,
+                    options.engine_request(mode, output.is_some())?,
+                )?)
+            }
+            Command::Verify {
+                original,
+                output: None,
+                options_json,
+                watermark_key,
+                trust_policy,
+                ..
+            } => {
+                let options = HeritageOptions {
+                    options_json: options_json.clone(),
+                    watermark_key: watermark_key.clone(),
+                    trust_policy: trust_policy.clone(),
+                    ..Default::default()
+                };
+                Some(make(
+                    HeritageMode::Verify,
+                    original,
+                    &None,
+                    options.engine_request(HeritageMode::Verify, false)?,
+                )?)
+            }
+            Command::Lab {
+                paths,
+                watermark_key,
+                ..
+            } if paths.len() == 1 => {
+                let request = HeritageRequest {
+                    action: HeritageAction::Lab,
+                    watermark_key: watermark_key.clone(),
+                    ..Default::default()
+                };
+                Some(make(HeritageMode::Lab, &paths[0], &None, request)?)
+            }
+            _ => None,
+        };
+        if let Some(command) = replacement {
+            self.command = command;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Copy, ValueEnum)]
 enum Profile {
     Safe,
@@ -143,6 +348,13 @@ enum HeritageMode {
     Trace,
     Lab,
     C2paMark,
+    Checkpoint,
+    EvidenceExport,
+    EvidenceVerify,
+    TimestampQuery,
+    TimestampVerify,
+    TransferPrepare,
+    TransferAccept,
 }
 
 impl HeritageMode {
@@ -155,6 +367,13 @@ impl HeritageMode {
             Self::Trace => HeritageAction::Trace,
             Self::Lab => HeritageAction::Lab,
             Self::C2paMark => HeritageAction::C2paMark,
+            Self::Checkpoint => HeritageAction::Checkpoint,
+            Self::EvidenceExport => HeritageAction::EvidenceExport,
+            Self::EvidenceVerify => HeritageAction::EvidenceVerify,
+            Self::TimestampQuery => HeritageAction::TimestampQuery,
+            Self::TimestampVerify => HeritageAction::TimestampVerify,
+            Self::TransferPrepare => HeritageAction::TransferPrepare,
+            Self::TransferAccept => HeritageAction::TransferAccept,
         }
     }
 
@@ -167,15 +386,32 @@ impl HeritageMode {
             Self::Trace => "trace",
             Self::Lab => "lab",
             Self::C2paMark => "c2pa-mark",
+            Self::Checkpoint => "checkpoint",
+            Self::EvidenceExport => "evidence-export",
+            Self::EvidenceVerify => "evidence-verify",
+            Self::TimestampQuery => "timestamp-query",
+            Self::TimestampVerify => "timestamp-verify",
+            Self::TransferPrepare => "transfer-prepare",
+            Self::TransferAccept => "transfer-accept",
         }
     }
 
     fn writes_file(self) -> bool {
-        matches!(self, Self::Mark | Self::Clean | Self::C2paMark)
+        matches!(
+            self,
+            Self::Mark
+                | Self::Clean
+                | Self::C2paMark
+                | Self::Checkpoint
+                | Self::EvidenceExport
+                | Self::TimestampQuery
+                | Self::TransferPrepare
+                | Self::TransferAccept
+        )
     }
 }
 
-#[derive(Debug, clap::Args)]
+#[derive(Debug, Clone, Default, clap::Args)]
 struct HeritageOptions {
     #[arg(long, help = "Explicit HeritageRequest JSON, shared with GUI and MCP")]
     options_json: Option<String>,
@@ -184,6 +420,38 @@ struct HeritageOptions {
         help = "Explicit local Ed25519 key; repeat for multiple signers"
     )]
     key_paths: Vec<PathBuf>,
+    #[arg(long = "key-ref")]
+    key_refs: Vec<String>,
+    #[arg(long)]
+    watermark_key: Option<PathBuf>,
+    #[arg(long)]
+    watermark_key_ref: Option<String>,
+    #[arg(long)]
+    certificate: Option<PathBuf>,
+    #[arg(long)]
+    private_key: Option<PathBuf>,
+    #[arg(long)]
+    copy_id: Option<String>,
+    #[arg(long, value_parser=clap::value_parser!(u8).range(1..=2))]
+    watermark_version: Option<u8>,
+    #[arg(long)]
+    strength: Option<u8>,
+    #[arg(long)]
+    pixel: bool,
+    #[arg(long)]
+    reference: Option<PathBuf>,
+    #[arg(long)]
+    trust_policy: Option<PathBuf>,
+    #[arg(long = "checkpoint")]
+    checkpoints: Vec<PathBuf>,
+    #[arg(long)]
+    checkpoint_anchors: Option<PathBuf>,
+    #[arg(long)]
+    timestamp_response: Option<PathBuf>,
+    #[arg(long)]
+    timestamp_query: Option<PathBuf>,
+    #[arg(long)]
+    timestamp_roots: Option<PathBuf>,
     #[arg(long, help = "Public work reference; overrides the JSON mark.work_id")]
     work_id: Option<String>,
     #[arg(long, help = "Declared author; overrides the JSON mark.author")]
@@ -211,6 +479,64 @@ impl HeritageOptions {
             .unwrap_or_default();
         request.action = action.engine_action();
         request.key_paths.extend(self.key_paths.iter().cloned());
+        request.key_refs.extend(
+            self.key_refs
+                .iter()
+                .cloned()
+                .map(|key_id| fileveil_engine::heritage::key_store::KeyStoreRef { key_id }),
+        );
+        if let Some(path) = &self.watermark_key {
+            request.watermark_key = Some(path.clone());
+        }
+        if let Some(key_id) = &self.watermark_key_ref {
+            request.watermark_key_ref = Some(fileveil_engine::heritage::key_store::KeyStoreRef {
+                key_id: key_id.clone(),
+            });
+        }
+        if let Some(copy) = &self.copy_id {
+            request.mark.copy_id = copy.clone();
+        }
+        if let Some(version) = self.watermark_version {
+            request.mark.watermark_version = version;
+        }
+        if let Some(strength) = self.strength {
+            request.mark.strength = strength;
+        }
+        if let Some(path) = &self.certificate {
+            request.certificate = Some(path.clone());
+        }
+        if let Some(path) = &self.private_key {
+            request.private_key = Some(path.clone());
+        }
+        if self.pixel {
+            if matches!(
+                request.action,
+                HeritageAction::Mark | HeritageAction::C2paMark
+            ) {
+                request.mark.robust = true;
+            } else if request.action == HeritageAction::Clean {
+                request.clean_signal = true;
+            }
+        }
+        if let Some(path) = &self.reference {
+            request.reference = Some(path.clone());
+        }
+        if let Some(path) = &self.trust_policy {
+            request.trust_store = Some(path.clone());
+        }
+        request.checkpoints.extend(self.checkpoints.iter().cloned());
+        if let Some(path) = &self.checkpoint_anchors {
+            request.checkpoint_anchors = Some(path.clone());
+        }
+        if let Some(path) = &self.timestamp_response {
+            request.timestamp_response = Some(path.clone());
+        }
+        if let Some(path) = &self.timestamp_query {
+            request.timestamp_query = Some(path.clone());
+        }
+        if let Some(path) = &self.timestamp_roots {
+            request.timestamp_roots = Some(path.clone());
+        }
         if let Some(work_id) = &self.work_id {
             request.mark.work_id.clone_from(work_id);
         }
@@ -410,6 +736,7 @@ fn print_error(error: &Error, json: bool, operation: &str) {
 }
 fn operation(command: &Command) -> &'static str {
     match command {
+        Command::Watermarks(_) => "heritage",
         Command::Scan { .. } => "scan",
         Command::Sanitize { .. } | Command::ProcessImage { .. } => "sanitize",
         Command::Verify { .. } | Command::VerifyImage { .. } => "verify",
@@ -423,6 +750,39 @@ fn operation(command: &Command) -> &'static str {
 }
 fn execute(cli: &Cli, limits: &Limits) -> Result<i32> {
     let report = match &cli.command {
+        Command::Watermarks(WatermarkCommand::KeyStore { action, key, id }) => {
+            use fileveil_engine::heritage::{key_store, signing::SigningKey};
+            let (reference, public) = match action {
+                KeyStoreMode::Generate => key_store::generate()?,
+                KeyStoreMode::Import => {
+                    let key =
+                        SigningKey::load(key.as_deref().ok_or_else(|| {
+                            Error::Input("key-store import requires --key".into())
+                        })?)?;
+                    (key_store::store(&key)?, key.public_key())
+                }
+                KeyStoreMode::Public => {
+                    let reference = key_store::KeyStoreRef {
+                        key_id: id
+                            .clone()
+                            .ok_or_else(|| Error::Input("key-store public requires --id".into()))?,
+                    };
+                    let key = key_store::load(&reference)?;
+                    (reference, key.public_key())
+                }
+            };
+            let mut report = Report::new("heritage_keygen", Format::Unknown);
+            report.result = Outcome::VerifiedWithinScope;
+            report.advanced = Some(
+                serde_json::json!({"heritage":{"public_key":public,"system_key_ref":reference,"backend":key_store::backend_name()}}),
+            );
+            report
+        }
+        Command::Watermarks(_) => {
+            return Err(Error::Input(
+                "Public watermark command was not normalized".into(),
+            ));
+        }
         Command::Scan { path } => fileveil_engine::scan(path, limits)?,
         Command::Sanitize {
             path,
@@ -461,25 +821,37 @@ fn execute(cli: &Cli, limits: &Limits) -> Result<i32> {
             output,
             profile,
             options_json,
+            ..
         } => {
             let options = sanitize_options(*profile, options_json.as_deref())?;
             if options.policy == Policy::Safe && !options.any() {
-                fileveil_engine::verify(original, output, limits)?
+                fileveil_engine::verify(
+                    original,
+                    output.as_deref().expect("normalized comparison output"),
+                    limits,
+                )?
             } else if options.policy == Policy::Research {
                 fileveil_engine::verify_processed_image(
                     original,
-                    output,
+                    output.as_deref().expect("normalized comparison output"),
                     &ImageProcessOptions::default(),
                     limits,
                 )?
             } else {
-                fileveil_engine::advanced::verify_with_options(original, output, limits, &options)?
+                fileveil_engine::advanced::verify_with_options(
+                    original,
+                    output.as_deref().expect("normalized comparison output"),
+                    limits,
+                    &options,
+                )?
             }
         }
         Command::DetectWatermark { path } => {
             fileveil_engine::audits::detect_watermark(path, limits)?
         }
-        Command::Lab { paths, groups_json } => {
+        Command::Lab {
+            paths, groups_json, ..
+        } => {
             let groups: Vec<fileveil_engine::lab::SampleGroup> = groups_json
                 .as_deref()
                 .map(serde_json::from_str)
@@ -610,6 +982,11 @@ fn supervise(cli: &Cli) -> Result<i32> {
         .as_ref()
         .map(|directory| directory.path().join("verified-artifact.png"));
     match &cli.command {
+        Command::Watermarks(_) => {
+            return Err(Error::Input(
+                "Public watermark command was not normalized".into(),
+            ));
+        }
         Command::Scan { path } => {
             command.arg("scan").arg("--").arg(path);
         }
@@ -639,6 +1016,7 @@ fn supervise(cli: &Cli) -> Result<i32> {
             output,
             profile,
             options_json,
+            ..
         } => {
             command.arg("verify").arg("--profile").arg(match profile {
                 Profile::Safe => "safe",
@@ -648,12 +1026,17 @@ fn supervise(cli: &Cli) -> Result<i32> {
             if let Some(options) = options_json {
                 command.arg("--options-json").arg(options);
             }
-            command.arg("--").arg(original).arg(output);
+            command
+                .arg("--")
+                .arg(original)
+                .arg(output.as_ref().expect("normalized comparison output"));
         }
         Command::DetectWatermark { path } => {
             command.arg("detect-watermark").arg("--").arg(path);
         }
-        Command::Lab { paths, groups_json } => {
+        Command::Lab {
+            paths, groups_json, ..
+        } => {
             command.arg("lab");
             if let Some(groups) = groups_json {
                 command.arg("--groups-json").arg(groups);
@@ -859,7 +1242,11 @@ fn supervise(cli: &Cli) -> Result<i32> {
     }
 }
 fn main() -> ExitCode {
-    let cli = Cli::parse();
+    let mut cli = Cli::parse();
+    if let Err(error) = cli.normalize() {
+        print_error(&error, cli.json, operation(&cli.command));
+        return ExitCode::from(error.exit_code() as u8);
+    }
     if cli.worker && std::env::var_os("FILEVEIL_WORKER_HANDSHAKE").is_some() {
         use std::io::Read;
         let mut token = [0u8; 15];
@@ -871,7 +1258,11 @@ fn main() -> ExitCode {
         max_file_bytes: cli.max_file_mib * 1024 * 1024,
         ..Limits::default()
     };
-    let result = if cli.worker || matches!(cli.command, Command::Capabilities) {
+    let result = if cli.worker
+        || matches!(
+            cli.command,
+            Command::Capabilities | Command::Watermarks(WatermarkCommand::KeyStore { .. })
+        ) {
         execute(&cli, &limits)
     } else {
         supervise(&cli)

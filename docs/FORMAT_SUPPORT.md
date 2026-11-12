@@ -1,6 +1,6 @@
 # 格式支持
 
-此矩阵适用于 0.4 GUI、CLI 与本地 MCP。报告使用 schema 0.4，并可读取 0.1–0.3 报告。运行时后端可用性以 `fileveil capabilities --json` 为准。
+此矩阵适用于 0.5 GUI、CLI 与本地 MCP。报告使用 schema 0.4，并可读取 0.1–0.3 报告。运行时后端可用性以 `fileveil capabilities --json` 为准。
 
 | 格式 | 扫描 | Safe | Deep | 验证及限制 |
 | --- | --- | --- | --- | --- |
@@ -59,3 +59,16 @@ GUI 工作区覆盖文件、Heritage、Deep、图片、Diff Lab、AI Provenance 
 Anthropic 官方说明 Claude 文本水印采用 SynthID-Text 方法族，检测 API 处于受限私有预览，适用资格和授权由服务方决定。该方案通过词选择产生信号，零宽字符清理具有独立适用范围。本地版本未配置该检测后端。[Anthropic 官方说明](https://www.anthropic.com/news/claude-text-watermark)
 
 外部接口不会因普通本地扫描自动启用。未来实际接入需要逐次明确内容上传范围，真实 API 授权和端到端结果验收仍待提供相应条件。
+
+## Watermark Engine 2.0 范围
+
+| 格式 | 结构 Mark / Clean / Verify | 密钥像素 Mark / Clean / Recheck | 补充验证 |
+| --- | --- | --- | --- |
+| JPEG / PNG | 原生载体与 Ed25519 v1/v2 | DCT v1 与 keyed DCT/BCH v2 | 独立 OpenCV/Python 编解码对照，ICC 与像素误差 |
+| PDF / Office | 原生载体与 Ed25519 v1/v2 | 未评估 | 沿用既有 PDF 显示及 OPC 内容验证 |
+| HEIC / AVIF | 终端 UUID 载体，移除后字节精确恢复 | 8 位 SDR 主图，本地后端可用时执行 | 已编码媒体摘要与真实本机编解码，HDR/辅助图/多图保护 |
+| MP4 / MOV | 终端 UUID 载体，保留样本表及编码媒体 | 最多三个采样帧只读研究 | 原编码负载摘要，时域/全视频净化未评估 |
+
+2.0 的作品摘要为 96 位，发行副本摘要为 64 位，载荷 MAC 为 96 位。摘要用于标识关联，原文与签名声明共同保存在结构记录或显式证据包。无水印密钥时 v2 返回未评估。0.4 公开 DCT 检测继续独立报告。
+
+原生编解码器可由可信绝对路径 FILEVEIL_AVIFDEC、FILEVEIL_AVIFENC、FILEVEIL_HEIFDEC、FILEVEIL_HEIFENC、FILEVEIL_FFMPEG 配置。macOS 使用已探测的系统 sips 能力作为图片后备。发行包的可选后端是否可用以 capabilities 为准。

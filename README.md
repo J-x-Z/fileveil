@@ -1,10 +1,34 @@
 # FileVeil
 
-离线文件隐私审计与净化工具，提供 Rust 原生桌面 GUI、CLI 与本地 MCP。当前版本为 0.4.0，报告 schema 为 0.4，可读取旧版 0.1–0.3 报告。
+离线文件隐私审计与净化工具，提供 Rust 原生桌面 GUI、CLI 与本地 MCP。当前版本为 0.5.0，报告 schema 为 0.4，可读取旧版 0.1–0.3 报告。
 
 桌面版支持中文和英文界面、文件拖放、多文件队列、文件夹导入、发现信息搜索与分类筛选、处理计划、批量保存净化副本、二次验证与脱敏 JSON 报告导出。默认使用深色外观，侧栏可切换深色和中性浅色，设置内提供语言与高对比外观选项。任务支持取消与超时。
 
 JPEG、PNG、HEIC/HEIF、AVIF、MP4/MOV、WAV、FLAC 和 DOCX/XLSX/PPTX 支持各自范围内的 Safe 净化。Deep 提供选择性 Office 内容清理，TXT/Markdown/HTML 支持显式净化副本。PDF 使用 qpdf 完整重写，独立 Poppler 检查页数、文本及受限分辨率页面渲染。C2PA 离线验签、公开 LSB 与 Stable Diffusion 图像水印检测、图片差异实验室和手机媒体容器重写已接入共享 Rust Core。具体范围见 [格式支持](docs/FORMAT_SUPPORT.md)。
+
+## Watermark Engine 2.0
+
+对外操作为 **Clean、Mark、Verify、Trace、Lab**。原有 `heritage`、`sanitize`、双文件 `verify` 及报告 schema 0.4 保持兼容。
+
+2.0 采用密钥置换 DCT 载体、自适应强度、BCH(63,45) 纠错、96 位 HMAC 和周期几何同步，盲检恢复作品与发行副本摘要。旋转与多尺度搜索有明确预算。0.4 公开 DCT 协议仍可检测、植入和清理。图像质量与鲁棒性的实测取舍见 [200 图基准](docs/WATERMARK_BENCHMARK.md)。
+
+```sh
+fileveil heritage-keygen -o owner.key --json
+fileveil mark photo.png -o photo.marked.png --key owner.key --work-id work-001 --copy-id copy-001 --created-at 2026-11-13T00:00:00Z --pixel --json
+fileveil verify photo.marked.png --watermark-key owner.key --json
+fileveil trace photo.marked.png --watermark-key owner.key --reference photo.marked.png --json
+fileveil clean photo.marked.png -o photo.clean.png --pixel --watermark-key owner.key --json
+fileveil evidence export photo.marked.png -o copyright.json --key owner.key --json
+fileveil evidence verify copyright.json --reference photo.marked.png --json
+```
+
+`--strength 12` 与 `--strength 20` 提供基准中的质量和鲁棒性配置。净化像素会改变内容，报告包含 RGBA8 均方误差，可通过 `HeritageRequest.max_pixel_mse` 限制输出。已选检测器复检与未知水印状态分别记录。
+
+JPEG/PNG、PDF、Office 与 HEIC/AVIF/MP4/MOV 支持可逆原生签名载体。HEIC/AVIF 像素植入与定向清理由本地受限编解码器处理，保护 HDR、高位深、辅助图与集合结构。视频 Lab 可调用本地 FFmpeg 分析最多三个整秒采样帧，时域水印和全视频内容净化保持未评估。
+
+签名 v2 支持双方共签交接、旧新密钥共签轮换、转换版本关联、外部签名检查点、RFC 3161 查询与响应文件和独立版权证据包。macOS Keychain、Windows Credential Manager 和 Linux Secret Service 提供显式系统密钥存储，Linux 需要可用的会话服务。`key-store generate` 才会新建系统密钥。C2PA ES256 签名可通过 `mark --certificate chain.pem --private-key signer.pem` 创建，并以 `--pixel --watermark-key owner.key` 绑定相同作品及副本标识。公开验证工具位于 `tools/verify-evidence.py`。
+
+水印 MAC 认证密钥载荷，签名验证当前文件绑定，发行者信任来自验证方明确配置。复制水印、编辑后版本关联、外部时间与历史完整性各有独立验证范围。默认报告隐藏作者和作品原文，显式证据包包含已签声明值。RFC 3161 当前采用离线文件交换，外部 TSA 服务接入需自行获取响应。
 
 ## 启动桌面版
 
@@ -148,7 +172,7 @@ MPL-2.0 采用文件级 Copyleft。对外分发受覆盖源码及其修改时，
 /Volumes/WINDOWS/work/fileveil/dist/FileVeil.app/Contents/MacOS/fileveil-gui --mcp
 ```
 
-服务提供九个工具，覆盖能力查询、扫描、Safe/Deep、验证、图片处理、公开图像水印检测、差异实验室、AI 来源与 `fileveil_heritage`。读取与输出目录独立授权，每连接默认最多 64 次操作，原件只读，输出只能新建。签名另需逐文件 `--mcp-signing-key` 白名单，默认没有签名权限，密钥还须位于读取范围。MCP 密钥生成受到阻断。连接方式与示例见 [桌面版指南](docs/GUI.md)。
+服务提供十五个工具，覆盖能力查询、扫描、Safe/Deep、验证、图片处理、公开图像水印检测、差异实验室、AI 来源与 `fileveil_heritage`，新增 Mark、Clean、Verify、Trace、Lab 和证据工具。读取与输出目录独立授权，每连接默认最多 64 次操作，原件只读，输出只能新建。签名另需逐文件 `--mcp-signing-key` 白名单，默认没有签名权限，密钥还须位于读取范围。系统密钥使用另需 `--mcp-signing-key-ref` 公钥标识授权，水印密钥采用相同最小权限检查。MCP 密钥生成受到阻断。连接方式与示例见 [桌面版指南](docs/GUI.md)。
 
 ## 高级入口与限制
 
@@ -160,13 +184,13 @@ MPL-2.0 采用文件级 Copyleft。对外分发受覆盖源码及其修改时，
 ./target/release/fileveil lab control.png processed.png --json
 ```
 
-GUI 工作区提供文件扫描、Heritage 引擎、Deep 净化、图片处理、Diff Lab、AI Provenance 和批量验证，MCP 授权和资源上限集中在设置。主题沿用中性黑灰与灰白。
+GUI 工作区提供 Verify 文件、Mark / Trace、Clean 文件、Lab、Verify 来源与批量验证，MCP 授权和资源上限集中在设置。主题沿用中性黑灰与灰白。
 
 PDF 需要 qpdf。独立完整验证需要另行安装 Poppler 的 pdfinfo、pdftotext 和 pdftoppm，缺少这些工具时准确报告部分验证。支持可信的绝对路径环境配置 FILEVEIL_QPDF、FILEVEIL_PDFINFO、FILEVEIL_PDFTOTEXT、FILEVEIL_PDFTOPPM。已签名或加密的 PDF、Office 宏和签名包继续保护。
 
 HEIC/AVIF/MP4/MOV 已支持可识别隐私元数据清理、容器重写和保留编码负载对照。运行时解码保真仍有独立范围，未知 OEM 字段仅报告结构线索。MP3 净化、音频信号水印、私有密钥统计水印、厂商专有水印及 CAWG 身份校验仍待实现或授权检测能力。Deep 支持无依赖的简单隐藏工作表清理。复杂 Office 修订、公式或共享字符串依赖的隐藏表和复杂 HTML 结构会明确阻断。
 
-公开检测器覆盖 FileVeil LSB 包、Stable Diffusion 1 的 136 位公开消息及 SDXL 的 48 位公开消息，包含逐方法处理后复检。正反样本使用独立上游编码器和解码器验证。公开消息可被复制，身份或模型来源认证仍需独立证据。Diff Lab 提供低位、DCT/Haar、JPEG 编码、残差及差分预览，可输入参考组进行留一法残差关联比较。手机 OEM 归因与专有水印保持未评估。
+已识别的公开 LSB 与 Stable Diffusion 信号可由 Clean 的像素选项定向处理并在最终编码副本中复检，保留透明度和质量误差报告。独立上游解码器已核对四种 SD 正样本的清理结果。公开检测器覆盖 FileVeil LSB 包、Stable Diffusion 1 的 136 位公开消息及 SDXL 的 48 位公开消息，包含逐方法处理后复检。正反样本使用独立上游编码器和解码器验证。公开消息可被复制，身份或模型来源认证仍需独立证据。Diff Lab 提供低位、DCT/Haar、JPEG 编码、残差及差分预览，可输入参考组进行留一法残差关联比较。手机 OEM 归因与专有水印保持未评估。
 
 OpenAI、Anthropic 和 Google 的专有检测器显示实际可用状态。当前版本完全离线，SynthID-Text 的参考算法需要匹配的 tokenizer、生成配置和密钥。未配置的服务与检测范围均在能力报告中列明。
 

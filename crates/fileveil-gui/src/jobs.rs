@@ -36,6 +36,7 @@ pub enum JobKind {
         output: Option<PathBuf>,
         request: Box<fileveil_engine::heritage::HeritageRequest>,
     },
+    SystemKeygen,
     HeritageKeygen {
         output: PathBuf,
     },
@@ -89,7 +90,7 @@ impl JobKind {
     pub fn operation(&self) -> &'static str {
         match self {
             Self::Heritage { .. } => "heritage",
-            Self::HeritageKeygen { .. } => "heritage_keygen",
+            Self::HeritageKeygen { .. } | Self::SystemKeygen => "heritage_keygen",
             Self::Scan { .. } => "scan",
             Self::Sanitize { .. } | Self::ProcessImage { .. } | Self::SanitizeAdvanced { .. } => {
                 "sanitize"
@@ -696,6 +697,15 @@ fn execute_bound_worker(request: &JobRequest) -> fileveil_core::Result<Report> {
             fileveil_engine::heritage::run(path, output.as_deref(), options, &request.limits)
         }
         JobKind::HeritageKeygen { output } => fileveil_engine::heritage::keygen(output),
+        JobKind::SystemKeygen => {
+            let (reference, public) = fileveil_engine::heritage::key_store::generate()?;
+            let mut report = Report::new("heritage_keygen", Format::Unknown);
+            report.result = Outcome::VerifiedWithinScope;
+            report.advanced = Some(
+                serde_json::json!({"heritage":{"public_key":public,"system_key_ref":reference,"backend":fileveil_engine::heritage::key_store::backend_name()}}),
+            );
+            Ok(report)
+        }
         JobKind::SanitizeAdvanced {
             input,
             output,

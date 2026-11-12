@@ -2035,7 +2035,7 @@ checksum = "64cd1e32ddd350061ae6edb1b082d7c54915b5c672c389143b9a63403a109f24"
 
 [[package]]
 name = "fileveil-cli"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "clap",
  "ctrlc",
@@ -2048,7 +2048,7 @@ dependencies = [
 
 [[package]]
 name = "fileveil-core"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -2058,7 +2058,7 @@ dependencies = [
 
 [[package]]
 name = "fileveil-engine"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "base64",
  "c2pa",
@@ -2068,11 +2068,15 @@ dependencies = [
  "fileveil-core",
  "fileveil-formats",
  "getrandom 0.2.17",
+ "hmac",
  "image",
  "libc",
  "serde",
  "serde_json",
+ "sha2 0.10.9",
+ "sha2 0.11.1",
  "tempfile",
+ "time",
  "unicode-normalization",
  "windows-sys 0.61.2",
  "x509-parser",
@@ -2083,7 +2087,7 @@ dependencies = [
 
 [[package]]
 name = "fileveil-formats"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "crc32fast",
  "fileveil-core",
@@ -2099,7 +2103,7 @@ dependencies = [
 
 [[package]]
 name = "fileveil-gui"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "accesskit_consumer",
  "eframe",
@@ -2128,7 +2132,7 @@ checksum = "5905ec755cc8386d7928353e4d356d2be3e89e81e5ca01fe630a1ca4d08dc175"
 
 [[package]]
 name = "fixture-generator"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "crc32fast",
  "flate2",

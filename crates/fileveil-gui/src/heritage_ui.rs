@@ -31,18 +31,37 @@ pub struct HeritagePanel {
     certificate: Option<PathBuf>,
     private_key: Option<PathBuf>,
     c2pa_mark: bool,
+    c2pa_pixel: bool,
     disclose_identifiers: bool,
     disclose_claims: bool,
     clean_signal: bool,
     remove_c2pa: bool,
     notice: Option<String>,
+    watermark_key: Option<PathBuf>,
+    watermark_system_ref: String,
+    use_system_signers: bool,
+    system_signers: String,
+    rotation_target: String,
+    trace_action: HeritageAction,
+    checkpoint_paths: Vec<PathBuf>,
+    checkpoint_anchors: Option<PathBuf>,
+    timestamp_response: Option<PathBuf>,
+    timestamp_query: Option<PathBuf>,
+    timestamp_roots: Option<PathBuf>,
+    max_pixel_mse: f64,
 }
 
 impl Default for HeritagePanel {
     fn default() -> Self {
         Self {
             tab: Tab::Mark,
-            mark: MarkSettings::default(),
+            mark: MarkSettings {
+                signature_v2: true,
+                watermark_version: 2,
+                copy_id: "original".into(),
+                strength: fileveil_engine::heritage::robust_v2::DEFAULT_STRENGTH,
+                ..Default::default()
+            },
             keys: Vec::new(),
             trust: None,
             c2pa_roots: None,
@@ -53,11 +72,24 @@ impl Default for HeritagePanel {
             certificate: None,
             private_key: None,
             c2pa_mark: false,
+            c2pa_pixel: false,
             disclose_identifiers: false,
             disclose_claims: false,
             clean_signal: false,
             remove_c2pa: false,
             notice: None,
+            watermark_key: None,
+            watermark_system_ref: String::new(),
+            use_system_signers: false,
+            system_signers: String::new(),
+            rotation_target: String::new(),
+            trace_action: HeritageAction::Trace,
+            checkpoint_paths: Vec::new(),
+            checkpoint_anchors: None,
+            timestamp_response: None,
+            timestamp_query: None,
+            timestamp_roots: None,
+            max_pixel_mse: 64.0,
         }
     }
 }
@@ -74,11 +106,11 @@ impl HeritagePanel {
         let mut job = None;
         ui.horizontal_wrapped(|ui| {
             for (tab, zh, en) in [
-                (Tab::Mark, "添加标记", "Mark"),
-                (Tab::Clean, "清理标记", "Clean"),
-                (Tab::Verify, "验证", "Verify"),
-                (Tab::Trace, "来源链", "Trace"),
-                (Tab::Lab, "标记实验室", "Heritage Lab"),
+                (Tab::Mark, "Mark 植入", "Mark"),
+                (Tab::Clean, "Clean 净化", "Clean"),
+                (Tab::Verify, "Verify 验证", "Verify"),
+                (Tab::Trace, "Trace 追踪", "Trace"),
+                (Tab::Lab, "Lab 实验", "Lab"),
             ] {
                 let response = ui.selectable_value(&mut self.tab, tab, t(language, zh, en));
                 if tab == Tab::Verify {
@@ -109,11 +141,32 @@ impl HeritagePanel {
                     self.disclosure_ui(ui, language);
                 }
                 Tab::Trace => {
+                    egui::ComboBox::from_id_salt("provenance_action").selected_text(provenance_label(self.trace_action,language)).show_ui(ui,|ui| {
+                        for action in [HeritageAction::Trace,HeritageAction::Checkpoint,HeritageAction::EvidenceExport,HeritageAction::EvidenceVerify,HeritageAction::TimestampQuery,HeritageAction::TimestampVerify,HeritageAction::TransferPrepare,HeritageAction::TransferAccept] {
+                            ui.selectable_value(&mut self.trace_action,action,provenance_label(action,language));
+                        }
+                    });
+                    if matches!(self.trace_action,HeritageAction::Checkpoint|HeritageAction::EvidenceExport|HeritageAction::TransferPrepare|HeritageAction::TransferAccept) {
+                        self.signer_sources(ui,language);
+                    }
+                    if self.trace_action==HeritageAction::TransferPrepare {
+                        ui.label(t(language,"接收方公钥 SHA-256","Recipient public-key SHA-256"));
+                        ui.text_edit_singleline(&mut self.transfer_target);
+                        ui.small(t(language,"发送方准备提案后，接收方在自己的设备上联签。","The sender prepares a proposal. The receiver co-signs on their own device."));
+                    }
                     ui.label(t(language, "查看签名记录中的创建、修改、发行与转移关系。可用参考文件核对像素标记与作品标识。", "Inspect signed creation, modification, issue and transfer records. A reference file can match the pixel marker to a work identifier."));
                     pick_path(ui, language, "参考文件", "Reference file", &mut self.reference, &[]);
                     pick_path(ui, language, "信任策略 JSON", "Trust policy JSON", &mut self.trust, &["json"]);
                     pick_path(ui, language, "C2PA 本地根证书 PEM", "Local C2PA trust roots PEM", &mut self.c2pa_roots, &["pem", "crt"]);
                     self.disclosure_ui(ui, language);
+                    egui::CollapsingHeader::new(t(language,"链检查点与 RFC 3161 时间戳","Checkpoints and RFC 3161 timestamps")).show(ui,|ui| {
+                        pick_paths(ui,language,"选择外部检查点","Choose external checkpoints",&mut self.checkpoint_paths,16);
+                        pick_path(ui,language,"检查点信任公钥 JSON","Checkpoint trust keys JSON",&mut self.checkpoint_anchors,&["json"]);
+                        pick_path(ui,language,"时间戳响应 DER","Timestamp response DER",&mut self.timestamp_response,&["tsr","tst","der"]);
+                        pick_path(ui,language,"原始时间戳查询","Original timestamp query",&mut self.timestamp_query,&["tsq","der"]);
+                        pick_path(ui,language,"时间戳信任根 PEM","Timestamp trust roots PEM",&mut self.timestamp_roots,&["pem"]);
+                        ui.small(t(language,"查询与响应通过文件交换。时间戳校验默认离线。版权证据导出包含作者及作品声明。","Queries and responses are exchanged as files. Timestamp validation is offline. Exported copyright evidence includes author and work claims."));
+                    });
                 }
                 Tab::Lab => {
                     ui.label(t(language, "在内存中测试重编码、缩放等处理后的标记检出与误匹配，并对照选定的阴性样本。", "Measure marker detection after in-memory re-encoding and resizing, and compare selected negative controls."));
@@ -121,6 +174,7 @@ impl HeritagePanel {
                     ui.small(t(language, "结果覆盖本次样本和参数。设备归属及未知水印需要独立证据。", "Results cover these samples and parameters. Device attribution and unknown watermark families require independent evidence."));
                 }
             }
+            if matches!(self.tab,Tab::Verify|Tab::Trace|Tab::Clean|Tab::Lab) { self.watermark_key_ui(ui,language); }
             ui.add_space(12.0);
             let request = self.request();
             let configured = self.configured();
@@ -131,23 +185,25 @@ impl HeritagePanel {
                     ui.small(t(language, "作品标识、版本、时间声明和签名密钥必填。", "Work identifier, version, asserted time and signing keys are required."));
                 }
             }
-            let action_label = match self.tab {
+            let action_label = if self.tab==Tab::Trace { provenance_label(self.trace_action,language) } else { match self.tab {
                 Tab::Mark => t(language, "保存标记副本并复验", "Save marked copy and verify"),
                 Tab::Clean => t(language, "保存清理副本并复验", "Save cleaned copy and verify"),
                 Tab::Verify => t(language, "验证当前文件", "Verify current file"),
                 Tab::Trace => t(language, "检查来源链", "Inspect provenance chain"),
-                Tab::Lab => t(language, "运行标记实验", "Run Heritage Lab"),
-            };
+                Tab::Lab => t(language, "运行标记实验", "Run watermark lab"),
+            }};
             let response = ui.add_enabled(input.is_some() && configured && job.is_none(), egui::Button::new(action_label));
             crate::smoke::target(&response, "heritage_run");
             if response.clicked()
                 && let Some(path) = &input
             {
                 if request.writes_file() {
-                    if let Some(output) = choose_output(path, self.tab, language) {
+                    let sidecar=matches!(request.action,HeritageAction::Checkpoint|HeritageAction::EvidenceExport|HeritageAction::TimestampQuery|HeritageAction::TransferPrepare|HeritageAction::TransferAccept);
+                    let selected=if sidecar { choose_sidecar(path,request.action,language) } else { choose_output(path,self.tab,language) };
+                    if let Some(output) = selected {
                         if output.exists() {
                             self.notice = Some(t(language, "目标文件已存在，请另选新文件名。", "The destination exists. Choose a new file name.").into());
-                        } else if path.extension().map(|value| value.to_ascii_lowercase()) != output.extension().map(|value| value.to_ascii_lowercase()) {
+                        } else if !sidecar && path.extension().map(|value| value.to_ascii_lowercase()) != output.extension().map(|value| value.to_ascii_lowercase()) {
                             self.notice = Some(t(language, "副本扩展名需要与原文件一致。", "The copy must keep the original file extension.").into());
                         } else {
                             self.notice = None;
@@ -184,6 +240,11 @@ impl HeritagePanel {
                     ui,
                     t(language, "作品标识", "Work identifier"),
                     &mut self.mark.work_id,
+                );
+                field(
+                    ui,
+                    t(language, "发行副本标识", "Copy identifier"),
+                    &mut self.mark.copy_id,
                 );
                 field(
                     ui,
@@ -243,6 +304,23 @@ impl HeritagePanel {
                 &mut self.private_key,
                 &["pem", "key"],
             );
+            ui.checkbox(
+                &mut self.c2pa_pixel,
+                t(
+                    language,
+                    "关联 Engine 2 像素水印",
+                    "Link an Engine 2 pixel watermark",
+                ),
+            );
+            if self.c2pa_pixel {
+                self.watermark_key_ui(ui, language);
+                ui.add(egui::Slider::new(&mut self.mark.strength, 12..=64).text(t(
+                    language,
+                    "水印强度",
+                    "Watermark strength",
+                )));
+                ui.small(t(language,"像素标记与 C2PA 使用相同作品和副本标识。需要单独授权的 Ed25519 水印密钥。","The pixel mark and C2PA share work and copy identifiers. A separately authorized Ed25519 watermark key is required."));
+            }
             return job;
         }
         ui.label(t(
@@ -260,6 +338,7 @@ impl HeritagePanel {
                         RecordKind::Modify,
                         RecordKind::Issue,
                         RecordKind::Transfer,
+                        RecordKind::RotateKey,
                     ] {
                         ui.selectable_value(&mut self.mark.kind, kind, kind_label(kind, language));
                     }
@@ -280,6 +359,19 @@ impl HeritagePanel {
             ));
             ui.text_edit_singleline(&mut self.transfer_target);
         }
+        if self.mark.kind == RecordKind::RotateKey {
+            ui.label(t(
+                language,
+                "继任密钥公钥 SHA-256",
+                "Successor public-key SHA-256",
+            ));
+            ui.text_edit_singleline(&mut self.rotation_target);
+            ui.small(t(
+                language,
+                "轮换记录须由当前密钥和继任密钥共同签署。",
+                "Rotation requires signatures from the current and successor keys.",
+            ));
+        }
         if self.mark.mode == SignMode::NatiSign {
             ui.horizontal(|ui| {
                 ui.label(t(language, "发行签名阈值", "Issuer signature threshold"));
@@ -287,6 +379,7 @@ impl HeritagePanel {
             });
             ui.small(t(language, "NATI 采用选定发行密钥的阈值策略。信任关系由验证方的本地策略确定。", "NATI uses a threshold policy over the selected issuer keys. The verifier's local policy establishes trust."));
         }
+        self.system_signer_ui(ui, language);
         pick_paths(
             ui,
             language,
@@ -329,6 +422,16 @@ impl HeritagePanel {
                 job = Some(JobKind::HeritageKeygen { output });
             }
         }
+        if ui
+            .button(t(
+                language,
+                "生成系统密钥库密钥",
+                "Generate system-keystore key",
+            ))
+            .clicked()
+        {
+            job = Some(JobKind::SystemKeygen);
+        }
         pick_path(
             ui,
             language,
@@ -342,10 +445,28 @@ impl HeritagePanel {
             t(language, "嵌入图像像素标记", "Embed image pixel marker"),
         );
         if self.mark.robust {
+            egui::ComboBox::from_id_salt("watermark_protocol")
+                .selected_text(if self.mark.watermark_version == 2 {
+                    "Watermark Engine 2"
+                } else {
+                    "0.4 compatibility"
+                })
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(&mut self.mark.watermark_version, 2, "Watermark Engine 2");
+                    ui.selectable_value(&mut self.mark.watermark_version, 1, "0.4 compatibility");
+                });
+            ui.small(t(language,"2.0 使用密钥化载体与纠错。默认从持有人签名密钥派生像素密钥，复验时请明确选择相同密钥。","Engine 2 uses keyed carriers and error correction. Its default pixel key is derived from the custodian key. Explicitly select the same key when verifying."));
             ui.label(t(language, "像素标记会改变图像信号，JPEG 也会重新编码。保存后执行检测与复验。", "Pixel marking changes the image signal and re-encodes JPEG. Detection and verification run after saving."));
             ui.add(
-                egui::Slider::new(&mut self.mark.strength, 16..=64)
-                    .text(t(language, "强度", "Strength")),
+                egui::Slider::new(
+                    &mut self.mark.strength,
+                    if self.mark.watermark_version == 2 {
+                        12..=64
+                    } else {
+                        16..=64
+                    },
+                )
+                .text(t(language, "强度", "Strength")),
             );
         }
         job
@@ -400,7 +521,88 @@ impl HeritagePanel {
         );
     }
 
+    fn system_signer_refs(&self) -> Vec<fileveil_engine::heritage::key_store::KeyStoreRef> {
+        self.system_signers
+            .split_whitespace()
+            .map(|id| fileveil_engine::heritage::key_store::KeyStoreRef {
+                key_id: id.to_ascii_lowercase(),
+            })
+            .collect()
+    }
+    fn has_signer(&self) -> bool {
+        if self.use_system_signers {
+            let refs = self.system_signer_refs();
+            !refs.is_empty()
+                && refs.iter().all(|r| {
+                    r.key_id.len() == 64 && r.key_id.bytes().all(|b| b.is_ascii_hexdigit())
+                })
+        } else {
+            !self.keys.is_empty()
+        }
+    }
+    fn system_signer_ui(&mut self, ui: &mut egui::Ui, language: Language) {
+        ui.checkbox(
+            &mut self.use_system_signers,
+            t(language, "使用系统密钥库", "Use system key storage"),
+        );
+        if self.use_system_signers {
+            ui.label(t(
+                language,
+                "公钥标识 SHA-256，多密钥用空格分隔",
+                "Public-key SHA-256 identifiers, space-separated for co-signing",
+            ));
+            ui.text_edit_singleline(&mut self.system_signers);
+        }
+    }
+    fn signer_sources(&mut self, ui: &mut egui::Ui, language: Language) {
+        self.system_signer_ui(ui, language);
+        if !self.use_system_signers {
+            pick_paths(
+                ui,
+                language,
+                "选择联签密钥",
+                "Choose signing keys",
+                &mut self.keys,
+                32,
+            );
+        }
+    }
+    fn watermark_key_ui(&mut self, ui: &mut egui::Ui, language: Language) {
+        pick_path(
+            ui,
+            language,
+            "2.0 水印密钥文件",
+            "Engine 2 watermark key file",
+            &mut self.watermark_key,
+            &["key"],
+        );
+        ui.label(t(
+            language,
+            "或系统水印密钥公钥标识",
+            "Or system watermark-key public identifier",
+        ));
+        ui.text_edit_singleline(&mut self.watermark_system_ref);
+        if self.clean_signal && self.tab == Tab::Clean {
+            ui.horizontal(|ui| {
+                ui.label(t(language, "最大 RGBA8 均方误差", "Maximum RGBA8 MSE"));
+                ui.add(egui::DragValue::new(&mut self.max_pixel_mse).range(0.0..=65025.0));
+            });
+        }
+    }
     fn configured(&self) -> bool {
+        if self.tab == Tab::Trace
+            && matches!(
+                self.trace_action,
+                HeritageAction::Checkpoint
+                    | HeritageAction::EvidenceExport
+                    | HeritageAction::TransferPrepare
+                    | HeritageAction::TransferAccept
+            )
+        {
+            return self.has_signer()
+                && (self.trace_action != HeritageAction::TransferPrepare
+                    || self.transfer_target.len() == 64);
+        }
         if self.tab != Tab::Mark {
             return true;
         }
@@ -408,12 +610,20 @@ impl HeritagePanel {
             return false;
         }
         if self.c2pa_mark {
-            return self.certificate.is_some() && self.private_key.is_some();
+            return self.certificate.is_some()
+                && self.private_key.is_some()
+                && (!self.c2pa_pixel
+                    || (self.watermark_key.is_some() || self.watermark_system_ref.len() == 64));
         }
         !self.mark.created_at.trim().is_empty()
-            && !self.keys.is_empty()
+            && self.has_signer()
             && (self.mark.mode != SignMode::NatiSign
-                || self.mark.issuer_threshold as usize <= self.keys.len())
+                || self.mark.issuer_threshold as usize
+                    <= if self.use_system_signers {
+                        self.system_signer_refs().len()
+                    } else {
+                        self.keys.len()
+                    })
             && (self.mark.kind != RecordKind::Transfer
                 || (self.transfer_target.len() == 64
                     && self
@@ -428,7 +638,7 @@ impl HeritagePanel {
             Tab::Mark => HeritageAction::Mark,
             Tab::Clean => HeritageAction::Clean,
             Tab::Verify => HeritageAction::Verify,
-            Tab::Trace => HeritageAction::Trace,
+            Tab::Trace => self.trace_action,
             Tab::Lab => HeritageAction::Lab,
         };
         let mut request = HeritageRequest {
@@ -454,16 +664,26 @@ impl HeritagePanel {
             request.mark = self.mark.clone();
             request.mark.transfer_to_key_id = (self.mark.kind == RecordKind::Transfer)
                 .then(|| self.transfer_target.to_ascii_lowercase());
-            request.key_paths = self.keys.clone();
+            if self.use_system_signers {
+                request.key_refs = self.system_signer_refs();
+            } else {
+                request.key_paths = self.keys.clone();
+            }
+            request.mark.rotation_to_key_id = (self.mark.kind == RecordKind::RotateKey)
+                .then(|| self.rotation_target.to_ascii_lowercase());
             request.previous = self.previous.clone();
         }
         if action == HeritageAction::C2paMark {
             request.mark = MarkSettings {
                 work_id: self.mark.work_id.clone(),
+                copy_id: self.mark.copy_id.clone(),
                 author: self.mark.author.clone(),
                 edition: self.mark.edition.clone(),
                 version: self.mark.version.clone(),
                 created_at: self.mark.created_at.clone(),
+                robust: self.c2pa_pixel,
+                watermark_version: 2,
+                strength: self.mark.strength,
                 ..Default::default()
             };
             request.certificate = self.certificate.clone();
@@ -471,6 +691,35 @@ impl HeritagePanel {
         }
         if self.tab == Tab::Trace {
             request.reference = self.reference.clone();
+            request.checkpoints = self.checkpoint_paths.clone();
+            request.checkpoint_anchors = self.checkpoint_anchors.clone();
+            request.timestamp_response = self.timestamp_response.clone();
+            request.timestamp_query = self.timestamp_query.clone();
+            request.timestamp_roots = self.timestamp_roots.clone();
+            if matches!(
+                action,
+                HeritageAction::Checkpoint
+                    | HeritageAction::EvidenceExport
+                    | HeritageAction::TransferPrepare
+                    | HeritageAction::TransferAccept
+            ) {
+                if self.use_system_signers {
+                    request.key_refs = self.system_signer_refs();
+                } else {
+                    request.key_paths = self.keys.clone();
+                }
+                request.mark = self.mark.clone();
+                request.mark.transfer_to_key_id = Some(self.transfer_target.to_ascii_lowercase());
+            }
+        }
+        if action != HeritageAction::C2paMark || self.c2pa_pixel {
+            request.watermark_key = self.watermark_key.clone();
+            if !self.watermark_system_ref.trim().is_empty() {
+                request.watermark_key_ref =
+                    Some(fileveil_engine::heritage::key_store::KeyStoreRef {
+                        key_id: self.watermark_system_ref.trim().to_ascii_lowercase(),
+                    });
+            }
         }
         if self.tab == Tab::Lab {
             request.controls = self.controls.clone();
@@ -481,6 +730,10 @@ impl HeritagePanel {
         }
         if self.tab == Tab::Clean {
             request.clean_signal = self.clean_signal;
+            request.clean_metadata = true;
+            if self.clean_signal {
+                request.max_pixel_mse = Some(self.max_pixel_mse);
+            }
             request.remove_c2pa = self.remove_c2pa;
         }
         request
@@ -597,12 +850,53 @@ fn choose_output(input: &Path, tab: Tab, language: Language) -> Option<PathBuf> 
     dialog.save_file()
 }
 
+fn provenance_label(action: HeritageAction, language: Language) -> &'static str {
+    match action {
+        HeritageAction::Checkpoint => t(language, "导出签名链检查点", "Export signed checkpoint"),
+        HeritageAction::EvidenceExport => {
+            t(language, "导出版权证据包", "Export copyright evidence")
+        }
+        HeritageAction::EvidenceVerify => t(language, "独立验证证据包", "Verify evidence package"),
+        HeritageAction::TimestampQuery => {
+            t(language, "导出 RFC 3161 查询", "Export RFC 3161 query")
+        }
+        HeritageAction::TimestampVerify => {
+            t(language, "验证 RFC 3161 响应", "Verify RFC 3161 response")
+        }
+        HeritageAction::TransferPrepare => t(
+            language,
+            "发送方准备交接提案",
+            "Prepare sender transfer proposal",
+        ),
+        HeritageAction::TransferAccept => t(
+            language,
+            "接收方联签交接提案",
+            "Co-sign receiver transfer proposal",
+        ),
+        _ => t(language, "检查版本与交接链", "Inspect versions and custody"),
+    }
+}
+fn choose_sidecar(input: &Path, action: HeritageAction, language: Language) -> Option<PathBuf> {
+    let extension = if action == HeritageAction::TimestampQuery {
+        "tsq"
+    } else {
+        "json"
+    };
+    let stem = input.file_stem().unwrap_or_default().to_string_lossy();
+    rfd::FileDialog::new()
+        .set_directory(input.parent().unwrap_or(Path::new(".")))
+        .add_filter(t(language, "证据文件", "Evidence file"), &[extension])
+        .set_file_name(format!("{stem}.evidence.{extension}"))
+        .save_file()
+}
+
 fn kind_label(kind: RecordKind, language: Language) -> &'static str {
     match kind {
         RecordKind::Create => t(language, "创建", "Create"),
         RecordKind::Modify => t(language, "修改", "Modify"),
         RecordKind::Issue => t(language, "发行", "Issue"),
         RecordKind::Transfer => t(language, "转移", "Transfer"),
+        RecordKind::RotateKey => t(language, "轮换密钥", "Rotate signing key"),
     }
 }
 

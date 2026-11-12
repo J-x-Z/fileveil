@@ -308,7 +308,7 @@ fn negotiation_tool_discovery_capabilities_and_protocol_errors() {
         let mut client = Client::new(version);
         let listed = client.request("tools/list", json!({}));
         let tools = listed["result"]["tools"].as_array().unwrap();
-        assert_eq!(tools.len(), 9);
+        assert_eq!(tools.len(), 15);
         for tool in tools {
             let read_only = matches!(
                 tool["name"].as_str().unwrap(),
@@ -318,6 +318,9 @@ fn negotiation_tool_discovery_capabilities_and_protocol_errors() {
                     | "fileveil_detect_watermark"
                     | "fileveil_lab"
                     | "fileveil_provenance"
+                    | "fileveil_trace"
+                    | "fileveil_verify_watermark"
+                    | "fileveil_watermark_lab"
             );
             assert_eq!(tool["annotations"]["readOnlyHint"], read_only);
             assert_eq!(tool["annotations"]["destructiveHint"], false);

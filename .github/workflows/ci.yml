@@ -60,7 +60,7 @@ jobs:
           subprocess.run(['du', '-sh', 'target/debug', 'target/release'], check=False)
       - name: Linux desktop dependencies
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y libx11-dev libxi-dev libxcursor-dev libxrandr-dev libxinerama-dev libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev libegl1-mesa-dev libgl1-mesa-dev libgl1-mesa-dri qpdf poppler-utils xvfb xauth xdotool
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y libx11-dev libxi-dev libxcursor-dev libxrandr-dev libxinerama-dev libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev libegl1-mesa-dev libgl1-mesa-dev libgl1-mesa-dri qpdf poppler-utils xvfb xauth xdotool libavif-bin libheif-examples ffmpeg libsecret-tools gnome-keyring dbus-x11
       - name: macOS PDF backends
         if: runner.os == 'macOS'
         run: brew install qpdf poppler
@@ -172,6 +172,42 @@ jobs:
               print(result.stdout + result.stderr)
               if result.returncode:
                   raise SystemExit(result.returncode)
+              assert '1 passed;' in result.stdout, result.stdout
+      - name: Provenance 2 native interoperability
+        shell: python {0}
+        run: |
+          import os
+          import pathlib
+          import shutil
+          import subprocess
+          import sys
+          environment = dict(os.environ)
+          candidates = [pathlib.Path('/opt/homebrew/opt/openssl@3/bin/openssl'), pathlib.Path('/usr/local/opt/openssl@3/bin/openssl'), pathlib.Path('C:/Program Files/Git/usr/bin/openssl.exe')]
+          openssl = next((str(path) for path in candidates if path.is_file()), shutil.which('openssl'))
+          if openssl:
+              environment['PATH'] = str(pathlib.Path(openssl).parent) + os.pathsep + environment['PATH']
+              selectors = ['heritage::timestamp::tests::local_tsa_token_checks_signature_trust_imprint_and_original_nonce', 'heritage::custody::tests::standalone_python_openssl_verifies_public_evidence_and_rejects_tampering']
+              for selector in selectors:
+                  process = subprocess.run(['cargo', 'test', '--locked', '-p', 'fileveil-engine', '--lib', selector, '--', '--ignored', '--exact'], env=environment, capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=180)
+                  print(process.stdout + process.stderr)
+                  if process.returncode:
+                      raise SystemExit(process.returncode)
+                  assert '1 passed;' in process.stdout, process.stdout
+          selector = 'heritage::key_store::backend::tests::isolated_native_keychain_roundtrip' if sys.platform == 'darwin' else 'heritage::key_store::tests::current_user_system_store_roundtrip'
+          arguments = ['cargo', 'test', '--locked', '-p', 'fileveil-engine', '--lib', selector, '--', '--ignored', '--exact']
+          if sys.platform.startswith('linux'):
+              script = pathlib.Path('work/keyring-ci.py')
+              script.write_text('import subprocess\nsubprocess.run(["gnome-keyring-daemon", "--unlock", "--components=secrets"], input=b"fileveil-ci-ephemeral", check=True)\nsubprocess.run(' + repr(arguments) + ', check=True)\n')
+              arguments = ['dbus-run-session', sys.executable, str(script)]
+          result = subprocess.run(arguments, capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=180)
+          print(result.stdout + result.stderr)
+          pathlib.Path('work/provenance-v2-interop.log').write_text(result.stdout + result.stderr, encoding='utf-8')
+          assert result.returncode == 0 and '1 passed;' in result.stdout, result.stdout + result.stderr
+      - name: Linux selected video-frame watermark interoperability
+        if: runner.os == 'Linux'
+        run: cargo test --locked -p fileveil-engine --test video_research_v05 -- --ignored
+        env:
+          FILEVEIL_FFMPEG: /usr/bin/ffmpeg
       - name: Independent macOS native media decode
         if: runner.os == 'macOS'
         run: |
@@ -372,6 +408,7 @@ jobs:
             work/native-media-interop.log
             work/heritage-legacy-reference.log
             work/heritage-c2pa-creation.log
+            work/provenance-v2-interop.log
             work/packaged-cli.json
             work/native-signature.json
       - name: Save platform Cargo cache

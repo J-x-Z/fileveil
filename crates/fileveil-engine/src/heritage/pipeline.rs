@@ -28,12 +28,24 @@ pub enum HeritageAction {
     Trace,
     Lab,
     C2paMark,
+    Checkpoint,
+    EvidenceExport,
+    EvidenceVerify,
+    TimestampQuery,
+    TimestampVerify,
+    TransferPrepare,
+    TransferAccept,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct MarkSettings {
     pub work_id: String,
+    pub copy_id: String,
+    pub signature_v2: bool,
+    pub watermark_version: u8,
+    pub rotation_to_key_id: Option<String>,
+    pub transformation: Option<signing::Transformation>,
     pub author: String,
     pub edition: String,
     pub version: String,
@@ -49,6 +61,11 @@ impl Default for MarkSettings {
     fn default() -> Self {
         Self {
             work_id: String::new(),
+            copy_id: String::new(),
+            signature_v2: false,
+            watermark_version: 1,
+            rotation_to_key_id: None,
+            transformation: None,
             author: String::new(),
             edition: String::new(),
             version: "1".into(),
@@ -68,6 +85,17 @@ pub struct HeritageRequest {
     pub action: HeritageAction,
     pub mark: MarkSettings,
     pub key_paths: Vec<PathBuf>,
+    pub key_refs: Vec<super::key_store::KeyStoreRef>,
+    pub watermark_key: Option<PathBuf>,
+    pub watermark_key_ref: Option<super::key_store::KeyStoreRef>,
+    pub clean_metadata: bool,
+    pub max_pixel_mse: Option<f64>,
+    pub media_quality: Option<u8>,
+    pub checkpoints: Vec<PathBuf>,
+    pub checkpoint_anchors: Option<PathBuf>,
+    pub timestamp_response: Option<PathBuf>,
+    pub timestamp_query: Option<PathBuf>,
+    pub timestamp_roots: Option<PathBuf>,
     pub trust_store: Option<PathBuf>,
     pub c2pa_trust_roots: Option<PathBuf>,
     pub previous: Option<PathBuf>,
@@ -84,11 +112,19 @@ impl HeritageRequest {
     pub fn writes_file(&self) -> bool {
         matches!(
             self.action,
-            HeritageAction::Mark | HeritageAction::Clean | HeritageAction::C2paMark
+            HeritageAction::Mark
+                | HeritageAction::Clean
+                | HeritageAction::C2paMark
+                | HeritageAction::Checkpoint
+                | HeritageAction::EvidenceExport
+                | HeritageAction::TimestampQuery
+                | HeritageAction::TransferPrepare
+                | HeritageAction::TransferAccept
         )
     }
     pub fn policy(&self) -> Policy {
-        if (self.action == HeritageAction::Mark && self.mark.robust)
+        if (matches!(self.action, HeritageAction::Mark | HeritageAction::C2paMark)
+            && self.mark.robust)
             || (self.action == HeritageAction::Clean && self.clean_signal)
         {
             Policy::Research
@@ -101,11 +137,18 @@ impl HeritageRequest {
             .iter()
             .map(PathBuf::as_path)
             .chain(self.private_key.iter().map(PathBuf::as_path))
+            .chain(self.watermark_key.iter().map(PathBuf::as_path))
             .collect()
     }
     pub fn auxiliary_paths_mut(&mut self) -> Vec<&mut PathBuf> {
         self.key_paths
             .iter_mut()
+            .chain(self.watermark_key.iter_mut())
+            .chain(self.checkpoints.iter_mut())
+            .chain(self.checkpoint_anchors.iter_mut())
+            .chain(self.timestamp_response.iter_mut())
+            .chain(self.timestamp_query.iter_mut())
+            .chain(self.timestamp_roots.iter_mut())
             .chain(self.trust_store.iter_mut())
             .chain(self.c2pa_trust_roots.iter_mut())
             .chain(self.previous.iter_mut())
@@ -121,13 +164,22 @@ impl HeritageRequest {
         })?))
     }
     pub fn validate(&self) -> Result<()> {
-        if self.key_paths.len() > signing::MAX_SIGNERS || self.controls.len() > 8 {
+        if self.key_paths.len().saturating_add(self.key_refs.len()) > signing::MAX_SIGNERS
+            || self.controls.len() > 8
+            || self.checkpoints.len() > 16
+        {
             return Err(Error::Input(
                 "Heritage accepts at most 32 signers and 8 controls".into(),
             ));
         }
-        if self.action != HeritageAction::Mark
-            && (!self.key_paths.is_empty() || self.previous.is_some())
+        if !matches!(
+            self.action,
+            HeritageAction::Mark
+                | HeritageAction::Checkpoint
+                | HeritageAction::EvidenceExport
+                | HeritageAction::TransferPrepare
+                | HeritageAction::TransferAccept
+        ) && (!self.key_paths.is_empty() || !self.key_refs.is_empty() || self.previous.is_some())
         {
             return Err(Error::Input(
                 "Signing keys and prior history require the Mark action".into(),
@@ -140,7 +192,57 @@ impl HeritageRequest {
                 "Certificate credentials require the C2PA Mark action".into(),
             ));
         }
+        if !matches!(self.mark.watermark_version, 1 | 2)
+            || self.media_quality.is_some_and(|q| !(1..=100).contains(&q))
+            || self
+                .max_pixel_mse
+                .is_some_and(|v| !v.is_finite() || !(0.0..=65025.0).contains(&v))
+        {
+            return Err(Error::Input(
+                "Invalid watermark version, quality or pixel-error budget".into(),
+            ));
+        }
+        if self.watermark_key.is_some() && self.watermark_key_ref.is_some() {
+            return Err(Error::Input("Select one watermark-key source".into()));
+        }
         Ok(())
+    }
+}
+
+fn watermark_key(request: &HeritageRequest) -> Result<Option<zeroize::Zeroizing<[u8; 32]>>> {
+    if let Some(path) = &request.watermark_key {
+        return Ok(Some(SigningKey::load(path)?.derive_watermark_key()));
+    }
+    request
+        .watermark_key_ref
+        .as_ref()
+        .map(|reference| super::key_store::load(reference).map(|key| key.derive_watermark_key()))
+        .transpose()
+}
+
+pub(crate) fn artifact_attributes(
+    request: &HeritageRequest,
+    attributes: &[os::Attribute],
+) -> Vec<os::Attribute> {
+    if matches!(
+        request.action,
+        HeritageAction::Checkpoint
+            | HeritageAction::EvidenceExport
+            | HeritageAction::TimestampQuery
+            | HeritageAction::TransferPrepare
+            | HeritageAction::TransferAccept
+    ) {
+        attributes
+            .iter()
+            .filter(|attribute| {
+                let name = attribute.name.to_string_lossy();
+                name == "com.apple.quarantine"
+                    || name.eq_ignore_ascii_case(":Zone.Identifier:$DATA")
+            })
+            .cloned()
+            .collect()
+    } else {
+        attributes.to_vec()
     }
 }
 
@@ -164,7 +266,7 @@ fn detect_format(data: &[u8], hint: &Path, limits: &Limits) -> Result<Format> {
     };
     if !container::supported(format) {
         return Err(Error::Unsupported(
-            "Heritage supports JPEG, PNG, PDF, DOCX, XLSX and PPTX".into(),
+            "Watermark records support JPEG, PNG, PDF, Office, HEIC, AVIF, MP4 and MOV".into(),
         ));
     }
     Ok(format)
@@ -211,9 +313,30 @@ fn trust(request: &HeritageRequest, limits: &Limits) -> Result<TrustStore> {
 }
 fn reference_history(path: &Path, limits: &Limits) -> Result<Vec<SignedRecord>> {
     let snapshot = Snapshot::open(path, limits)?;
-    let format = detect_format(&snapshot.bytes, path, limits)?;
-    let extracted = container::extract(&snapshot.bytes, format)?;
-    let records = history(extracted.manifest.as_deref())?;
+    let records = if snapshot
+        .bytes
+        .iter()
+        .copied()
+        .find(|b| !b.is_ascii_whitespace())
+        == Some(b'{')
+    {
+        let package = super::custody::parse_evidence(&snapshot.bytes)?;
+        let verified =
+            super::custody::verify_evidence(&package, &TrustStore::default(), &[], None)?;
+        if verified.package_signature != VerificationState::Valid
+            || verified.chain.signature != VerificationState::Valid
+            || verified.chain.chain != VerificationState::Valid
+        {
+            return Err(Error::Verification(
+                "Previous evidence package is invalid".into(),
+            ));
+        }
+        package.body.records
+    } else {
+        let format = detect_format(&snapshot.bytes, path, limits)?;
+        let extracted = container::extract(&snapshot.bytes, format)?;
+        history(extracted.manifest.as_deref())?
+    };
     if records.is_empty() {
         return Err(Error::Input(
             "Selected reference has no Heritage history".into(),
@@ -225,25 +348,123 @@ fn reference_history(path: &Path, limits: &Limits) -> Result<Vec<SignedRecord>> 
     Ok(records)
 }
 fn claim_report(records: &[SignedRecord], disclose: bool) -> Value {
-    Value::Array(records.iter().map(|record| {
-        let body = &record.body;
-        let mut item = json!({"sequence":body.sequence,"kind":body.kind,"mode":body.mode,"work_id_sha256":digest(body.work_id.as_bytes()),"author_declared":!body.author.is_empty(),"author_sha256":digest(body.author.as_bytes()),"edition_sha256":digest(body.edition.as_bytes()),"version":body.version,"parent_version":body.parent_version,"actor_key_id":body.actor_key_id,"transfer_to_key_id":body.transfer_to_key_id,"previous_record_sha256":body.previous_record_sha256,"content_sha256":body.content_sha256,"record_sha256":signing::record_hash(record).ok()});
-        if disclose { item["work_id"] = json!(body.work_id); item["author"] = json!(body.author); item["edition"] = json!(body.edition); item["created_at"] = json!(body.created_at); }
-        item
-    }).collect())
+    Value::Array(
+        records
+            .iter()
+            .map(|record| {
+                let body = &record.body;
+                let transformation = body.transformation.as_ref().map(|value| {
+                    json!({
+                        "source_sha256":value.source_sha256,
+                        "source_format_sha256":digest(value.source_format.as_bytes()),
+                        "target_format_sha256":digest(value.target_format.as_bytes()),
+                        "operation_sha256":digest(value.operation.as_bytes())
+                    })
+                });
+                let mut item = json!({
+                    "sequence":body.sequence,
+                    "kind":body.kind,
+                    "mode":body.mode,
+                    "work_id_sha256":digest(body.work_id.as_bytes()),
+                    "author_declared":!body.author.is_empty(),
+                    "author_sha256":digest(body.author.as_bytes()),
+                    "edition_sha256":digest(body.edition.as_bytes()),
+                    "version":body.version,
+                    "parent_version":body.parent_version,
+                    "copy_id_sha256":body.copy_id.as_ref().map(|value|digest(value.as_bytes())),
+                    "rotation_to_key_id":body.rotation_to_key_id,
+                    "transformation":transformation,
+                    "actor_key_id":body.actor_key_id,
+                    "transfer_to_key_id":body.transfer_to_key_id,
+                    "previous_record_sha256":body.previous_record_sha256,
+                    "content_sha256":body.content_sha256,
+                    "record_sha256":signing::record_hash(record).ok()
+                });
+                if disclose {
+                    item["work_id"] = json!(body.work_id);
+                    item["author"] = json!(body.author);
+                    item["edition"] = json!(body.edition);
+                    item["created_at"] = json!(body.created_at);
+                    item["copy_id"] = json!(body.copy_id);
+                    item["transformation"] = json!(body.transformation);
+                }
+                item
+            })
+            .collect(),
+    )
 }
-fn signal(data: &[u8], format: Format, limits: &Limits) -> Result<Value> {
-    if matches!(format, Format::Jpeg | Format::Png) {
-        match robust::detect(&decode_pixels(data, limits)?, limits) {
-            Ok(value) => serde_json::to_value(value)
-                .map_err(|_| Error::Io("Could not serialize signal evidence".into())),
-            Err(Error::Unsupported(reason)) => Ok(json!({"status":"not_assessed","scope":reason})),
-            Err(error) => Err(error),
-        }
-    } else {
-        Ok(json!({"status":"not_assessed","scope":"heritage_dct_jpeg_png_only"}))
+
+fn signal(
+    data: &[u8],
+    format: Format,
+    request: &HeritageRequest,
+    limits: &Limits,
+) -> Result<Value> {
+    let key = watermark_key(request)?;
+    let evidence = crate::watermark_engine::inspect(data, format, key.as_deref(), limits)?;
+    let mut primary = evidence["primary"].clone();
+    primary["detections"] = evidence["detections"].clone();
+    Ok(primary)
+}
+
+fn embed_pixels(
+    base: &[u8],
+    format: Format,
+    request: &HeritageRequest,
+    key: Option<&[u8; 32]>,
+    limits: &Limits,
+) -> Result<(Vec<u8>, Value)> {
+    if matches!(format, Format::Heic | Format::Avif) {
+        fileveil_formats::bmff::validate_pixel_rewrite(base, format, limits)?;
     }
+    let rendered = crate::media_pixels::decode_rendered(base, format, limits)?;
+    let image = &rendered.image;
+    let (marked, _) = crate::watermark_engine::embed(
+        image,
+        &request.mark.work_id,
+        &request.mark.copy_id,
+        key,
+        request.mark.watermark_version,
+        request.mark.strength,
+        limits,
+    )?;
+    let base = if matches!(format, Format::Heic | Format::Avif) {
+        crate::media_pixels::encode(
+            &marked,
+            format,
+            request.media_quality.unwrap_or(95),
+            rendered.icc_profile.as_deref(),
+            limits,
+        )?
+    } else {
+        encode(
+            &marked,
+            format,
+            request.media_quality.unwrap_or(95),
+            base,
+            limits,
+        )?
+    };
+    drop(marked);
+    drop(rendered);
+    let decoded = crate::media_pixels::decode(&base, format, limits)?;
+    let evidence = crate::watermark_engine::inspect_pixels(&decoded, key, limits)?;
+    let detected = &evidence["primary"];
+    let expected = if request.mark.watermark_version == 2 {
+        super::robust_v2::work_id_digest(&request.mark.work_id)?
+    } else {
+        robust::work_id_digest(&request.mark.work_id)?
+    };
+    let copy_matches = request.mark.watermark_version != 2
+        || detected["copy_id_digest"] == super::robust_v2::copy_id_digest(&request.mark.copy_id)?;
+    if detected["frame_valid"] != true || detected["work_id_digest"] != expected || !copy_matches {
+        return Err(Error::Verification(
+            "Encoded watermark failed its blind detector".into(),
+        ));
+    }
+    Ok((base, evidence))
 }
+
 fn encode(
     image: &DynamicImage,
     format: Format,
@@ -251,7 +472,14 @@ fn encode(
     source: &[u8],
     limits: &Limits,
 ) -> Result<Vec<u8>> {
-    let profile = crate::image_processing::decode_profile(source, limits)?;
+    if matches!(format, Format::Heic | Format::Avif) {
+        return crate::media_pixels::encode(image, format, quality, None, limits);
+    }
+    let profile = if source.starts_with(b"\x89PNG\r\n\x1a\n") || source.starts_with(&[0xff, 0xd8]) {
+        crate::image_processing::decode_profile(source, limits)?
+    } else {
+        None
+    };
     if format == Format::Png {
         return crate::image_processing::encode_png(image, source, profile);
     }
@@ -299,9 +527,33 @@ pub fn run(
     limits: &Limits,
 ) -> Result<Report> {
     request.validate()?;
+    if matches!(
+        request.action,
+        HeritageAction::Checkpoint
+            | HeritageAction::EvidenceExport
+            | HeritageAction::EvidenceVerify
+            | HeritageAction::TimestampQuery
+            | HeritageAction::TimestampVerify
+            | HeritageAction::TransferPrepare
+            | HeritageAction::TransferAccept
+    ) {
+        return super::provenance_ops::run(input, output, request, limits);
+    }
     let snapshot = Snapshot::open(input, limits)?;
-    let format = detect_format(&snapshot.bytes, input, limits)?;
-    let extracted = container::extract(&snapshot.bytes, format)?;
+    let format = if request.action == HeritageAction::Clean && request.clean_metadata {
+        fileveil_formats::inspect(&snapshot.bytes, input, limits)?.format
+    } else {
+        detect_format(&snapshot.bytes, input, limits)?
+    };
+    let extracted = if container::supported(format) {
+        container::extract(&snapshot.bytes, format)?
+    } else {
+        container::Extracted {
+            base: snapshot.bytes.clone(),
+            manifest: None,
+            carrier: "standard_metadata_only",
+        }
+    };
     inspect_snapshot(&extracted.base, input, limits)?;
     let legacy_before = old_report(
         &extracted.base,
@@ -359,18 +611,80 @@ pub fn run(
         details["verification"] = serde_json::to_value(&verification)
             .map_err(|_| Error::Io("Could not serialize signature evidence".into()))?;
         details["records"] = claim_report(&records, request.disclose_claims);
-        details["robust"] = signal(&extracted.base, format, limits)?;
+        if !request.checkpoints.is_empty() || request.timestamp_response.is_some() {
+            let attachments = super::provenance_ops::assess_attachments(&records, request, limits)?;
+            let invalid_checkpoint =
+                attachments["external_checkpoints"]
+                    .as_array()
+                    .is_some_and(|rows| {
+                        rows.iter().any(|row| {
+                            row["signature"] == "invalid" || row["history_binding"] == "invalid"
+                        })
+                    });
+            if invalid_checkpoint || attachments["timestamp"]["verification"] == "invalid" {
+                report.result = Outcome::Failed;
+            }
+            details["external_provenance"] = attachments;
+        }
+        details["robust"] = signal(&extracted.base, format, request, limits)?;
+        if report.provenance.is_some()
+            && let Some(association) =
+                super::c2pa_mark::extract_association(&snapshot.bytes, format, limits)?
+        {
+            let pixel = &details["robust"];
+            let linked = if pixel["method_id"] == super::robust_v2::METHOD_ID
+                && pixel["frame_valid"] == true
+            {
+                Some(
+                    pixel["work_id_digest"] == association.work_id_digest
+                        && association
+                            .copy_id_digest
+                            .as_deref()
+                            .is_some_and(|copy| pixel["copy_id_digest"] == copy)
+                        && association
+                            .watermark
+                            .as_ref()
+                            .is_some_and(|mark| pixel["key_id"] == mark.key_id),
+                )
+            } else {
+                None
+            };
+            if linked == Some(false) {
+                report.result = Outcome::Failed;
+            }
+            details["c2pa_association"] = json!({"credential":association,"pixel_reference_match":linked,"scope":"signed_claim_and_keyed_pixel_payload_separately_verified"});
+        }
         if let Some(reference) = &request.reference {
             let reference = reference_history(reference, limits)?;
-            let expected = robust::work_id_digest(
-                &reference.last().expect("nonempty reference").body.work_id,
-            )?;
+            let reference_body = &reference.last().expect("nonempty reference").body;
+            let expected = if details["robust"]["method_id"] == super::robust_v2::METHOD_ID {
+                super::robust_v2::work_id_digest(&reference_body.work_id)?
+            } else {
+                robust::work_id_digest(&reference_body.work_id)?
+            };
             let verification = signing::verify_chain(&reference, &digest(&extracted.base), &store)?;
             let work_match = details["robust"]["frame_valid"] == true
                 && details["robust"]["work_id_digest"] == expected;
+            let copy_match = if details["robust"]["method_id"] == super::robust_v2::METHOD_ID {
+                reference_body
+                    .copy_id
+                    .as_deref()
+                    .map(super::robust_v2::copy_id_digest)
+                    .transpose()?
+                    .map(|expected| details["robust"]["copy_id_digest"] == expected)
+            } else {
+                None
+            };
             details["work_digest_match"] = json!(work_match);
+            details["copy_digest_match"] = json!(copy_match);
+            details["reference_match_scope"] = json!(if copy_match.is_some() {
+                "work_and_copy"
+            } else {
+                "work_only"
+            });
             details["trace_reference_match"] = json!(
                 work_match
+                    && copy_match != Some(false)
                     && verification.signature == VerificationState::Valid
                     && verification.chain == VerificationState::Valid
             );
@@ -423,11 +737,14 @@ pub fn run(
         check_write_safety(&base, format, input, limits)?;
         let transformed = match request.action {
             HeritageAction::Mark => {
-                let keys: Vec<_> = request
+                let mut keys: Vec<_> = request
                     .key_paths
                     .iter()
                     .map(|path| SigningKey::load(path))
                     .collect::<Result<_>>()?;
+                for reference in &request.key_refs {
+                    keys.push(super::key_store::load(reference)?);
+                }
                 if keys.is_empty() {
                     return Err(Error::Input(
                         "Mark requires at least one explicit local Ed25519 signing key".into(),
@@ -438,26 +755,18 @@ pub fn run(
                     None => records?,
                 };
                 if request.mark.robust {
-                    let image = decode_pixels(&base, limits)?;
-                    let (marked, _) = robust::embed(
-                        &image,
-                        &request.mark.work_id,
-                        request.mark.strength,
-                        limits,
-                    )?;
-                    base = encode(&marked, format, 95, &base, limits)?;
-                    drop(marked);
-                    drop(image);
-                    let detected = robust::detect(&decode_pixels(&base, limits)?, limits)?;
-                    if !detected.frame_valid
-                        || detected.work_id_digest
-                            != Some(robust::work_id_digest(&request.mark.work_id)?)
-                    {
-                        return Err(Error::Verification(
-                            "Encoded Heritage signal failed its detector".into(),
-                        ));
-                    }
-                    details["robust"] = json!(detected);
+                    let explicit = watermark_key(request)?;
+                    let derived = if request.mark.watermark_version == 2 && explicit.is_none() {
+                        Some(keys[0].derive_watermark_key())
+                    } else {
+                        None
+                    };
+                    let key = explicit.as_deref().or(derived.as_deref());
+                    let (encoded, evidence) = embed_pixels(&base, format, request, key, limits)?;
+                    base = encoded;
+                    let detected = &evidence["primary"];
+                    details["robust"] = detected.clone();
+                    details["watermarks"] = evidence;
                 }
                 let mut body = RecordBody::new(
                     digest(&base),
@@ -477,6 +786,12 @@ pub fn run(
                     },
                     keys[0].public_key().key_id,
                 );
+                if request.mark.signature_v2 {
+                    body.schema = signing::SCHEMA_V2.into();
+                    body.copy_id = Some(request.mark.copy_id.clone());
+                    body.rotation_to_key_id = request.mark.rotation_to_key_id.clone();
+                    body.transformation = request.mark.transformation.clone();
+                }
                 body.kind = request.mark.kind;
                 body.mode = request.mark.mode;
                 body.edition = request.mark.edition.clone();
@@ -515,21 +830,72 @@ pub fn run(
                         Value::Null
                     };
                 base = clean;
-                if request.clean_signal {
-                    let original = decode_pixels(&base, limits)?;
-                    let (cleaned, _) = robust::clean(&original, limits)?;
-                    base = encode(&cleaned, format, 95, &base, limits)?;
-                    drop(cleaned);
-                    drop(original);
-                    let checked = robust::detect(&decode_pixels(&base, limits)?, limits)?;
-                    if checked.frame_valid {
+                if request.clean_metadata {
+                    let inspection = inspect_snapshot(&base, input, limits)?;
+                    let sanitized = if format == Format::Pdf {
+                        crate::pdf::sanitize(&base, limits)?
+                    } else {
+                        fileveil_formats::sanitize(&base, format, limits)?
+                    };
+                    let after = inspect_snapshot(&sanitized, input, limits)?;
+                    if format != Format::Pdf && inspection.content_digest != after.content_digest {
                         return Err(Error::Verification(
-                            "Heritage DCT protocol still detects after cleaning".into(),
+                            "Standard cleaning changed retained content".into(),
                         ));
                     }
-                    details["robust_recheck"] = json!(checked);
+                    details["standard_metadata_cleaned"] = json!(true);
+                    base = sanitized;
                 }
-                if container::extract(&base, format)?.manifest.is_some() {
+                if request.clean_signal {
+                    if matches!(format, Format::Heic | Format::Avif) {
+                        fileveil_formats::bmff::validate_pixel_rewrite(&base, format, limits)?;
+                    }
+                    let key = watermark_key(request)?;
+                    let rendered = crate::media_pixels::decode_rendered(&base, format, limits)?;
+                    let original = &rendered.image;
+                    let (cleaned, evidence) =
+                        crate::watermark_engine::clean(original, key.as_deref(), limits)?;
+                    base = if matches!(format, Format::Heic | Format::Avif) {
+                        crate::media_pixels::encode(
+                            &cleaned,
+                            format,
+                            request.media_quality.unwrap_or(95),
+                            rendered.icc_profile.as_deref(),
+                            limits,
+                        )?
+                    } else {
+                        encode(
+                            &cleaned,
+                            format,
+                            request.media_quality.unwrap_or(95),
+                            &base,
+                            limits,
+                        )?
+                    };
+                    drop(cleaned);
+                    drop(rendered);
+                    let decoded = crate::media_pixels::decode(&base, format, limits)?;
+                    let checked =
+                        crate::watermark_engine::inspect_pixels(&decoded, key.as_deref(), limits)?;
+                    if checked["detections"].as_array().is_some_and(|rows| {
+                        rows.iter()
+                            .any(|r| r["frame_valid"] == true || r["status"] == "detected")
+                    }) {
+                        return Err(Error::Verification(
+                            "A selected watermark still detects after encoded-copy cleaning".into(),
+                        ));
+                    }
+                    details["robust"] = evidence["before"]["primary"].clone();
+                    details["robust"]["detections"] = evidence["before"]["detections"].clone();
+                    details["signal_processing"] = evidence;
+                    details["robust_recheck"] = checked["primary"].clone();
+                    details["robust_recheck"]["detections"] = checked["detections"].clone();
+                    details["watermarks"] = checked;
+                }
+
+                if container::supported(format)
+                    && container::extract(&base, format)?.manifest.is_some()
+                {
                     return Err(Error::Verification(
                         "A nested Heritage manifest remains".into(),
                     ));
@@ -561,14 +927,76 @@ pub fn run(
                     version: request.mark.version.clone(),
                     asserted_time: request.mark.created_at.clone(),
                 };
-                let signed = super::c2pa_mark::sign_bytes_with_key_path(
-                    &base,
+                let watermark_key = watermark_key(request)?;
+                let mut association = None;
+                if request.mark.robust {
+                    if request.mark.watermark_version != 2 {
+                        return Err(Error::Input(
+                            "Linked C2PA pixel marking requires watermark protocol 2".into(),
+                        ));
+                    }
+                    let (encoded, evidence) =
+                        embed_pixels(&base, format, request, watermark_key.as_deref(), limits)?;
+                    base = encoded;
+                    let detected = &evidence["primary"];
+                    association = Some(super::c2pa_mark::C2paWatermarkAssociation {
+                        method_id: super::robust_v2::METHOD_ID.into(),
+                        work_id_digest: super::robust_v2::work_id_digest(&request.mark.work_id)?,
+                        copy_id_digest: super::robust_v2::copy_id_digest(&request.mark.copy_id)?,
+                        key_id: detected["key_id"].as_str().unwrap_or_default().into(),
+                    });
+                    details["robust"] = detected.clone();
+                    details["watermarks"] = evidence;
+                }
+                let signed = if request.mark.copy_id.is_empty() {
+                    super::c2pa_mark::sign_bytes_with_key_path(
+                        &base,
+                        format,
+                        &cert.bytes,
+                        key,
+                        &claims,
+                        limits,
+                    )?
+                } else {
+                    let context = super::c2pa_mark::C2paMarkContext {
+                        copy_id: request.mark.copy_id.clone(),
+                        watermark: association,
+                    };
+                    super::c2pa_mark::sign_bytes_with_key_path_v2(
+                        &base,
+                        format,
+                        &cert.bytes,
+                        key,
+                        &claims,
+                        &context,
+                        limits,
+                    )?
+                };
+                if request.mark.robust {
+                    let recheck = crate::watermark_engine::inspect(
+                        &signed.bytes,
+                        format,
+                        watermark_key.as_deref(),
+                        limits,
+                    )?;
+                    if recheck["primary"]["frame_valid"] != true
+                        || recheck["primary"]["work_id_digest"]
+                            != super::robust_v2::work_id_digest(&request.mark.work_id)?
+                        || recheck["primary"]["copy_id_digest"]
+                            != super::robust_v2::copy_id_digest(&request.mark.copy_id)?
+                    {
+                        return Err(Error::Verification(
+                            "C2PA signed copy failed its keyed pixel-watermark recheck".into(),
+                        ));
+                    }
+                    details["robust_recheck"] = recheck["primary"].clone();
+                    details["robust_recheck"]["detections"] = recheck["detections"].clone();
+                }
+                details["c2pa_association"] = json!(super::c2pa_mark::extract_association(
+                    &signed.bytes,
                     format,
-                    &cert.bytes,
-                    key,
-                    &claims,
-                    limits,
-                )?;
+                    limits
+                )?);
                 if !cert.unchanged(certificate, limits)? {
                     return Err(Error::Blocked("C2PA certificate changed".into()));
                 }
@@ -583,11 +1011,23 @@ pub fn run(
                 "Heritage output exceeds the input byte budget".into(),
             ));
         }
-        let output_format = detect_format(&transformed, input, limits)?;
+        let output_format = if container::supported(format) {
+            detect_format(&transformed, input, limits)?
+        } else {
+            fileveil_formats::inspect(&transformed, input, limits)?.format
+        };
         if output_format != format {
             return Err(Error::Verification("Heritage output format changed".into()));
         }
-        let parsed = container::extract(&transformed, format)?;
+        let parsed = if container::supported(format) {
+            container::extract(&transformed, format)?
+        } else {
+            container::Extracted {
+                base: transformed.clone(),
+                manifest: None,
+                carrier: "standard_metadata_only",
+            }
+        };
         let verified_base = old_clean(&parsed.base, format, limits)?;
         inspect_snapshot(&verified_base, input, limits)?;
         drop(verified_base);
@@ -611,9 +1051,13 @@ pub fn run(
             details["pdf_display"] = display;
         }
         report.integrity.parseable = true;
-        if matches!(format, Format::Jpeg | Format::Png) {
-            if crate::image_processing::decode_profile(&snapshot.bytes, limits)?
-                != crate::image_processing::decode_profile(&transformed, limits)?
+        if matches!(format, Format::Jpeg | Format::Png)
+            || (matches!(format, Format::Heic | Format::Avif)
+                && request.policy() == Policy::Research)
+        {
+            if matches!(format, Format::Jpeg | Format::Png)
+                && crate::image_processing::decode_profile(&snapshot.bytes, limits)?
+                    != crate::image_processing::decode_profile(&transformed, limits)?
             {
                 return Err(Error::Verification(
                     "Heritage output changed the retained ICC profile".into(),
@@ -627,9 +1071,10 @@ pub fn run(
                     "Heritage output changed PNG color or display records".into(),
                 ));
             }
-            details["color_metadata_preserved"] = json!(true);
-            let before = decode_pixels(&snapshot.bytes, limits)?.into_rgba8();
-            let after = decode_pixels(&transformed, limits)?.into_rgba8();
+            details["color_metadata_preserved"] =
+                json!(matches!(format, Format::Jpeg | Format::Png));
+            let before = crate::media_pixels::decode(&snapshot.bytes, format, limits)?.into_rgba8();
+            let after = crate::media_pixels::decode(&transformed, format, limits)?.into_rgba8();
             report.integrity.decodeable = Some(true);
             report.integrity.pixel_equal = Some(before == after);
             if before.dimensions() == after.dimensions() {
@@ -641,11 +1086,50 @@ pub fn run(
                     .sum::<f64>()
                     / before.as_raw().len().max(1) as f64;
                 details["pixel_mse_rgba8"] = json!(mse);
+                if request.max_pixel_mse.is_some_and(|budget| mse > budget) {
+                    return Err(Error::Verification(
+                        "Processed copy exceeds the selected pixel-error budget".into(),
+                    ));
+                }
             }
             if request.policy() == Policy::Safe && report.integrity.pixel_equal != Some(true) {
                 return Err(Error::Verification(
                     "Structural Heritage operation changed decoded pixels".into(),
                 ));
+            }
+        }
+        if matches!(
+            format,
+            Format::Heic | Format::Avif | Format::Mp4 | Format::Mov
+        ) && request.policy() == Policy::Safe
+        {
+            let original_base = container::extract(&snapshot.bytes, format)?.base;
+            let output_base = container::extract(&transformed, format)?.base;
+            let encoded_equal =
+                fileveil_formats::bmff::retained_media_digest(&original_base, format, limits)?
+                    == fileveil_formats::bmff::retained_media_digest(&output_base, format, limits)?;
+            if !encoded_equal {
+                return Err(Error::Verification(
+                    "Native media encoded samples or presentation fields changed".into(),
+                ));
+            }
+            if request.action == HeritageAction::Clean
+                && request.clean_metadata
+                && !request.remove_c2pa
+            {
+                let checked =
+                    fileveil_formats::bmff::verify(&original_base, &output_base, format, limits)?;
+                if checked.result == Outcome::Failed
+                    || checked.integrity.content_equal != Some(true)
+                {
+                    return Err(Error::Verification(
+                        "Native media metadata reconstruction failed".into(),
+                    ));
+                }
+                details["media_verification"] = json!({"result":checked.result,"integrity":checked.integrity,"warnings":checked.warnings});
+            } else {
+                details["media_verification"] = json!({"encoded_samples_and_presentation_equal":true,
+                    "base_byte_equal":original_base==output_base,"scope":"retained_encoded_media_and_known_presentation_fields"});
             }
         }
         report.integrity.content_equal = if format == Format::Pdf
@@ -727,7 +1211,7 @@ pub fn publish_staged(
     ensure_new_artifact(&original.file, &artifact.file)?;
     if report.input_sha256.as_deref() != Some(digest(&original.bytes).as_str())
         || report.output_sha256.as_deref() != Some(digest(&artifact.bytes).as_str())
-        || original.attributes != artifact.attributes
+        || artifact_attributes(request, &original.attributes) != artifact.attributes
     {
         return Err(Error::Blocked(
             "Heritage publication input or copy changed".into(),
@@ -747,13 +1231,41 @@ fn attack_lab(
     request: &HeritageRequest,
     limits: &Limits,
 ) -> Result<Value> {
-    if !matches!(format, Format::Jpeg | Format::Png) {
+    if matches!(format, Format::Mp4 | Format::Mov) {
+        let key = watermark_key(request)?;
+        let frames = match crate::media_pixels::video_frames(data, format, limits, 3) {
+            Ok(frames) => frames,
+            Err(Error::Unsupported(reason)) => {
+                return Ok(json!({
+                    "pixel_protocol":"not_assessed", "scope":"selected_video_frames", "reason":reason,
+                    "video_cleaning":"not_assessed", "frames":[]
+                }));
+            }
+            Err(error) => return Err(error),
+        };
+        let mut rows = Vec::new();
+        for (index, frame) in frames.iter().enumerate() {
+            let signal = crate::watermark_engine::inspect_pixels(frame, key.as_deref(), limits)?;
+            let public = crate::watermark::detect_decoded(Some(frame), Format::Png, limits)?;
+            rows.push(json!({"second":index,"dimensions":[frame.width(),frame.height()],"watermarks":signal,"public_detections":public}));
+        }
+        return Ok(
+            json!({"pixel_protocol":"selected_video_frames", "scope":"up_to_three_whole_second_frames",
+            "frames":rows, "video_cleaning":"not_assessed",
+            "limitations":["Unsampled frames and temporal watermark families are outside this assessment.","Frame signal matches carry no device or authorship attribution."]}),
+        );
+    }
+    if !matches!(
+        format,
+        Format::Jpeg | Format::Png | Format::Heic | Format::Avif
+    ) {
         return Ok(
             json!({"legacy":old_report(data,format,limits,request.disclose_identifiers)?,"pixel_protocol":"unsupported","scope":"legacy_structure_comparison"}),
         );
     }
-    let decoded = decode_pixels(data, limits)?;
-    let source_detection = detect_pixels(&decoded, limits)?;
+    let key = watermark_key(request)?;
+    let decoded = crate::media_pixels::decode(data, format, limits)?;
+    let source_detection = detect_pixels(&decoded, key.as_deref(), limits)?;
     let clean_applicable = source_detection["frame_valid"] == true;
     // One normalized source allocation also supplies the MSE reference.
     let image = DynamicImage::ImageRgba8(decoded.into_rgba8());
@@ -806,8 +1318,28 @@ fn attack_lab(
                     Err(error) => return Err(error),
                 }
             }
-            "jpeg_90" => encode(&image, Format::Jpeg, 90, data, limits)?,
-            "jpeg_70" => encode(&image, Format::Jpeg, 70, data, limits)?,
+            "jpeg_90" => encode(
+                &image,
+                Format::Jpeg,
+                90,
+                if matches!(format, Format::Jpeg | Format::Png) {
+                    data
+                } else {
+                    &[]
+                },
+                limits,
+            )?,
+            "jpeg_70" => encode(
+                &image,
+                Format::Jpeg,
+                70,
+                if matches!(format, Format::Jpeg | Format::Png) {
+                    data
+                } else {
+                    &[]
+                },
+                limits,
+            )?,
             "resize_75_percent" => encode(
                 &image.resize_exact(
                     (width * 3 / 4).max(1),
@@ -820,7 +1352,7 @@ fn attack_lab(
                 limits,
             )?,
             "targeted_fileveil_dct_clean" => {
-                let (cleaned, _) = robust::clean(&image, limits)?;
+                let (cleaned, _) = crate::watermark_engine::clean(&image, key.as_deref(), limits)?;
                 encode(&cleaned, Format::Png, 95, data, limits)?
             }
             _ => encode(
@@ -842,7 +1374,7 @@ fn attack_lab(
             ));
         }
         let current = decode_pixels(&bytes, limits)?;
-        let detection = detect_pixels(&current, limits)?;
+        let detection = detect_pixels(&current, key.as_deref(), limits)?;
         let decoded = current.into_rgba8();
         let mse = (decoded.dimensions() == original.dimensions()).then(|| {
             original
@@ -870,7 +1402,11 @@ fn attack_lab(
             .min(limits.max_uncompressed_bytes.saturating_sub(total_bytes));
         let snapshot = Snapshot::open(path, &remaining)?;
         total_bytes = total_bytes.saturating_add(snapshot.bytes.len() as u64);
-        let checked = detect_pixels(&decode_pixels(&snapshot.bytes, limits)?, limits)?;
+        let checked = detect_pixels(
+            &decode_pixels(&snapshot.bytes, limits)?,
+            key.as_deref(),
+            limits,
+        )?;
         if !snapshot.unchanged(path, limits)? {
             return Err(Error::Blocked("Heritage Lab control changed".into()));
         }
@@ -935,10 +1471,9 @@ fn lab_structural_fields(data: &[u8]) -> Result<serde_json::Map<String, Value>> 
     Ok(fields)
 }
 
-fn detect_pixels(image: &DynamicImage, limits: &Limits) -> Result<Value> {
-    match robust::detect(image, limits) {
-        Ok(value) => Ok(json!(value)),
-        Err(Error::Unsupported(reason)) => Ok(json!({"status":"not_assessed","scope":reason})),
-        Err(error) => Err(error),
-    }
+fn detect_pixels(image: &DynamicImage, key: Option<&[u8; 32]>, limits: &Limits) -> Result<Value> {
+    let evidence = crate::watermark_engine::inspect_pixels(image, key, limits)?;
+    let mut primary = evidence["primary"].clone();
+    primary["detections"] = evidence["detections"].clone();
+    Ok(primary)
 }

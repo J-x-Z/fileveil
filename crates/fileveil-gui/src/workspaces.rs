@@ -27,13 +27,13 @@ pub enum Workspace {
 impl Workspace {
     pub fn label(self, language: Language) -> &'static str {
         match self {
-            Self::Files => t(language, "文件扫描", "Files"),
-            Self::Deep => t(language, "深度净化", "Deep clean"),
-            Self::Images => t(language, "图片水印", "Image watermarks"),
-            Self::Lab => t(language, "差异实验室", "Diff Lab"),
-            Self::Provenance => t(language, "AI 来源", "AI Provenance"),
-            Self::Tasks => t(language, "批量与验证", "Tasks & verification"),
-            Self::Heritage => t(language, "Heritage 引擎", "Heritage Engine"),
+            Self::Files => t(language, "Verify 文件", "Verify files"),
+            Self::Deep => t(language, "Clean 文件", "Clean files"),
+            Self::Images => t(language, "Lab 图像", "Lab signals"),
+            Self::Lab => t(language, "Lab 差异", "Lab comparison"),
+            Self::Provenance => t(language, "Verify 来源", "Verify provenance"),
+            Self::Tasks => t(language, "Clean 批量", "Clean batch"),
+            Self::Heritage => t(language, "Mark / Trace", "Mark / Trace"),
         }
     }
 }
@@ -182,7 +182,7 @@ impl Workspaces {
             | JobKind::DetectWatermark { path }
             | JobKind::Scan { path }
             | JobKind::Heritage { path, .. } => Some(path.clone()),
-            JobKind::HeritageKeygen { .. } => None,
+            JobKind::HeritageKeygen { .. } | JobKind::SystemKeygen => None,
             JobKind::Lab { .. } | JobKind::LabGrouped { .. } => None,
         };
         if matches!(kind, JobKind::SanitizeAdvanced { .. }) {
@@ -1603,7 +1603,11 @@ fn t<'a>(language: Language, zh: &'a str, en: &'a str) -> &'a str {
 
 fn heritage_report_ui(ui: &mut egui::Ui, language: Language, details: &serde_json::Value) {
     ui.separator();
-    ui.strong(t(language, "Heritage 实际结果", "Heritage results"));
+    ui.strong(t(
+        language,
+        "水印与来源验证结果",
+        "Watermark and provenance results",
+    ));
     if let Some(public) = details.get("public_key") {
         ui.label(t(
             language,
@@ -1732,18 +1736,99 @@ fn heritage_report_ui(ui: &mut egui::Ui, language: Language, details: &serde_jso
     }
     for key in ["robust", "robust_recheck"] {
         if let Some(signal) = details.get(key) {
-            ui.label(format!(
-                "{} · {}",
-                t(
-                    language,
-                    "Heritage DCT 公开摘要",
-                    "Heritage DCT public reference"
-                ),
-                label(&signal["status"])
-            ));
-            if let Some(work) = signal["work_id_digest"].as_str() {
-                ui.monospace(work);
+            ui.strong(if key == "robust_recheck" {
+                t(language, "处理后复检", "Post-processing recheck")
+            } else {
+                t(language, "内容水印", "Content watermark")
+            });
+            let signals = signal["detections"]
+                .as_array()
+                .cloned()
+                .unwrap_or_else(|| vec![signal.clone()]);
+            for signal in signals {
+                if signal["method_id"]
+                    .as_str()
+                    .is_some_and(|method| method.starts_with("fileveil_"))
+                {
+                    ui.label(format!(
+                        "{} · {}",
+                        signal["method_id"].as_str().unwrap_or_default(),
+                        label(&signal["status"])
+                    ));
+                    for (field, zh, en) in [
+                        ("work_id_digest", "作品摘要", "Work digest"),
+                        ("copy_id_digest", "副本摘要", "Copy digest"),
+                        ("key_id", "水印密钥摘要", "Watermark key digest"),
+                    ] {
+                        if let Some(value) = signal[field].as_str() {
+                            ui.label(t(language, zh, en));
+                            ui.monospace(value);
+                        }
+                    }
+                    if let Some(authenticated) = signal["authenticated"].as_bool() {
+                        ui.small(if authenticated { t(language,"水印载荷 MAC 验证通过。作者及当前文件绑定另行验证。","Watermark payload MAC verified. Authorship and current asset binding are checked separately.") }
+                            else { t(language,"水印载荷尚未通过密钥认证。","The watermark payload has no successful key authentication.") });
+                    }
+                    if let Some(corrected) = signal["corrected_codeword_bits"].as_u64() {
+                        ui.small(format!(
+                            "{} {corrected}",
+                            t(language, "BCH 纠正位数", "BCH corrected bits")
+                        ));
+                    }
+                    if let Some(angle) = signal["deskew_degrees"].as_f64() {
+                        ui.small(format!(
+                            "{} {angle:.2}°",
+                            t(language, "几何校正", "Geometric correction")
+                        ));
+                    }
+                    if let Some(scope) = signal["scope"].as_str() {
+                        ui.small(crate::i18n::tr(language, scope));
+                    }
+                } else if signal["method_id"].as_str().is_some() {
+                    detection_ui(ui, language, &signal);
+                }
             }
+        }
+    }
+    if let Some(copy_match) = details["copy_digest_match"].as_bool() {
+        ui.label(if copy_match {
+            t(language, "发行副本摘要匹配", "Issue-copy digest matches")
+        } else {
+            t(language, "发行副本摘要不匹配", "Issue-copy digest mismatch")
+        });
+    }
+    for section in [
+        "external_provenance",
+        "checkpoint_verification",
+        "evidence_verification",
+        "timestamp",
+        "c2pa_association",
+    ] {
+        if let Some(value) = details.get(section) {
+            egui::CollapsingHeader::new(match section {
+                "external_provenance" => t(
+                    language,
+                    "外部检查点与时间戳结果",
+                    "External checkpoint and timestamp results",
+                ),
+                "checkpoint_verification" => {
+                    t(language, "签名检查点结果", "Signed checkpoint result")
+                }
+                "evidence_verification" => t(language, "版权证据结果", "Copyright evidence result"),
+                "timestamp" => t(
+                    language,
+                    "RFC 3161 验证结果",
+                    "RFC 3161 verification result",
+                ),
+                _ => t(
+                    language,
+                    "C2PA 作品与水印关联",
+                    "C2PA work and watermark association",
+                ),
+            })
+            .show(ui, |ui| {
+                ui.monospace(serde_json::to_string_pretty(value).unwrap_or_default());
+            });
         }
     }
     if let Some(matched) = details["trace_reference_match"].as_bool() {
@@ -1798,7 +1883,24 @@ fn heritage_report_ui(ui: &mut egui::Ui, language: Language, details: &serde_jso
         }
     }
     if let Some(lab) = details.get("lab") {
-        if let Some(rows) = lab["rows"].as_array() {
+        if let Some(frames) = lab["frames"].as_array() {
+            ui.label(format!(
+                "{} {}",
+                t(language, "已分析视频帧", "Analyzed video frames"),
+                frames.len()
+            ));
+            if let Some(reason) = lab["reason"].as_str() {
+                ui.small(crate::i18n::tr(language, reason));
+            }
+            for frame in frames {
+                ui.label(format!(
+                    "{}s · {}",
+                    frame["second"],
+                    label(&frame["watermarks"]["primary"]["status"])
+                ));
+            }
+            ui.small(t(language,"仅覆盖选定帧，时域水印与其他帧未评估。", "Assessment covers selected frames. Temporal watermarks and other frames remain unassessed."));
+        } else if let Some(rows) = lab["rows"].as_array() {
             ui.label(format!(
                 "{} {} / {}",
                 t(language, "已检出变体", "Detected variants"),

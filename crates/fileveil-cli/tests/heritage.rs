@@ -267,3 +267,153 @@ fn human_trace_prints_signature_binding_and_custody_records() {
     assert!(text.contains("content_binding · valid"));
     assert!(text.contains("Signed record 0 · create · version 1"));
 }
+
+#[test]
+fn public_v2_commands_keep_copy_identity_key_scope_and_verified_cleaning() {
+    let directory = tempfile::tempdir().unwrap();
+    let key = directory.path().join("owner.key");
+    let wrong = directory.path().join("other.key");
+    for path in [&key, &wrong] {
+        successful(&run(&[
+            "heritage-keygen",
+            "-o",
+            path.to_str().unwrap(),
+            "--json",
+        ]));
+    }
+    let input = png(directory.path());
+    let original = std::fs::read(&input).unwrap();
+    let marked = directory.path().join("copy-a.png");
+    let other = directory.path().join("copy-b.png");
+    for (output, copy) in [(&marked, "copy-a"), (&other, "copy-b")] {
+        let value = successful(&run(&[
+            "mark",
+            input.to_str().unwrap(),
+            "-o",
+            output.to_str().unwrap(),
+            "--key",
+            key.to_str().unwrap(),
+            "--pixel",
+            "--copy-id",
+            copy,
+            "--work-id",
+            "same-public-work",
+            "--created-at",
+            "2026-11-13T00:00:00Z",
+            "--json",
+        ]));
+        assert_eq!(
+            value["advanced"]["heritage"]["robust"]["authenticated"],
+            true
+        );
+        assert_eq!(value["integrity"]["original_unchanged"], true);
+    }
+    let verified = successful(&run(&[
+        "verify",
+        marked.to_str().unwrap(),
+        "--watermark-key",
+        key.to_str().unwrap(),
+        "--json",
+    ]));
+    assert_eq!(
+        verified["advanced"]["heritage"]["robust"]["frame_valid"],
+        true
+    );
+    let wrong_key = successful(&run(&[
+        "verify",
+        marked.to_str().unwrap(),
+        "--watermark-key",
+        wrong.to_str().unwrap(),
+        "--json",
+    ]));
+    assert_ne!(
+        wrong_key["advanced"]["heritage"]["robust"]["frame_valid"],
+        true
+    );
+    let trace = successful(&run(&[
+        "trace",
+        marked.to_str().unwrap(),
+        "--watermark-key",
+        key.to_str().unwrap(),
+        "--reference",
+        other.to_str().unwrap(),
+        "--json",
+    ]));
+    assert_eq!(trace["advanced"]["heritage"]["work_digest_match"], true);
+    assert_eq!(trace["advanced"]["heritage"]["copy_digest_match"], false);
+    assert_eq!(
+        trace["advanced"]["heritage"]["trace_reference_match"],
+        false
+    );
+    let cleaned = directory.path().join("clean.png");
+    let clean = successful(&run(&[
+        "clean",
+        marked.to_str().unwrap(),
+        "-o",
+        cleaned.to_str().unwrap(),
+        "--pixel",
+        "--watermark-key",
+        key.to_str().unwrap(),
+        "--json",
+    ]));
+    assert_eq!(
+        clean["advanced"]["heritage"]["modern_manifest_removed"],
+        true
+    );
+    assert_ne!(
+        clean["advanced"]["heritage"]["robust_recheck"]["frame_valid"],
+        true
+    );
+    assert_eq!(clean["integrity"]["original_unchanged"], true);
+    assert_eq!(std::fs::read(input).unwrap(), original);
+    assert_eq!(
+        run(&[
+            "clean",
+            marked.to_str().unwrap(),
+            "-o",
+            cleaned.to_str().unwrap(),
+            "--json"
+        ])
+        .status
+        .code(),
+        Some(2),
+    );
+}
+
+#[test]
+fn public_clean_targets_deployed_sd_payload_and_reports_encoded_recheck() {
+    let directory = tempfile::tempdir().unwrap();
+    let input = directory.path().join("sdxl.png");
+    let output = directory.path().join("sdxl-clean.png");
+    std::fs::copy(
+        root().join("crates/fileveil-engine/tests/fixtures/watermark/astronaut-sdxl.png"),
+        &input,
+    )
+    .unwrap();
+    let original = std::fs::read(&input).unwrap();
+    let value = successful(&run(&[
+        "clean",
+        input.to_str().unwrap(),
+        "-o",
+        output.to_str().unwrap(),
+        "--pixel",
+        "--json",
+    ]));
+    let evidence = &value["advanced"]["heritage"];
+    assert!(
+        evidence["signal_processing"]["processed_methods"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|method| method == "stable_diffusion_xl_dwt_dct")
+    );
+    assert!(
+        evidence["robust_recheck"]["detections"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|row| row["status"] != "detected")
+    );
+    assert_eq!(value["integrity"]["original_unchanged"], true);
+    assert_eq!(std::fs::read(input).unwrap(), original);
+}

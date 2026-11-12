@@ -2076,7 +2076,7 @@ mod tests {
         for _ in 0..2 {
             update = render_test_frame(&mut app, &context, Vec::new());
         }
-        click_label(&mut app, &context, &update, "Deep clean");
+        click_label(&mut app, &context, &update, "Clean files");
         assert!(app.workspaces.selected == Workspace::Deep);
         update = render_test_frame(&mut app, &context, Vec::new());
         click_label(&mut app, &context, &update, "Office content scope");
