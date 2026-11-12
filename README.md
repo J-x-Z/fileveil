@@ -207,3 +207,5 @@ WAV/FLAC 标准隐私标签清理保留编码音频负载，技术声道和增�
 补齐队列图片水印检测、像素与归档资源设置、大报告分页和搜索缓存。修复 MCP 目录身份授权、手机媒体嵌套元数据、Office 历史隐藏属性、极端预算计算与 Markdown 候选扫描性能问题。复现记录与测量见 [审计记录](docs/AUDIT_2026-11-12.md)。
 
 Rust GUI 库新增 `TaskKind::DetectWatermark` 枚举项。下游对 `TaskKind` 使用穷尽匹配时，需增加该分支。`SignalObservation` 增加源样本类型与 RGB8 转换字段，用于说明统计范围。Rust 字段字面量需补充 `source_sample_model` 和 `converted_to_rgb8`，优先使用 `analyze_signal` 返回的观察结果。旧 JSON 通过默认值继续读取。CLI 命令及既有 JSON 报告字段继续兼容，新增检测证据字段可按可选字段读取。
+
+0.5 的 Rust 配置新增密钥引用、发行副本、协议版本和外部证据字段。直接构造完整 `HeritageRequest` 或 `MarkSettings` 的调用方需补充新字段，或使用 `..Default::default()` 继承兼容默认值。原 `heritage` 请求仍默认 v1，新的 Mark 入口默认签名 v2 和像素协议 2。JSON 报告维持 schema 0.4，新增结果放在可选 `advanced` 字段。

@@ -72,3 +72,5 @@ Anthropic 官方说明 Claude 文本水印采用 SynthID-Text 方法族，检测
 2.0 的作品摘要为 96 位，发行副本摘要为 64 位，载荷 MAC 为 96 位。摘要用于标识关联，原文与签名声明共同保存在结构记录或显式证据包。无水印密钥时 v2 返回未评估。0.4 公开 DCT 检测继续独立报告。
 
 原生编解码器可由可信绝对路径 FILEVEIL_AVIFDEC、FILEVEIL_AVIFENC、FILEVEIL_HEIFDEC、FILEVEIL_HEIFENC、FILEVEIL_FFMPEG 配置。macOS 使用已探测的系统 sips 能力作为图片后备。发行包的可选后端是否可用以 capabilities 为准。
+
+Linux 的 libheif 命令与实际编解码插件分别探测。HEVC 解码需要 libheif-plugin-libde265，HEIC 像素编码需要可用的 HEVC 编码插件，例如 libheif-plugin-x265。插件缺失时该像素范围返回 unsupported，已解析的结构签名验证可继续报告自己的范围。编解码器对损坏内容的拒绝保持安全失败。外部编解码工具及插件采用各自许可证，当前发行包仅捆绑既有 PDF 后端。[Ubuntu 解码插件](https://packages.ubuntu.com/noble/libheif-plugin-libde265)、[编码插件](https://packages.ubuntu.com/noble/libheif-plugin-x265)。

@@ -320,3 +320,49 @@ macOS 本机包严格 ad-hoc 签名验证通过，Gatekeeper 拒绝。Windows Au
 Linux 首轮 CI 因 runner 磁盘耗尽中止，错误和 SIGBUS 链接日志已保留。Linux-only 迁移一次旧 debug 缓存后，可用空间由 4.2 GiB 恢复至 13 GiB，保留 release 与依赖缓存。后续 job 正常复用 debug 4.2 GiB、release 3.2 GiB，空间保持 7.3 GiB，迁移不会重复清理。该设置使用同一 target，关闭增量与 CI 测试调试符号并限制两路构建。
 
 本机记录位于 `work/v04-research/`，包括 `acceptance-cli-final-summary.json`、`macos-native-acceptance.json`、`macos-cua-observations.json` 和 `ci-final/43285490025/`。原始三平台日志及容量异常记录位于 `work/v04-ci-evidence/`。发行包源码对应产品代码，后续验收记录提交独立标识。
+
+## 0.5 Watermark Engine 2.0 验收
+
+最终产品源码为 `80476a94a4b52c65aff4c0d4a80187040a244bd9`。本机锁定离线 workspace 测试完成 46 个目标，407 项通过、0 失败、20 项忽略。全目标 Clippy `-D warnings`、格式检查、7 项打包测试与 13 项基准测量回归通过。忽略测试按后端能力另行显式执行，具体范围与平台记录分开保留。
+
+### 固定语料与独立复检
+
+同一 200 张真实图片分别执行 0.4 强度 32、2.0 Quality 12 与 Robust 20，累计 26,400 条记录且无执行错误。每配置的 8,000 项固定操作分别正确恢复 6,219、7,127、7,672 次，操作包含原图与无损控制。嵌入 SSIM 分别为 0.928953、0.970352、0.951193，协议 worker 峰值 RSS 分别为 102.375、106.328、114.156 MiB。2.0 每配置 200 张阴性与 200 次错误密钥均未检出，尚未受攻击的 200 张嵌入副本经定向清理后均为严格 `not_detected`。0.4 清理后完整帧为零，其中 70 张仍为 `indeterminate`。
+
+公开源图使用有界缩略图并保留逐图许可、来源、尺寸和 SHA-256。算法、脚本及执行文件分别绑定身份。每类两张的独立 OpenCV 子集对原图、JPEG 70 和清理副本复核。另有独立 Python 编码的 24 项几何向量与五种任意角旋转由 Rust 恢复。600 次实际原生窗口 framebuffer 补测全部恢复正确作品及副本摘要，24 项阴性与 12 项独立检测通过。全桌面合成器截图保持单独验收范围。逐操作 BER、图像质量、CPU 定义和低码率回退见 [基准记录](WATERMARK_BENCHMARK.md)。
+
+### 检测、净化与媒体互操作
+
+公共检测器与 v1/v2 通过共享引擎执行 Mark → Detect → Clean → Recheck。正常 Core 回归覆盖 32×32 公开 LSB 图片，Lab 按实际源检测器复检变体、定向清理和阴性对照。Stable Diffusion 1 与 SDXL 的四份真实上游编码正样本在清理后由独立上游解码器复核，位匹配分别降至 68/136 与 21/48，PSNR 为 41.59–42.35 dB。
+
+本机 HEIC 和 AVIF 的实际 Mark → Verify → Lab → Clean → Recheck 显式测试通过，包含非空 ICC、NCLX、原件摘要和阴性对照。源 ICC 若被后端省略或改写，会拒绝发布。可用能力取决于实际编码器、解码器及插件，HDR、高位深、辅助图和多图结构继续保护。原生载体还验证 MP4/MOV 的字节精确往返。实际 H.264 视频的三个整秒采样帧均恢复正确 v2 作品与副本摘要，原件不变。时域水印和全视频信号净化仍未实现。
+
+### 签名、交接与本机 GUI
+
+轮换、双设备交接、版本关联、显式信任锚、系统密钥引用、外部检查点和离线 RFC 3161 查询/响应均有正反例。临时 TSA 对正确响应、错误根、错误 nonce、错误摘要与篡改执行验证。版权证据包由独立 Python/OpenSSL 检查。C2PA ES256 创建复用作品及副本摘要，实际像素水印、资产绑定、显式根与错误密钥分开验证。MCP stdio 覆盖新入口闭环及默认拒绝密钥、辅助路径和输出权限。
+
+macOS 原生 GUI 实际通过文件选择器完成 v2 植入、密钥验证、像素与元数据清理、JSON 导出、参考副本追踪和证据包导出，独立验证器确认导出包及提供资产有效。深浅主题经过实际切换后恢复深色。该次交互使用最终 Lab/插件回归修正前的 0.5 包，已绑定当时的可执行文件、报告及输出 SHA-256。最终生产代码另由原生 CI 验收。记录位于 `work/v05-gui-acceptance/native-cua-receipt.json`。
+
+当前默认采用 Quality 12，Robust 20 可由用户显式选择。2.0 采用密钥 DCT、BCH 与几何同步，DWT/Haar 用于已有公开检测和分析。DWT 混合嵌入与 LDPC 尚未实现。未知 OEM、专有密钥 AI 水印和总体人群误报率继续保持未评估。水印 MAC、当前资产签名、发行者信任及历史完整性分别报告。
+
+### 最终三平台原生 CI
+
+最终生产代码的[三平台工作流 43324589936](https://github.com/J-x-Z/fileveil/actions/runs/43324589936) 实际执行 Rust 1.100 原生构建、测试、GUI 启动、打包及包内 CLI 检查。
+
+| 原生平台 | 默认测试通过 | 失败 | 默认忽略 | GUI framebuffer 与交互 |
+| --- | --- | --- | --- | --- |
+| macOS Apple Silicon | 407 | 0 | 20 | 1060×700，3 帧，本机另有完整 v2 GUI 交互 |
+| Windows x86_64 | 390 | 0 | 17 | 1024×768，水印页 4 个与兼容验证页 6 个系统指针事件 |
+| Linux x86_64 | 401 | 0 | 17 | 1280×850，水印页 4 个与兼容验证页 6 个系统指针事件 |
+
+三平台均显式通过临时 ES256 C2PA 创建、RFC 3161 TSA、独立证据包验证和真实系统密钥存储往返。macOS 使用隔离临时 Keychain，Windows 使用当前用户 Credential Manager，Linux 使用临时 D-Bus 与 GNOME Secret Service。Linux 另执行真实 HEIC/AVIF 解码插件探测和 H.264 采样帧互操作。几何独立编码向量也由三平台实际运行。默认忽略数量与显式互操作步骤分别统计。
+
+Windows 使用 CI 专用 Mesa 软件 OpenGL，Linux 使用 Xvfb/XTEST。系统指针验收覆盖公开 SDXL 检测及原 `heritage` 历史样本验证。最终截图均已查看，原件 SHA-256、包内 JPEG 净化与二次验证通过。新 v2 GUI 的完整人工操作范围为上述 macOS 本机记录。
+
+macOS 本机发行包使用 Rust 1.99 构建，严格 ad-hoc 签名验证通过，Gatekeeper 拒绝。Windows 的 GUI 与 CLI 均为 `NotSigned`。Developer ID、公证及 Windows 正式代码签名继续等待发行凭据。Linux 包需要系统 qpdf，独立 PDF 显示复验需要另配 Poppler，图片与视频可选后端按能力探测启用。
+
+三份 0.5.0 归档位于 `dist/`，每包附 MPL-2.0、第三方声明及对应源码。Windows/Linux 可执行文件保持最终 CI 原字节，源码 ZIP 同步本节验收记录与迁移说明。Linux 归档保留两份可执行文件的 0755 权限。旧 0.3.0、0.4.0 六份归档摘要保持一致。发行与 CI 证据位于 `work/v05-final-package/` 及 `work/v05-ci-evidence/run-43324589936/`。
+
+### 构建空间
+
+复用现有 Cargo target，仅删除经文件身份、单硬链接、时间和进程占用检查确认的 20 个旧版项目测试可执行文件，实际释放 1,953,134,504 字节，约 1.82 GiB。源码、全部旧版发行归档和有效测试证据保留，清理收据为 `work/v05-cache-cleanup.json`。语料源图约 88.93 MiB，攻击中间文件自动回收。
