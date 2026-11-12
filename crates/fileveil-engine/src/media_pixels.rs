@@ -216,6 +216,7 @@ pub fn decode_rendered(data: &[u8], format: Format, limits: &Limits) -> Result<R
     fileveil_formats::bmff::inspect(data, format, limits)?;
     fileveil_formats::bmff::validate_decoder_references(data, format, limits)?;
     fileveil_formats::bmff::validate_pixel_dimensions(data, format, limits)?;
+    let embedded_profile = fileveil_formats::bmff::embedded_icc_profile(data, format, limits)?;
     let directory = scratch()?;
     let input = directory.path().join(if format == Format::Avif {
         "snapshot.avif"
@@ -274,7 +275,7 @@ pub fn decode_rendered(data: &[u8], format: Format, limits: &Limits) -> Result<R
     let png = fs::read(output).map_err(|_| Error::Io("Could not read rendered media".into()))?;
     Ok(RenderedImage {
         image: crate::decode_pixels(&png, limits)?,
-        icc_profile: crate::image_processing::decode_profile(&png, limits)?,
+        icc_profile: embedded_profile.or(crate::image_processing::decode_profile(&png, limits)?),
     })
 }
 
@@ -405,6 +406,14 @@ pub fn encode(
     let bytes = fs::read(output).map_err(|_| Error::Io("Could not read encoded media".into()))?;
     fileveil_formats::bmff::inspect(&bytes, format, limits)?;
     fileveil_formats::bmff::validate_pixel_rewrite(&bytes, format, limits)?;
+    if let Some(expected) = profile
+        && fileveil_formats::bmff::embedded_icc_profile(&bytes, format, limits)?.as_deref()
+            != Some(expected)
+    {
+        return Err(Error::Verification(
+            "The selected media codec did not preserve the embedded ICC profile".into(),
+        ));
+    }
     Ok(bytes)
 }
 

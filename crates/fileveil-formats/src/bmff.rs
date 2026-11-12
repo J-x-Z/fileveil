@@ -1236,3 +1236,54 @@ pub fn validate_decoder_references(data: &[u8], format: Format, limits: &Limits)
     }
     Ok(())
 }
+
+/// Preserve the actual declared ICC bytes even when a renderer normalizes its
+/// intermediate PNG profile. Ambiguous multi-profile media fails closed.
+pub fn embedded_icc_profile(
+    data: &[u8],
+    format: Format,
+    limits: &Limits,
+) -> Result<Option<Vec<u8>>> {
+    if !matches!(format, Format::Heic | Format::Avif) {
+        return Err(Error::Unsupported(
+            "Embedded image profiles require HEIC or AVIF".into(),
+        ));
+    }
+    if data.len() as u64 > limits.max_file_bytes {
+        return Err(invalid("Input exceeds the byte limit"));
+    }
+    let mut parser = Parser {
+        data,
+        limits,
+        nodes: Vec::new(),
+        items: 0,
+        metadata_bytes: 0,
+        heif: true,
+    };
+    parser.walk(0, data.len(), None, 0)?;
+    let mut profile: Option<Vec<u8>> = None;
+    for node in &parser.nodes {
+        let header = &node.header;
+        let payload = &data[header.payload..header.end];
+        if header.kind == *b"colr" && (payload.starts_with(b"prof") || payload.starts_with(b"rICC"))
+        {
+            let bytes = &payload[4..];
+            if bytes.len() > limits.max_metadata_bytes
+                || bytes.len() < 128
+                || &bytes[36..40] != b"acsp"
+            {
+                return Err(invalid(
+                    "Embedded ICC profile is invalid or exceeds the metadata budget",
+                ));
+            }
+            if profile.as_deref().is_some_and(|previous| previous != bytes) {
+                return Err(Error::Blocked(
+                    "Multiple different embedded color profiles require a preserving pixel backend"
+                        .into(),
+                ));
+            }
+            profile = Some(bytes.to_vec());
+        }
+    }
+    Ok(profile)
+}

@@ -14,6 +14,11 @@ fn fixtures() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures")
 }
 
+fn nclx_properties(bytes: &[u8]) -> Option<&[u8]> {
+    let offset = bytes.windows(8).position(|window| window == b"colrnclx")?;
+    bytes.get(offset + 8..offset + 15)
+}
+
 fn boxed(kind: &[u8; 4], payload: &[u8]) -> Vec<u8> {
     let mut bytes = ((payload.len() + 8) as u32).to_be_bytes().to_vec();
     bytes.extend_from_slice(kind);
@@ -160,6 +165,12 @@ fn pixel_rewrite_protects_auxiliary_hdr_depth_collections_and_canvases() {
         )
         .is_err()
     );
+    let real_icc = fs::read(fixtures().join("heic_exif_gps.heic")).unwrap();
+    let profile = bmff::embedded_icc_profile(&real_icc, Format::Heic, &Limits::default())
+        .unwrap()
+        .unwrap();
+    assert_eq!(profile.len(), 500);
+    assert_eq!(&profile[36..40], b"acsp");
 }
 
 #[test]
@@ -246,19 +257,33 @@ fn real_heic_avif_v2_mark_verify_clean_preserves_profiles_and_originals() {
         (512, 512)
     );
     assert!(rendered.icc_profile.is_some());
+    let icc_heic = fs::read(fixtures().join("heic_exif_gps.heic")).unwrap();
+    let heic_profile = bmff::embedded_icc_profile(&icc_heic, Format::Heic, &limits)
+        .unwrap()
+        .unwrap();
     eprintln!("codec capabilities {}", media_pixels::capabilities());
     for (format, extension) in [(Format::Heic, "heic"), (Format::Avif, "avif")] {
         let bytes = media_pixels::encode(
             &rendered.image,
             format,
             95,
-            rendered.icc_profile.as_deref(),
+            if format == Format::Avif {
+                rendered.icc_profile.as_deref()
+            } else {
+                Some(&heic_profile)
+            },
             &limits,
         )
         .unwrap();
         let input = directory.path().join(format!("original.{extension}"));
         fs::write(&input, &bytes).unwrap();
         let before = media_pixels::decode_rendered(&bytes, format, &limits).unwrap();
+        if format == Format::Avif {
+            assert_eq!(before.icc_profile, rendered.icc_profile);
+            assert!(before.icc_profile.is_some());
+        } else {
+            assert_eq!(before.icc_profile.as_deref(), Some(heic_profile.as_slice()));
+        }
         let source_hash = digest(&bytes);
         let marked = directory.path().join(format!("marked.{extension}"));
         let request = HeritageRequest {
@@ -292,6 +317,12 @@ fn real_heic_avif_v2_mark_verify_clean_preserves_profiles_and_originals() {
         let marked_pixels =
             media_pixels::decode_rendered(&fs::read(&marked).unwrap(), format, &limits).unwrap();
         assert_eq!(marked_pixels.icc_profile, before.icc_profile);
+        if format == Format::Heic {
+            assert_eq!(
+                nclx_properties(&fs::read(&marked).unwrap()),
+                nclx_properties(&bytes)
+            );
+        }
         assert_eq!(
             (marked_pixels.image.width(), marked_pixels.image.height()),
             (512, 512)
@@ -312,10 +343,46 @@ fn real_heic_avif_v2_mark_verify_clean_preserves_profiles_and_originals() {
         let after =
             media_pixels::decode_rendered(&fs::read(&cleaned).unwrap(), format, &limits).unwrap();
         assert_eq!(after.icc_profile, before.icc_profile);
+        if format == Format::Heic {
+            assert_eq!(
+                nclx_properties(&fs::read(&cleaned).unwrap()),
+                nclx_properties(&bytes)
+            );
+        }
         assert_eq!((after.image.width(), after.image.height()), (512, 512));
         assert_eq!(digest(&fs::read(&input).unwrap()), source_hash);
         eprintln!(
-            "{extension} actual 512px codec Mark → MAC-Verify → Clean → Recheck complete, ICC preserved, original SHA-256 unchanged"
+            "{extension} actual 512px codec Mark → MAC-Verify → Clean → Recheck complete, nonempty ICC or actual NCLX preserved, original SHA-256 unchanged"
         );
     }
+    let actual = media_pixels::decode_rendered(&icc_heic, Format::Heic, &limits).unwrap();
+    assert_eq!(actual.icc_profile.as_deref(), Some(heic_profile.as_slice()));
+    let nclx = media_pixels::encode(&rendered.image, Format::Heic, 95, None, &limits).unwrap();
+    assert!(nclx_properties(&nclx).is_some());
+    let decoded = media_pixels::decode_rendered(&nclx, Format::Heic, &limits).unwrap();
+    let roundtrip = media_pixels::encode(
+        &decoded.image,
+        Format::Heic,
+        95,
+        decoded.icc_profile.as_deref(),
+        &limits,
+    )
+    .unwrap();
+    assert_eq!(nclx_properties(&nclx), nclx_properties(&roundtrip));
+    match media_pixels::encode(
+        &rendered.image,
+        Format::Heic,
+        95,
+        rendered.icc_profile.as_deref(),
+        &limits,
+    ) {
+        Ok(encoded) => assert_eq!(
+            bmff::embedded_icc_profile(&encoded, Format::Heic, &limits).unwrap(),
+            rendered.icc_profile
+        ),
+        Err(error) => assert!(error.to_string().contains("ICC profile"), "{error}"),
+    }
+    eprintln!(
+        "HEIC nonempty ICC500 preserved, NCLX roundtrip unchanged, profile-eliding codec output fails closed"
+    );
 }
