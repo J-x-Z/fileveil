@@ -177,7 +177,8 @@ pub fn capabilities() -> Value {
     .iter()
     .all(|(variable, name)| executable(variable, name).is_some());
     let backend_available = executable("FILEVEIL_QPDF", "qpdf").is_some_and(|program| {
-        run(&program, &args(&["--version"]), 4096, None).is_ok_and(|output| output.status.success())
+        run(&program, &args(&["--version"]), 4096, None, None)
+            .is_ok_and(|output| output.status.success())
     });
     json!({"backend":"qpdf", "available":backend_available,
         "independent_validation_available": independent_available,
@@ -201,9 +202,14 @@ fn run(
     arguments: &[OsString],
     cap: u64,
     watched: Option<(&Path, u64)>,
+    working_directory: Option<&Path>,
 ) -> Result<ProcessOutput> {
     // Child processes inherit the worker process group, so cancellation kills the full tree.
-    let child = Command::new(program)
+    let mut command = Command::new(program);
+    if let Some(directory) = working_directory {
+        command.current_dir(directory);
+    }
+    let child = command
         .args(arguments)
         .env("LC_ALL", "C")
         .stdin(Stdio::null())
@@ -304,7 +310,6 @@ fn bounded_read(path: &Path, cap: u64) -> Result<Vec<u8>> {
 
 struct Document {
     directory: tempfile::TempDir,
-    input: PathBuf,
     backend: PathBuf,
     json: Value,
     inspection: PdfInspection,
@@ -343,8 +348,14 @@ impl Document {
             .and_then(|mut file| file.write_all(data))
             .map_err(|_| Error::Io("Private PDF snapshot could not be written".into()))?;
         let mut encryption_args = args(&["--is-encrypted"]);
-        encryption_args.push(input.as_os_str().into());
-        let encryption = run(&backend, &encryption_args, 4096, None)?;
+        encryption_args.push("snapshot.pdf".into());
+        let encryption = run(
+            &backend,
+            &encryption_args,
+            4096,
+            None,
+            Some(directory.path()),
+        )?;
         if encryption.status.code() == Some(0) {
             return Err(Error::Blocked(
                 "Encrypted PDF documents are protected from parsing and rewriting".into(),
@@ -358,12 +369,12 @@ impl Document {
             "--json-stream-data=inline",
             "--decode-level=none",
         ]);
-        arguments.push(input.as_os_str().into());
+        arguments.push("snapshot.pdf".into());
         let json_cap = limits
             .max_uncompressed_bytes
             .saturating_mul(2)
             .min(256 * 1024 * 1024);
-        let output = run(&backend, &arguments, json_cap, None)?;
+        let output = run(&backend, &arguments, json_cap, None, Some(directory.path()))?;
         if !output.status.success() {
             return Err(Error::Blocked(
                 "PDF strict parsing failed or required repair".into(),
@@ -380,7 +391,6 @@ impl Document {
         let inspection = analyze(&json, data, limits, remove_provenance)?;
         Ok(Self {
             directory,
-            input,
             backend,
             json,
             inspection,
@@ -1015,16 +1025,17 @@ fn sanitize_selected(
         "--object-streams=preserve",
         "--deterministic-id",
     ]);
-    let mut patch_arg = OsString::from("--update-from-json=");
-    patch_arg.push(&patch_path);
-    arguments.push(patch_arg);
-    arguments.push(document.input.as_os_str().into());
-    arguments.push(output_path.as_os_str().into());
+    // Only fixed names inside this owned workspace reach backend argument parsers.
+    // Windows backends can misinterpret verbatim absolute paths from canonicalization.
+    arguments.push("--update-from-json=metadata-patch.json".into());
+    arguments.push("snapshot.pdf".into());
+    arguments.push("rewritten.pdf".into());
     let output = run(
         &document.backend,
         &arguments,
         1024 * 1024,
         Some((&output_path, limits.max_file_bytes)),
+        Some(document.directory.path()),
     )?;
     if !output.status.success() {
         return Err(Error::Blocked(
@@ -1081,9 +1092,10 @@ fn independent(
         let parse = |document: &Document| -> Result<usize> {
             let output = run(
                 &info,
-                &[document.input.as_os_str().into()],
+                &args(&["snapshot.pdf"]),
                 1024 * 1024,
                 None,
+                Some(document.directory.path()),
             )?;
             if !output.status.success() {
                 return Err(Error::Verification(
@@ -1117,9 +1129,15 @@ fn independent(
     if let Some(text) = text {
         let extract = |document: &Document| -> Result<Vec<u8>> {
             let mut arguments = args(&["-enc", "UTF-8", "-layout"]);
-            arguments.push(document.input.as_os_str().into());
+            arguments.push("snapshot.pdf".into());
             arguments.push(OsString::from("-"));
-            let output = run(&text, &arguments, limits.max_uncompressed_bytes, None)?;
+            let output = run(
+                &text,
+                &arguments,
+                limits.max_uncompressed_bytes,
+                None,
+                Some(document.directory.path()),
+            )?;
             if !output.status.success() {
                 return Err(Error::Verification(
                     "Independent PDF text extraction failed".into(),
@@ -1150,13 +1168,14 @@ fn independent(
                     arguments.push("-l".into());
                     arguments.push(page.to_string().into());
                     arguments.push("-singlefile".into());
-                    arguments.push(document.input.as_os_str().into());
+                    arguments.push("snapshot.pdf".into());
                     let output = run(
                         &renderer,
                         &arguments,
                         (RENDER_DIMENSION * RENDER_DIMENSION * 3 + 4096)
                             .min(limits.max_uncompressed_bytes),
                         None,
+                        Some(document.directory.path()),
                     )?;
                     if !output.status.success() || !output.bytes.starts_with(b"P6") {
                         return Err(Error::Verification(
