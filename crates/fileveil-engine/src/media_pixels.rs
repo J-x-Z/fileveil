@@ -17,17 +17,14 @@ fn executable_file(path: &Path) -> bool {
     let Ok(metadata) = fs::metadata(path) else {
         return false;
     };
-    if !metadata.is_file() {
-        return false;
-    }
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        metadata.permissions().mode() & 0o111 != 0
+        metadata.is_file() && metadata.permissions().mode() & 0o111 != 0
     }
     #[cfg(not(unix))]
     {
-        true
+        metadata.is_file()
     }
 }
 
@@ -103,12 +100,101 @@ fn sips_formats() -> &'static SipsFormats {
     })
 }
 
+#[derive(Debug, Default, PartialEq, Eq)]
+struct HeifPlugins {
+    heic: bool,
+    avif: bool,
+}
+
+impl HeifPlugins {
+    fn supports(&self, format: Format) -> bool {
+        match format {
+            Format::Heic => self.heic,
+            Format::Avif => self.avif,
+            _ => false,
+        }
+    }
+}
+
+fn parse_heif_plugins(text: &str, suffix: &str) -> HeifPlugins {
+    let mut plugins = HeifPlugins::default();
+    let mut section = None;
+    for line in text.lines().map(str::trim) {
+        if let Some(codec) = line.strip_prefix("- ") {
+            if !codec.trim().is_empty() {
+                match section {
+                    Some(Format::Heic) => plugins.heic = true,
+                    Some(Format::Avif) => plugins.avif = true,
+                    _ => {}
+                }
+            }
+        } else if line.ends_with(':') {
+            section = match line.strip_suffix(suffix).map(str::trim) {
+                Some("HEIC" | "HEVC") => Some(Format::Heic),
+                Some("AVIF" | "AV1") => Some(Format::Avif),
+                _ => None,
+            };
+        }
+    }
+    plugins
+}
+
+fn heif_plugins(program: &Path, encode: bool) -> Result<HeifPlugins> {
+    let option = if encode {
+        "--list-encoders"
+    } else {
+        "--list-decoders"
+    };
+    let output = crate::heritage::timestamp::bounded_command(
+        program,
+        &[option],
+        program.parent().unwrap_or_else(|| Path::new(".")),
+        None,
+    )
+    .map_err(|_| {
+        Error::Unsupported(
+            "HEIF codec plugin availability could not be confirmed within the backend budget"
+                .into(),
+        )
+    })?;
+    if !output.success {
+        return Err(Error::Unsupported(
+            "HEIF codec plugin enumeration is unavailable".into(),
+        ));
+    }
+    Ok(parse_heif_plugins(
+        &String::from_utf8_lossy(&output.stdout),
+        if encode { "encoders:" } else { "decoders:" },
+    ))
+}
+
+fn require_heif_plugin(program: &Path, encode: bool, format: Format) -> Result<()> {
+    if !heif_plugins(program, encode)?.supports(format) {
+        return Err(Error::Unsupported(format!(
+            "The local HEIF {} has no available {} codec plugin",
+            if encode { "encoder" } else { "decoder" },
+            if format == Format::Heic {
+                "HEIC"
+            } else {
+                "AVIF"
+            }
+        )));
+    }
+    Ok(())
+}
+
 pub fn capabilities() -> Value {
     let sips = sips_formats();
-    json!({"offline":true,"rendered_model":"8_bit_rgb_rgba","avif_decode": backend("FILEVEIL_AVIFDEC","avifdec").is_some() || backend("FILEVEIL_HEIFDEC","heif-convert").is_some() || sips.avif_read,
+    let heif_decoder = backend("FILEVEIL_HEIFDEC", "heif-convert")
+        .and_then(|program| heif_plugins(&program, false).ok())
+        .unwrap_or_default();
+    let heif_encoder = backend("FILEVEIL_HEIFENC", "heif-enc")
+        .and_then(|program| heif_plugins(&program, true).ok())
+        .unwrap_or_default();
+    json!({"offline":true,"rendered_model":"8_bit_rgb_rgba","avif_decode": backend("FILEVEIL_AVIFDEC","avifdec").is_some() || heif_decoder.avif || sips.avif_read,
         "avif_encode":backend("FILEVEIL_AVIFENC","avifenc").is_some() || sips.avif_write,
-        "heic_decode":backend("FILEVEIL_HEIFDEC","heif-convert").is_some() || sips.heic_read,
-        "heic_encode":backend("FILEVEIL_HEIFENC","heif-enc").is_some() || sips.heic_write,
+        "heic_decode":heif_decoder.heic || sips.heic_read,
+        "heic_encode":heif_encoder.heic || sips.heic_write,
         "video_frame_audit": backend("FILEVEIL_FFMPEG","ffmpeg").is_some(),"auxiliary_hdr_sequences":"protected_from_pixel_rewriting"})
 }
 
@@ -265,6 +351,7 @@ pub fn decode_rendered(data: &[u8], format: Format, limits: &Limits) -> Result<R
     } else {
         let program = backend("FILEVEIL_HEIFDEC", "heif-convert")
             .ok_or_else(|| Error::Unsupported("A trusted HEIF decoder is unavailable".into()))?;
+        require_heif_plugin(&program, false, format)?;
         run(
             &program,
             &[input.into_os_string(), output.clone().into_os_string()],
@@ -390,6 +477,7 @@ pub fn encode(
         }
         let program = backend("FILEVEIL_HEIFENC", "heif-enc")
             .ok_or_else(|| Error::Unsupported("A trusted HEIF encoder is unavailable".into()))?;
+        require_heif_plugin(&program, true, format)?;
         run(
             &program,
             &[
@@ -498,4 +586,73 @@ pub fn video_frames(
             .map_err(|_| Error::Io("Could not recycle private video frame".into()))?;
     }
     Ok(frames)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn plugin_lists_require_entries_under_the_matching_format_and_operation() {
+        assert_eq!(
+            parse_heif_plugins("HEIC decoders:\nAVIF decoders:\n", "decoders:"),
+            HeifPlugins::default()
+        );
+        assert_eq!(
+            parse_heif_plugins(
+                "AVC decoders:\n- unrelated\nAVIF decoders:\nHEIC decoders:\n- libde265 = HEVC decoder\n",
+                "decoders:"
+            ),
+            HeifPlugins {
+                heic: true,
+                avif: false
+            }
+        );
+        assert_eq!(
+            parse_heif_plugins(
+                "HEIC encoders:\n- x265 = HEVC encoder\nAVIF encoders:\n  - aom = AV1 encoder\n",
+                "encoders:"
+            ),
+            HeifPlugins {
+                heic: true,
+                avif: true
+            }
+        );
+        assert_eq!(
+            parse_heif_plugins(
+                "HEIC encoders:\n- x265\nAVIF encoders:\n- aom\n",
+                "decoders:"
+            ),
+            HeifPlugins::default()
+        );
+        assert_eq!(
+            parse_heif_plugins(
+                "HEIC decoders:\n- \nJPEG decoders:\n- libjpeg\nAVIF decoders:\n- dav1d\n",
+                "decoders:"
+            ),
+            HeifPlugins {
+                heic: false,
+                avif: true
+            }
+        );
+    }
+
+    #[test]
+    #[ignore = "Requires an explicit local libheif decoder executable"]
+    fn local_heif_plugin_probe_reports_real_available_codecs() {
+        let program = PathBuf::from(
+            std::env::var_os("FILEVEIL_HEIFDEC").expect("Set a local HEIF decoder path"),
+        );
+        let plugins = heif_plugins(&program, false).unwrap();
+        eprintln!("actual decoder plugins {plugins:?}");
+        assert!(plugins.heic || plugins.avif);
+        for format in [Format::Heic, Format::Avif] {
+            let result = require_heif_plugin(&program, false, format);
+            if plugins.supports(format) {
+                assert!(result.is_ok());
+            } else {
+                assert!(matches!(result, Err(Error::Unsupported(_))));
+            }
+        }
+    }
 }
