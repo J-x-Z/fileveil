@@ -34,6 +34,11 @@ def main() -> None:
         ["provenance", "crates/fileveil-engine/tests/fixtures/provenance/signed.wav", "--json"],
         ["lab", "tests/fixtures/png_clean.png", "tests/fixtures/png_itxt_exif_icc.png", "--json"],
         ["scan", "tests/fixtures/pdf_corrupt.pdf", "--json"],
+        ["scan", "tests/fixtures/mp4_av_source.mp4", "--json"],
+        ["detect-watermark", "crates/fileveil-engine/tests/fixtures/watermark/astronaut-sdxl.png", "--json"],
+        ["lab", "--groups-json", '[{"label":"reference","sample_indices":[0,1]}]',
+         "crates/fileveil-engine/tests/fixtures/watermark/astronaut.png",
+         "crates/fileveil-engine/tests/fixtures/watermark/astronaut-sdxl.png", "--json"],
     ]
     scratch = ROOT / "work" / "schema-tmp"
     scratch.mkdir(parents=True, exist_ok=True)

@@ -8,6 +8,7 @@ use crate::{
 use eframe::egui;
 use fileveil_core::{Policy, SanitizeOptions};
 use std::{
+    collections::{BTreeMap, HashMap},
     path::{Path, PathBuf},
     sync::Arc,
 };
@@ -39,6 +40,7 @@ pub struct Workspaces {
     pub selected: Workspace,
     options: SanitizeOptions,
     samples: Vec<PathBuf>,
+    sample_groups: Vec<String>,
     trust_roots: Option<PathBuf>,
     active: Option<JobHandle>,
     result: Option<JobResult>,
@@ -48,6 +50,7 @@ pub struct Workspaces {
     last_write: Option<(PathBuf, SanitizeOptions)>,
     last_output: Option<PathBuf>,
     notice: Option<String>,
+    preview_textures: HashMap<String, egui::TextureHandle>,
 }
 impl Default for Workspaces {
     fn default() -> Self {
@@ -58,6 +61,7 @@ impl Default for Workspaces {
                 ..Default::default()
             },
             samples: Vec::new(),
+            sample_groups: Vec::new(),
             trust_roots: None,
             active: None,
             result: None,
@@ -67,6 +71,7 @@ impl Default for Workspaces {
             last_write: None,
             last_output: None,
             notice: None,
+            preview_textures: HashMap::new(),
         }
     }
 }
@@ -92,6 +97,7 @@ impl Workspaces {
         !self.busy() && session.active.is_none() && session.pending.is_empty()
     }
     fn record_result(&mut self, result: JobResult) {
+        self.preview_textures.clear();
         if self.result_workspace == Workspace::Deep && result.report.operation == "sanitize" {
             self.last_output = result.output_path.clone();
         }
@@ -125,7 +131,11 @@ impl Workspaces {
                 Workspace::Provenance,
                 Workspace::Tasks,
             ] {
-                ui.selectable_value(&mut self.selected, workspace, workspace.label(language));
+                let response =
+                    ui.selectable_value(&mut self.selected, workspace, workspace.label(language));
+                if workspace == Workspace::Images {
+                    crate::smoke::target(&response, "images_tab");
+                }
                 if self.busy() && self.result_workspace == workspace {
                     ui.spinner();
                 }
@@ -134,6 +144,14 @@ impl Workspaces {
         if self.selected != previous {
             self.notice = None;
         }
+        crate::smoke::workspace(
+            ui.ctx(),
+            if self.selected == Workspace::Images {
+                "images"
+            } else {
+                "other"
+            },
+        );
         ui.separator();
     }
     fn start(&mut self, kind: JobKind, session: &Session, context: &egui::Context) {
@@ -169,6 +187,7 @@ impl Workspaces {
             Arc::new(move || notify.request_repaint()),
         ));
         self.result = None;
+        self.preview_textures.clear();
         self.notice = None;
     }
     /// Returns true when the existing Research parameter dialog should open.
@@ -188,14 +207,13 @@ impl Workspaces {
         match self.selected {
             Workspace::Deep => self.deep(ui, language, session, path.as_deref(), idle),
             Workspace::Images => {
-                ui.label(t(language,"合成 LSB 包检测器可识别 FileVeil 公开测试协议。专有与未知水印的状态单独保持未评估。","The synthetic LSB detector recognizes FileVeil’s public test protocol. Proprietary and unknown schemes remain unassessed."));
-                if ui
-                    .add_enabled(
-                        idle && path.is_some(),
-                        egui::Button::new(t(language, "执行水印检测", "Run watermark detector")),
-                    )
-                    .clicked()
-                {
+                ui.label(t(language,"离线检测公开的 Stable Diffusion / SDXL 图像水印和 FileVeil 合成 LSB 协议。每种方法单独报告结果与复验范围。","Detect public Stable Diffusion / SDXL image watermarks and the FileVeil synthetic LSB protocol offline. Each method has its own result and retest scope."));
+                let detect = ui.add_enabled(
+                    idle && path.is_some(),
+                    egui::Button::new(t(language, "执行水印检测", "Run watermark detector")),
+                );
+                crate::smoke::target(&detect, "run_detector");
+                if detect.clicked() {
                     self.start(
                         JobKind::DetectWatermark {
                             path: path.clone().expect("selected file"),
@@ -267,6 +285,45 @@ impl Workspaces {
                         ));
                     }
                     method_retest_ui(ui, language, report);
+                    if let Some(output) = &item.output_path {
+                        ui.horizontal_wrapped(|ui| {
+                            if ui
+                                .add_enabled(
+                                    idle,
+                                    egui::Button::new(t(
+                                        language,
+                                        "复检输出水印",
+                                        "Detect watermarks in output",
+                                    )),
+                                )
+                                .clicked()
+                            {
+                                self.start(
+                                    JobKind::DetectWatermark {
+                                        path: output.clone(),
+                                    },
+                                    session,
+                                    ui.ctx(),
+                                );
+                            }
+                            if ui
+                                .add_enabled(
+                                    idle,
+                                    egui::Button::new(t(
+                                        language,
+                                        "比较原件与副本",
+                                        "Compare original and copy",
+                                    )),
+                                )
+                                .clicked()
+                            {
+                                self.samples = vec![item.path.clone(), output.clone()];
+                                self.sample_groups = vec![String::new(); 2];
+                                self.selected = Workspace::Lab;
+                                self.notice = None;
+                            }
+                        });
+                    }
                     ui.small(t(
                         language,
                         "未知及专有水印仍未评估。",
@@ -276,7 +333,7 @@ impl Workspaces {
             }
             Workspace::Lab => self.lab(ui, language, session, idle),
             Workspace::Provenance => {
-                ui.label(t(language,"离线验证 C2PA 签名和文件绑定，可选择本地 PEM 信任根。来源凭据、个人身份关联及私有统计水印分别报告。","Validate C2PA signatures and asset binding offline with optional local PEM trust roots. Source credentials, identity links and proprietary statistical watermarks have separate results."));
+                ui.label(t(language,"离线验证 C2PA 签名、文件绑定和公开图像水印。可选择本地 PEM 信任根，检测证据与个人身份关联分别记录。","Validate C2PA signatures, asset binding and public image watermarks offline. Choose optional local PEM trust roots. Detection evidence and personal identity links have separate results."));
                 ui.horizontal(|ui| {
                     if ui
                         .add_enabled(
@@ -446,7 +503,7 @@ impl Workspaces {
                 ui.add_enabled_ui(self.options.policy==Policy::Deep && office,|ui| {
                     ui.checkbox(&mut self.options.deep.remove_comments,t(language,"批注与作者","Comments and authors"));
                     ui.add_enabled_ui(mime == fileveil_core::Format::Docx.mime(), |ui| {
-                        ui.checkbox(&mut self.options.deep.accept_revisions,t(language,"接受简单 Word 修订","Accept simple Word revisions"));
+                        ui.checkbox(&mut self.options.deep.accept_revisions,t(language,"接受受支持的 Word 修订","Accept supported Word revisions"));
                         ui.checkbox(&mut self.options.deep.remove_hidden_text,t(language,"显式隐藏的 Word 文本","Explicitly hidden Word text"));
                         ui.checkbox(&mut self.options.deep.remove_internal_identifiers,t(language,"Word 内部编辑标识符","Word internal editing identifiers"));
                     });
@@ -479,11 +536,17 @@ impl Workspaces {
                 });
             });
             egui::CollapsingHeader::new(t(language,"文件系统隐私属性","Filesystem privacy attributes")).show(ui,|ui| {
-                ui.checkbox(&mut self.options.filesystem.remove_download_origin,t(language,"macOS 下载来源","macOS download origins"));
+                ui.checkbox(&mut self.options.filesystem.remove_download_origin,t(language,"macOS 下载来源与下载时间","macOS download origins and dates"));
+                ui.checkbox(&mut self.options.filesystem.remove_usage_metadata,t(language,"macOS 最近使用时间属性","macOS last-used attributes"));
                 ui.checkbox(&mut self.options.filesystem.remove_finder_tags,t(language,"Finder 标签","Finder tags"));
                 ui.checkbox(&mut self.options.filesystem.remove_user_attributes,t(language,"Unix user.* 扩展属性","Unix user.* attributes"));
                 ui.checkbox(&mut self.options.filesystem.remove_ntfs_private_streams,t(language,"NTFS 私有数据流","NTFS private data streams"));
                 ui.checkbox(&mut self.options.filesystem.normalize_output_timestamps,t(language,"新副本修改时间规范化","Normalize new-copy modification time"));
+                ui.add_enabled_ui(cfg!(any(target_os = "macos", windows)), |ui| {
+                    ui.checkbox(&mut self.options.filesystem.normalize_creation_time,
+                        t(language,"新副本创建时间规范化","Normalize new-copy creation time"));
+                });
+                ui.small(t(language,"选中的时间规范化为 2000-01-01 UTC，仅处理新副本。文件系统日志、快照和备份历史保留独立范围。","Selected times are normalized to 2000-01-01 UTC on the new copy. Filesystem journals, snapshots and backups have separate scope."));
                 ui.label(t(language,"保留 Quarantine、Mark-of-the-Web 和受保护属性。资源叉会阻断重写。","Quarantine, Mark-of-the-Web and protected attributes are preserved. Resource forks block rewriting."));
             });
         });
@@ -500,9 +563,10 @@ impl Workspaces {
                     .filter(|finding| finding.layer == fileveil_core::RiskLayer::Filesystem)
                 {
                     let remove = match finding.code.as_str() {
-                        "filesystem.download_origin" => {
+                        "filesystem.download_origin" | "filesystem.download_date" => {
                             self.options.filesystem.remove_download_origin
                         }
+                        "filesystem.usage_time" => self.options.filesystem.remove_usage_metadata,
                         "filesystem.finder_tags" => self.options.filesystem.remove_finder_tags,
                         _ => false,
                     };
@@ -581,6 +645,7 @@ impl Workspaces {
                 .pick_files()
         {
             if (2..=8).contains(&paths.len()) {
+                self.sample_groups = vec![String::new(); paths.len()];
                 self.samples = paths;
                 self.notice = None;
             } else {
@@ -588,26 +653,53 @@ impl Workspaces {
                     Some(t(language, "请选择 2 至 8 个样本", "Select 2 to 8 samples").into());
             }
         }
+        self.sample_groups.resize(self.samples.len(), String::new());
         for (index, path) in self.samples.iter().enumerate() {
-            ui.label(format!(
-                "{}  {}",
-                index + 1,
-                path.file_name()
-                    .unwrap_or(path.as_os_str())
-                    .to_string_lossy()
+            ui.horizontal_wrapped(|ui| {
+                ui.label(format!(
+                    "{}  {}",
+                    index + 1,
+                    path.file_name()
+                        .unwrap_or(path.as_os_str())
+                        .to_string_lossy()
+                ));
+                ui.add_enabled(
+                    idle,
+                    egui::TextEdit::singleline(&mut self.sample_groups[index])
+                        .desired_width(160.0)
+                        .char_limit(64)
+                        .hint_text(t(language, "参考组（可选）", "Reference group (optional)")),
+                );
+            });
+        }
+        let groups = reference_groups(&self.sample_groups);
+        let groups_valid = groups.iter().all(|group| group.sample_indices.len() >= 2);
+        ui.small(t(language, "给同设备或同编码对照填写相同组名，每组至少两张图。留空可只比较样本。", "Use a shared group name for same-device or encoding controls, with at least two images per group. Leave empty for sample comparisons."));
+        if !groups_valid {
+            ui.label(t(
+                language,
+                "每个参考组至少需要两张样本。",
+                "Each reference group needs at least two samples.",
             ));
         }
-        ui.label(t(language,"分析像素差分、RGB 低位、信息熵和 DCT/DFT 频域特征。单项异常无法确认水印或厂商归因。","Analyze pixel differences, RGB low bits, entropy and DCT/DFT frequency features. A statistical anomaly alone cannot establish a watermark or OEM attribution."));
+        ui.label(t(language,"分析像素差分、RGB 低位、信息熵、原分辨率 DCT/Haar 特征和参考组残差。统计结果提供研究线索，厂商归因保持独立验证。","Analyze pixel differences, RGB low bits, entropy, original-resolution DCT/Haar features and reference-group residuals. Statistics provide research leads. OEM attribution requires independent validation."));
         if ui
             .add_enabled(
-                idle && self.samples.len() >= 2,
+                idle && self.samples.len() >= 2 && groups_valid,
                 egui::Button::new(t(language, "执行差异分析", "Analyze differences")),
             )
             .clicked()
         {
             self.start(
-                JobKind::Lab {
-                    paths: self.samples.clone(),
+                if groups.is_empty() {
+                    JobKind::Lab {
+                        paths: self.samples.clone(),
+                    }
+                } else {
+                    JobKind::LabGrouped {
+                        paths: self.samples.clone(),
+                        groups,
+                    }
                 },
                 session,
                 ui.ctx(),
@@ -621,6 +713,7 @@ impl Workspaces {
         let Some(result) = &self.result else {
             return;
         };
+        crate::smoke::result(ui.ctx(), &result.report);
         ui.separator();
         if let Some(input) = &self.result_input {
             ui.label(format!(
@@ -635,6 +728,21 @@ impl Workspaces {
         ui.strong(outcome(language, result.report.result));
         if let Some(name) = &result.report.output_name {
             ui.label(name);
+        }
+        if let Some(pdf) = &result.report.pdf
+            && pdf["scan_status"] == "complete"
+            && pdf["safe_rewrite_allowed"] == false
+        {
+            ui.label(t(
+                language,
+                "PDF 扫描完成，Safe 改写受保护",
+                "PDF scan complete. Safe rewriting is protected",
+            ));
+            if let Some(restrictions) = pdf["rewrite_restrictions"].as_array() {
+                for restriction in restrictions.iter().filter_map(serde_json::Value::as_str) {
+                    ui.small(crate::i18n::tr(language, restriction));
+                }
+            }
         }
         if let Some(details) = &result.report.provenance {
             if result
@@ -680,15 +788,51 @@ impl Workspaces {
             ui.label(t(language,"本次未取得可读取的 C2PA 来源凭据，未知 AI 水印仍未评估。","This run obtained no readable C2PA credentials. Unknown AI watermarks remain unassessed."));
         }
         if let Some(details) = &result.report.advanced {
-            if let Some(detection) = details.get("detection") {
-                ui.label(format!(
-                    "{}  {}",
-                    t(language, "检测结果", "Detection result"),
-                    status(
-                        language,
-                        detection["status"].as_str().unwrap_or("not_assessed")
-                    )
+            if details["media"]["retained_encoded_payload_and_structure_equal"] == true {
+                ui.label(t(
+                    language,
+                    "保留的媒体编码内容与结构验证通过",
+                    "Retained encoded media and structure verified",
                 ));
+                ui.small(t(language, "本次运行未执行平台解码验证。未知厂商字段及信号水印按报告范围保留。", "Platform decoding was not performed in this run. Unknown vendor fields and signal watermarks retain their reported scope."));
+            }
+            if let Some(detections) = details
+                .get("detections")
+                .or_else(|| details.get("watermark_detections"))
+                .and_then(serde_json::Value::as_array)
+            {
+                for detection in detections {
+                    detection_ui(ui, language, detection);
+                }
+            } else if let Some(detection) = details.get("detection") {
+                detection_ui(ui, language, detection);
+            }
+            if self.result_workspace == Workspace::Provenance {
+                provenance_capabilities_ui(ui, language, details);
+            }
+            if let Some(observation) = details
+                .get("signal_analysis")
+                .filter(|value| value.is_object())
+            {
+                ui.push_id("single-image-signal", |ui| {
+                    signal_statistics_ui(ui, language, &observation["signal"]);
+                });
+                ui.horizontal_wrapped(|ui| {
+                    preview_image(
+                        ui,
+                        &mut self.preview_textures,
+                        "single-low",
+                        t(language, "RGB 最低位均值", "Mean RGB lowest bits"),
+                        &observation["previews"]["low_bits"],
+                    );
+                    preview_image(
+                        ui,
+                        &mut self.preview_textures,
+                        "single-residual",
+                        t(language, "高通残差 ×8 +128", "High-pass residual ×8 +128"),
+                        &observation["previews"]["residual"],
+                    );
+                });
             }
             if let Some(lab) = details.get("lab")
                 && let Some(samples) = lab["samples"].as_array()
@@ -750,6 +894,27 @@ impl Workspaces {
                     if sample["converted_to_rgb8"] == true {
                         ui.small(t(language,"该样本已转换为 RGB8，低位统计采用转换后的样本。","This sample was converted to RGB8. Low-bit statistics use the converted samples."));
                     }
+                    if let Some(signal) = sample.get("signal") {
+                        ui.push_id(("sample-signal", index), |ui| {
+                            signal_statistics_ui(ui, language, signal);
+                        });
+                    }
+                    ui.horizontal_wrapped(|ui| {
+                        preview_image(
+                            ui,
+                            &mut self.preview_textures,
+                            &format!("sample-{index}-low"),
+                            t(language, "RGB 最低位均值", "Mean RGB lowest bits"),
+                            &sample["previews"]["low_bits"],
+                        );
+                        preview_image(
+                            ui,
+                            &mut self.preview_textures,
+                            &format!("sample-{index}-residual"),
+                            t(language, "高通残差 ×8 +128", "High-pass residual ×8 +128"),
+                            &sample["previews"]["residual"],
+                        );
+                    });
                     egui::CollapsingHeader::new(t(
                         language,
                         "分布与频域图",
@@ -757,6 +922,39 @@ impl Workspaces {
                     ))
                     .id_salt(("lab-plots", index))
                     .show(ui, |ui| sample_plots(ui, language, sample));
+                }
+                if let Some(groups) = lab["groups"].as_array().filter(|groups| !groups.is_empty()) {
+                    ui.strong(t(
+                        language,
+                        "参考组残差比较",
+                        "Reference-group residual comparisons",
+                    ));
+                    ui.small(t(language, "组内样本采用留一法，组外样本使用整个参考组。NCC 关联分数未校准身份或厂商归因。", "Within-group samples use leave-one-out references. Other samples use the whole reference group. NCC scores are uncalibrated for identity or OEM attribution."));
+                    for group in groups {
+                        ui.label(group["label"].as_str().unwrap_or_default());
+                        if let Some(tests) = group["tests"].as_array() {
+                            for test in tests {
+                                let index = test["sample_index"].as_u64().unwrap_or_default() + 1;
+                                let score = test["ncc"]
+                                    .as_f64()
+                                    .map(|value| format!("{value:.5}"))
+                                    .unwrap_or_else(|| status(language, "not_assessed").into());
+                                ui.label(format!(
+                                    "{} {} · NCC {} · {} {} · {}",
+                                    t(language, "样本", "Sample"),
+                                    index,
+                                    score,
+                                    test["reference_count"],
+                                    t(language, "参考样本", "reference samples"),
+                                    if test["leave_one_out"] == true {
+                                        t(language, "留一法", "Leave-one-out")
+                                    } else {
+                                        t(language, "组外比较", "Outside-group comparison")
+                                    }
+                                ));
+                            }
+                        }
+                    }
                 }
                 if let Some(comparisons) = lab["comparisons"].as_array() {
                     ui.add_space(8.0);
@@ -788,6 +986,20 @@ impl Workspaces {
                                 )
                             ));
                         }
+                        if let Some(correlation) = comparison["residual_correlation"].as_f64() {
+                            ui.label(format!(
+                                "{} {:.5}",
+                                t(language, "高通残差相关", "High-pass residual correlation"),
+                                correlation
+                            ));
+                        }
+                        preview_image(
+                            ui,
+                            &mut self.preview_textures,
+                            &format!("difference-{first}-{second}"),
+                            t(language, "平均绝对差 ×8", "Mean absolute difference ×8"),
+                            &comparison["difference_preview"],
+                        );
                         ui.small(format!(
                             "{} {:.5} · {} {:.5}",
                             t(language, "DFT 差异", "DFT difference"),
@@ -860,6 +1072,8 @@ fn status(language: Language, value: &str) -> &str {
         "not_detected" => t(language, "未检测到", "Not detected"),
         "indeterminate" => t(language, "无法判断", "Indeterminate"),
         "not_assessed" => t(language, "未评估", "Not assessed"),
+        "available" => t(language, "可用", "Available"),
+        "unavailable" => t(language, "未配置可用检测器", "Detector unavailable"),
         "detector_no_longer_detects" => t(
             language,
             "对应检测器复验未检出",
@@ -886,8 +1100,8 @@ pub(crate) fn method_retest_ui(
     if let Some(summary) = method_retest_summary(language, report) {
         ui.small(t(
             language,
-            "特定合成检测器复验",
-            "Method-specific synthetic detector retest",
+            "特定检测器复验",
+            "Method-specific detector retests",
         ));
         ui.label(summary);
     }
@@ -897,25 +1111,264 @@ pub(crate) fn method_retest_summary(
     language: Language,
     report: &fileveil_core::Report,
 ) -> Option<String> {
-    let retest = report.advanced.as_ref()?.get("watermark_retest")?;
-    Some(format!(
-        "{} · {} → {} · {}",
-        retest["method_id"].as_str().unwrap_or("synthetic_lsb_v1"),
-        status(
-            language,
-            retest["before"]["status"]
-                .as_str()
-                .unwrap_or("not_assessed")
-        ),
-        status(
-            language,
-            retest["after"]["status"].as_str().unwrap_or("not_assessed")
-        ),
-        status(
-            language,
-            retest["result"].as_str().unwrap_or("not_assessed")
+    let details = report.advanced.as_ref()?;
+    let retests = details
+        .get("detector_retests")
+        .and_then(serde_json::Value::as_array);
+    let entries = retests
+        .map(Vec::as_slice)
+        .filter(|entries| !entries.is_empty())
+        .or_else(|| details.get("watermark_retest").map(std::slice::from_ref))?;
+    Some(
+        entries
+            .iter()
+            .map(|retest| {
+                format!(
+                    "{} · {} → {} · {}",
+                    detector_name(
+                        language,
+                        retest["method_id"].as_str().unwrap_or("synthetic_lsb_v1")
+                    ),
+                    status(
+                        language,
+                        retest["before"]["status"]
+                            .as_str()
+                            .unwrap_or("not_assessed")
+                    ),
+                    status(
+                        language,
+                        retest["after"]["status"].as_str().unwrap_or("not_assessed")
+                    ),
+                    status(
+                        language,
+                        retest["result"].as_str().unwrap_or("not_assessed")
+                    )
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n"),
+    )
+}
+
+fn reference_groups(labels: &[String]) -> Vec<fileveil_engine::lab::SampleGroup> {
+    let mut groups: BTreeMap<String, Vec<usize>> = BTreeMap::new();
+    for (index, label) in labels.iter().enumerate() {
+        let label = label.trim();
+        if !label.is_empty() {
+            groups.entry(label.to_owned()).or_default().push(index);
+        }
+    }
+    groups
+        .into_iter()
+        .map(
+            |(label, sample_indices)| fileveil_engine::lab::SampleGroup {
+                label,
+                sample_indices,
+            },
         )
-    ))
+        .collect()
+}
+
+fn detector_name(language: Language, method: &str) -> &str {
+    match method {
+        "synthetic_lsb_v1" => t(language, "合成 LSB 测试协议", "Synthetic LSB test protocol"),
+        "stable_diffusion_dwt_dct_v1" => "Stable Diffusion 1.x DWT",
+        "stable_diffusion_xl_dwt_dct" => "SDXL DWT",
+        _ => method,
+    }
+}
+
+fn detection_ui(ui: &mut egui::Ui, language: Language, detection: &serde_json::Value) {
+    let method = detection["method_id"].as_str().unwrap_or("unknown");
+    ui.strong(format!(
+        "{} · {}",
+        detector_name(language, method),
+        status(
+            language,
+            detection["status"].as_str().unwrap_or("not_assessed")
+        )
+    ));
+    egui::CollapsingHeader::new(t(language, "检测证据与范围", "Detection evidence and scope"))
+        .id_salt(("detector-evidence", method)).show(ui, |ui| {
+            ui.label(format!("{} {} · {} {}", t(language, "方法", "Method"), method,
+                t(language, "版本", "Version"), detection["detector_version"].as_str().unwrap_or("—")));
+            if let Some(codes) = detection["evidence_codes"].as_array() {
+                for code in codes.iter().filter_map(serde_json::Value::as_str) {
+                    ui.monospace(code);
+                }
+            }
+            ui.small(if method.starts_with("stable_diffusion") {
+                t(language,
+                    "匹配公开的固定消息只证明该水印模式的信号，复制消息也可产生匹配。裁剪、缩放和重编码可能导致漏检，无法据此验证生成模型或个人身份。",
+                    "A public fixed-message match establishes the named signal pattern. Copied messages can also match. Cropping, scaling and re-encoding can cause missed detections. Model and personal identity remain unverified.")
+            } else {
+                t(language,
+                    "检测范围仅限所列协议。阴性结果保留其他水印未知的状态，消息摘要无法认证作者或设备。",
+                    "Detection covers the named protocol. A negative result leaves other watermarks unknown. Message digests do not authenticate an author or device.")
+            });
+        });
+}
+
+fn provider_name(language: Language, provider: &str) -> &str {
+    match provider {
+        "c2pa" => t(language, "C2PA 来源凭据", "C2PA source credentials"),
+        "stable_diffusion_v1" => "Stable Diffusion 1.x",
+        "stable_diffusion_xl" => "SDXL",
+        "openai_statistical_text" => t(language, "OpenAI 文本水印", "OpenAI text watermarks"),
+        "anthropic_statistical_text" => {
+            t(language, "Anthropic 文本水印", "Anthropic text watermarks")
+        }
+        "google_synthid_image" => t(language, "Google SynthID 图像", "Google SynthID images"),
+        "google_synthid_text" => t(language, "Google SynthID 文本", "Google SynthID text"),
+        "proprietary_image_watermark" => t(
+            language,
+            "其他专有图像水印",
+            "Other proprietary image watermarks",
+        ),
+        "oem_device_fingerprint" => t(language, "OEM 设备归因", "OEM device attribution"),
+        _ => provider,
+    }
+}
+
+fn provenance_capabilities_ui(ui: &mut egui::Ui, language: Language, details: &serde_json::Value) {
+    let Some(capabilities) = details["capabilities"].as_array() else {
+        return;
+    };
+    egui::CollapsingHeader::new(t(language, "检测能力", "Detector availability"))
+        .show(ui, |ui| {
+            for capability in capabilities {
+                let provider = capability["provider_id"].as_str().unwrap_or("unknown");
+                ui.label(format!("{} · {}", provider_name(language, provider),
+                    status(language, capability["status"].as_str().unwrap_or("not_assessed"))));
+            }
+            ui.small(t(language,
+                "当前执行本机离线检测。专有文本和 SynthID 检测需要适用的密钥或服务授权，当前未执行。",
+                "This run uses local offline detectors. Proprietary text and SynthID detection require applicable keys or service access and were not executed."));
+        });
+}
+
+fn preview_image(
+    ui: &mut egui::Ui,
+    textures: &mut HashMap<String, egui::TextureHandle>,
+    key: &str,
+    title: &str,
+    preview: &serde_json::Value,
+) {
+    if !textures.contains_key(key) {
+        let Some(width) = preview["width"]
+            .as_u64()
+            .filter(|value| (1..=128).contains(value))
+        else {
+            return;
+        };
+        let Some(height) = preview["height"]
+            .as_u64()
+            .filter(|value| (1..=128).contains(value))
+        else {
+            return;
+        };
+        let Some(values) = preview["gray"]
+            .as_array()
+            .filter(|values| values.len() == (width * height) as usize)
+        else {
+            return;
+        };
+        let Ok(gray) = values
+            .iter()
+            .map(|value| u8::try_from(value.as_u64().unwrap_or(256)))
+            .collect::<Result<Vec<_>, _>>()
+        else {
+            return;
+        };
+        let image = egui::ColorImage::from_gray([width as usize, height as usize], &gray);
+        textures.insert(
+            key.to_owned(),
+            ui.ctx()
+                .load_texture(key, image, egui::TextureOptions::NEAREST),
+        );
+    }
+    if let Some(texture) = textures.get(key) {
+        ui.vertical(|ui| {
+            ui.small(title);
+            ui.add(egui::Image::new(texture).fit_to_exact_size(egui::vec2(128.0, 128.0)));
+        });
+    }
+}
+
+fn signal_statistics_ui(ui: &mut egui::Ui, language: Language, signal: &serde_json::Value) {
+    egui::CollapsingHeader::new(t(language, "低位、频域与编码结构", "Low bits, frequency and encoding"))
+        .id_salt(("signal-analysis", ui.scope_id())).show(ui, |ui| {
+            ui.small(t(language,
+                "统计结果提供研究线索。编码、传感器噪声和正常图像处理均会影响这些指标，厂商或设备归因需要独立对照。",
+                "Statistics provide research leads. Encoding, sensor noise and ordinary image processing affect these metrics. OEM or device attribution requires independent controls."));
+            for channel in 0..3 {
+                ui.label(format!("{} · {} {:.3} / {} · {} {:.4}",
+                    ["R", "G", "B"][channel],
+                    t(language, "LSB 值对 χ² / 自由度", "LSB pair χ² / degrees of freedom"),
+                    signal["lsb_pair_chi_square"][channel].as_f64().unwrap_or_default(),
+                    signal["lsb_pair_degrees_of_freedom"][channel],
+                    t(language, "相邻低位相关", "Adjacent low-bit correlation"),
+                    signal["lsb_adjacent_correlation"][channel].as_f64().unwrap_or_default()));
+            }
+            ui.label(format!("{} {:.5}",
+                t(language, "高通残差均方根", "High-pass residual RMS"),
+                signal["noise_residual_rms"].as_f64().unwrap_or_default()));
+            if let Some(power) = signal["block_dct_ac_power"].as_array() {
+                let values = power.iter().map(|value| value.as_f64().unwrap_or_default()).collect::<Vec<_>>();
+                ui.label(format!("{} · {} {}",
+                    t(language, "原分辨率 8×8 块 DCT 采样", "Sampled original-resolution 8×8 block DCT"),
+                    signal["block_dct_blocks"], t(language, "块", "blocks")));
+                dct_heatmap(ui, &values);
+            }
+            if let Some(power) = signal["haar_detail_power"].as_array() {
+                let values = power.iter().map(|value| value.as_f64().unwrap_or_default()).collect::<Vec<_>>();
+                let labels = ["LH", "HL", "HH"].map(String::from);
+                bar_plot(ui, t(language, "Haar 细节采样能量", "Sampled Haar detail power"), &values, &labels, None);
+            }
+            if let Some(jpeg) = signal.get("jpeg").filter(|value| value.is_object()) {
+                ui.label(format!("JPEG · {} {} · {}",
+                    jpeg["quantization_tables"], t(language, "量化表", "quantization tables"),
+                    if jpeg["progressive"] == true { t(language, "渐进式", "Progressive") }
+                    else { t(language, "顺序式", "Sequential") }));
+                if let Some(components) = jpeg["frame_components"].as_array() {
+                    for component in components {
+                        ui.label(format!("{} {} · {} × {} · Q {}",
+                            t(language, "分量", "Component"), component["id"],
+                            component["horizontal_sampling"], component["vertical_sampling"],
+                            component["quantization_table"]));
+                    }
+                }
+                if let Some(hash) = jpeg["quantization_sha256"].as_str() {
+                    ui.small(t(language, "量化表 SHA-256", "Quantization SHA-256"));
+                    ui.label(egui::RichText::new(hash).monospace().small()).on_hover_text(hash);
+                }
+            }
+        });
+}
+
+fn dct_heatmap(ui: &mut egui::Ui, values: &[f64]) {
+    if values.len() != 64 {
+        return;
+    }
+    let maximum = values.iter().copied().fold(0.0, f64::max).max(f64::EPSILON);
+    let (rectangle, _) = ui.allocate_exact_size(egui::vec2(160.0, 160.0), egui::Sense::hover());
+    for (index, value) in values.iter().enumerate() {
+        let x = index % 8;
+        let y = index / 8;
+        let cell = egui::Rect::from_min_size(
+            rectangle.min + egui::vec2(x as f32 * 20.0, y as f32 * 20.0),
+            egui::vec2(20.0, 20.0),
+        );
+        let intensity = ((value / maximum).max(0.0).sqrt().clamp(0.0, 1.0) * 224.0 + 16.0) as u8;
+        ui.painter()
+            .rect_filled(cell.shrink(0.5), 0.0, egui::Color32::from_gray(intensity));
+        ui.interact(
+            cell,
+            ui.scope_id().with(("dct-cell", index)),
+            egui::Sense::hover(),
+        )
+        .on_hover_text(format!("DCT ({x}, {y})  {value:.6}"));
+    }
 }
 
 fn sample_plots(ui: &mut egui::Ui, language: Language, sample: &serde_json::Value) {
@@ -1248,6 +1701,128 @@ mod tests {
         let english = method_retest_summary(Language::English, &report).unwrap();
         assert!(english.contains("Detected → Not detected"));
         assert!(!english.contains("removed"));
+    }
+
+    #[test]
+    fn reference_group_names_map_to_the_explicit_sample_indices() {
+        let labels = [
+            " device A ",
+            "encoding control",
+            "device A",
+            "",
+            "encoding control",
+        ]
+        .map(str::to_owned);
+        let groups = reference_groups(&labels);
+        assert_eq!(groups.len(), 2);
+        assert_eq!(groups[0].label, "device A");
+        assert_eq!(groups[0].sample_indices, vec![0, 2]);
+        assert_eq!(groups[1].sample_indices, vec![1, 4]);
+        assert!(reference_groups(&[String::new(), "  ".into()]).is_empty());
+    }
+
+    #[test]
+    fn multiple_detector_retests_keep_their_individual_outcomes() {
+        let mut report = Report::new("sanitize", Format::Png);
+        report.advanced = Some(serde_json::json!({"detector_retests":[
+            {"method_id":"synthetic_lsb_v1", "before":{"status":"not_detected"},
+             "after":{"status":"not_detected"}, "result":"indeterminate"},
+            {"method_id":"stable_diffusion_dwt_dct_v1", "before":{"status":"detected"},
+             "after":{"status":"not_detected"}, "result":"detector_no_longer_detects"},
+            {"method_id":"stable_diffusion_xl_dwt_dct", "before":{"status":"detected"},
+             "after":{"status":"detected"}, "result":"detector_still_detects"}
+        ]}));
+        for language in [Language::Chinese, Language::English] {
+            let summary = method_retest_summary(language, &report).unwrap();
+            assert_eq!(summary.lines().count(), 3);
+            assert!(summary.contains("Stable Diffusion 1.x DWT"));
+            assert!(summary.contains("SDXL DWT"));
+            assert!(summary.contains(status(language, "detector_no_longer_detects")));
+            assert!(summary.contains(status(language, "detector_still_detects")));
+        }
+    }
+
+    #[test]
+    fn bounded_preview_textures_are_cached_and_released_with_the_result() {
+        let context = egui::Context::default();
+        let mut workspaces = Workspaces::default();
+        let preview = serde_json::json!({"width":2,"height":2,"gray":[0,64,128,255]});
+        let mut output = context.run_ui(egui::RawInput::default(), |ui| {
+            preview_image(
+                ui,
+                &mut workspaces.preview_textures,
+                "sample",
+                "Low bits",
+                &preview,
+            );
+            preview_image(
+                ui,
+                &mut workspaces.preview_textures,
+                "oversize",
+                "Oversize",
+                &serde_json::json!({"width":129,"height":1,"gray":[0]}),
+            );
+            preview_image(
+                ui,
+                &mut workspaces.preview_textures,
+                "invalid",
+                "Invalid",
+                &serde_json::json!({"width":1,"height":1,"gray":[256]}),
+            );
+        });
+        output.textures_delta.clear();
+        assert_eq!(workspaces.preview_textures.len(), 1);
+        let id = workspaces.preview_textures["sample"].id();
+        let mut output = context.run_ui(egui::RawInput::default(), |ui| {
+            preview_image(
+                ui,
+                &mut workspaces.preview_textures,
+                "sample",
+                "Low bits",
+                &preview,
+            );
+        });
+        output.textures_delta.clear();
+        assert_eq!(workspaces.preview_textures["sample"].id(), id);
+        workspaces.record_result(result("detect_watermark", None));
+        assert!(workspaces.preview_textures.is_empty());
+    }
+
+    #[test]
+    fn signal_plots_and_detector_results_render_in_both_languages() {
+        let signal = serde_json::json!({
+            "lsb_pair_chi_square":[1.1,2.2,3.3],
+            "lsb_pair_degrees_of_freedom":[127,127,127],
+            "lsb_adjacent_correlation":[0.01,0.02,0.03],
+            "noise_residual_rms":2.1,
+            "block_dct_ac_power":vec![0.5;64],"block_dct_blocks":128,
+            "haar_detail_power":[0.1,0.2,0.3],
+            "jpeg":{"quantization_sha256":"00".repeat(32),"quantization_tables":2,
+                "frame_components":[{"id":1,"horizontal_sampling":2,"vertical_sampling":2,"quantization_table":0}],
+                "progressive":false}
+        });
+        for language in [Language::Chinese, Language::English] {
+            let context = egui::Context::default();
+            let mut output = context.run_ui(egui::RawInput::default(), |ui| {
+                signal_statistics_ui(ui, language, &signal);
+                dct_heatmap(ui, &[0.5; 64]);
+                for method in [
+                    "synthetic_lsb_v1",
+                    "stable_diffusion_dwt_dct_v1",
+                    "stable_diffusion_xl_dwt_dct",
+                ] {
+                    detection_ui(
+                        ui,
+                        language,
+                        &serde_json::json!({
+                        "method_id":method,"status":"detected","detector_version":"1.0.0",
+                        "evidence_codes":["matched_bits=48","total_bits=48"]}),
+                    );
+                }
+            });
+            assert!(!output.shapes.is_empty());
+            output.textures_delta.clear();
+        }
     }
 
     #[test]

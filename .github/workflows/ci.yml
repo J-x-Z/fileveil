@@ -37,7 +37,7 @@ jobs:
             ${{ runner.os }}-${{ runner.arch }}-cargo-
       - name: Linux desktop dependencies
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y libx11-dev libxi-dev libxcursor-dev libxrandr-dev libxinerama-dev libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev libegl1-mesa-dev libgl1-mesa-dev libgl1-mesa-dri qpdf poppler-utils xvfb xauth
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y libx11-dev libxi-dev libxcursor-dev libxrandr-dev libxinerama-dev libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev libegl1-mesa-dev libgl1-mesa-dev libgl1-mesa-dri qpdf poppler-utils xvfb xauth xdotool
       - name: macOS PDF backends
         if: runner.os == 'macOS'
         run: brew install qpdf poppler
@@ -128,6 +128,7 @@ jobs:
           sips -s format png crates/fileveil-engine/tests/fixtures/provenance/signed.heic --out work/signed-heic-decoded.png >> work/native-media-interop.log
           sips -s format png crates/fileveil-engine/tests/fixtures/provenance/signed.avif --out work/signed-avif-decoded.png >> work/native-media-interop.log
           swift crates/fileveil-formats/tests/support/decode_native_video.swift crates/fileveil-engine/tests/fixtures/provenance/signed.mp4 crates/fileveil-engine/tests/fixtures/provenance/signed.mov >> work/native-media-interop.log
+          cargo test --locked -p fileveil-engine --test media native_decoders -- --ignored >> work/native-media-interop.log 2>&1
       - name: CLI capabilities
         run: cargo run --locked -p fileveil-cli -- capabilities --json
       - name: Scan synthetic JPEG
@@ -209,6 +210,14 @@ jobs:
           $evidence = Get-Content work/native-gui.json -Raw | ConvertFrom-Json
           $evidence | Add-Member -NotePropertyName ci_renderer_requested -NotePropertyValue 'Mesa 26.2.6 MinGW x64 llvmpipe software OpenGL'
           $evidence | ConvertTo-Json -Depth 20 | Set-Content work/native-gui.json
+      - name: Native Linux pointer interaction
+        if: runner.os == 'Linux'
+        run: timeout 120s xvfb-run -a python tools/native-interaction.py --executable target/release/fileveil-gui --report work/native-interaction.json
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+      - name: Native Windows pointer interaction
+        if: runner.os == 'Windows'
+        run: python tools/native-interaction.py --executable target/release/fileveil-gui.exe --report work/native-interaction.json
       - name: Validate native framebuffer evidence
         shell: python {0}
         run: |
@@ -297,6 +306,7 @@ jobs:
           name: native-evidence-${{ matrix.os }}
           path: |
             work/native-gui.*
+            work/native-interaction.*
             work/native-media-interop.log
             work/packaged-cli.json
             work/native-signature.json

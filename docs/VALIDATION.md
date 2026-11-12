@@ -238,3 +238,5 @@ Lab、公开检测器、CLI/MCP 分组入口及 GUI 结果显示均有针对性�
 2026-11-12 增加 Word 旧网格/编号历史、受支持表格行修订、w14 冲突与自定义 XML 修订范围，以及现代 PowerPoint 批注、作者和显式关系清理。复杂纵向合并、仍有活动内容的删除行及未选关系继续安全阻断。25 项 Deep 回归全部通过，包含 Python 独立 ZIP CRC/XML 验证，以及 python-docx 打开新增 Word 输出。
 
 Engine 系统属性与 Deep 选项回归 15 项通过，覆盖下载日期、最近使用时间属性、新副本创建时间规范化、原件不变及时间被篡改时禁止发布。创建时间选项在 macOS 本机 APFS 已验证，Windows 将由原生 CI 回归，Linux 对该选项明确报告不支持。PDF 签名扫描状态回归通过，成功扫描与禁止改写独立记录，保护副本输出。
+
+本轮本机 `cargo test --locked --offline --workspace` 汇总 269 项通过、0 失败、8 项忽略，共 33 个目标。忽略项中的手机媒体独立解码和 Deep Python 互操作已分别显式执行通过。workspace Clippy `-D warnings`、格式检查、6 项打包测试、11 份实际报告和 2 份旧版报告 schema 验证通过。
