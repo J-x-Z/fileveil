@@ -1013,3 +1013,40 @@ fn document_pdf_extra(catalog_extra: &str, extra: Vec<Vec<u8>>) -> Vec<u8> {
     );
     bytes
 }
+
+#[test]
+fn repeated_markdown_candidates_with_long_prefixes_preserve_protected_text() {
+    const CANDIDATE: &str =
+        "-----BEGIN C2PA MANIFEST-----https://example.invalid/manifest-----END C2PA MANIFEST----- ";
+    for prefix in [" ".repeat(100_000), format!("<!--{}", "\t".repeat(100_000))] {
+        let text = prefix + &CANDIDATE.repeat(1_000);
+        let scope =
+            provenance::text_scope(text.as_bytes(), "text/markdown", &Limits::default()).unwrap();
+        assert_eq!(scope.wrapper_count, 1_000);
+        assert!(!scope.removal_supported);
+        assert!(scope.ranges.is_empty());
+        assert_eq!(
+            scope.issue.as_deref(),
+            Some("fileveil.c2pa.markdown_context_unsupported")
+        );
+        assert!(
+            provenance::strip_text_wrappers(text.as_bytes(), "text/markdown", &Limits::default())
+                .is_err()
+        );
+    }
+    let valid = format!("   <!--\t{}-->\nVisible text", CANDIDATE.trim_end());
+    let scope =
+        provenance::text_scope(valid.as_bytes(), "text/markdown", &Limits::default()).unwrap();
+    assert!(scope.removal_supported);
+    assert_eq!(
+        provenance::strip_text_wrappers(valid.as_bytes(), "text/markdown", &Limits::default())
+            .unwrap(),
+        b"Visible text"
+    );
+    let unsupported = format!(" {valid}");
+    assert!(
+        !provenance::text_scope(unsupported.as_bytes(), "text/markdown", &Limits::default())
+            .unwrap()
+            .removal_supported
+    );
+}

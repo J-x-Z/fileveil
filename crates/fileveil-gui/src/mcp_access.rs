@@ -57,7 +57,7 @@ impl Root {
     fn new(path: &Path) -> Result<Self> {
         let path = normalized_absolute(path)?;
         check_sensitive(&path)?;
-        if path.parent().is_none() || home_root(&path) {
+        if path.parent().is_none() {
             return Err(denied(
                 "Choose a specific directory instead of the filesystem or user-home root",
             ));
@@ -66,6 +66,12 @@ impl Root {
         let identity = platform::identity(&directory)?;
         let canonical = fs::canonicalize(&path)
             .map_err(|_| denied("Authorized directory cannot be resolved"))?;
+        check_sensitive(&canonical)?;
+        if home_root(identity)? {
+            return Err(denied(
+                "Choose a specific directory instead of the filesystem or user-home root",
+            ));
+        }
         Ok(Self {
             path: canonical,
             directory,
@@ -289,6 +295,8 @@ impl AccessPolicy {
             .file_name()
             .ok_or_else(|| denied("Input must name a regular file"))?;
         let file = platform::open_input(&parent, name, &path)?;
+        #[cfg(windows)]
+        check_sensitive(&platform::directory_path(&file, &path)?)?;
         let identity = platform::identity(&file)?;
         let alias = platform::child_path(&parent, name, &path)?;
         Ok(BoundInput {
@@ -313,6 +321,8 @@ impl AccessPolicy {
         })?;
         root.check_namespace()?;
         let parent = platform::open_directory(&root.directory, &relative, &root.path)?;
+        #[cfg(windows)]
+        check_sensitive(&platform::directory_path(&parent, directory)?)?;
         let namespace = platform::lock_namespace(&platform::directory_path(&parent, directory)?)?;
         let identity = platform::identity(&parent)?;
         let alias = match output {
@@ -677,13 +687,44 @@ fn normalized_absolute(path: &Path) -> Result<PathBuf> {
     }
     Ok(path.components().collect())
 }
-fn home_root(path: &Path) -> bool {
-    let home = std::env::var_os(if cfg!(windows) { "USERPROFILE" } else { "HOME" })
-        .map(PathBuf::from)
-        .and_then(|home| fs::canonicalize(home).ok());
-    home.is_some_and(|home| {
-        platform::relative(path, &home).is_some_and(|relative| relative.as_os_str().is_empty())
-    })
+fn home_root(identity: Identity) -> Result<bool> {
+    let Some(home) = std::env::var_os(if cfg!(windows) { "USERPROFILE" } else { "HOME" }) else {
+        return Ok(false);
+    };
+    let home = fs::canonicalize(home)
+        .map_err(|_| denied("The user-home directory cannot be resolved for authorization"))?;
+    let (mut directory, _) = platform::open_absolute_directory(&home)?;
+    #[cfg(target_os = "macos")]
+    {
+        // The logical '..' chain crosses firmlinks and can skip the Data
+        // volume's physical parent directories. Check both namespaces.
+        let physical = platform::physical_directory_path(&directory)?;
+        for (depth, ancestor) in physical.ancestors().enumerate() {
+            if depth >= 512 {
+                return Err(denied(
+                    "The user-home ancestor chain exceeds the authorization limit",
+                ));
+            }
+            let (ancestor, _) = platform::open_absolute_directory(ancestor)?;
+            if platform::identity(&ancestor)? == identity {
+                return Ok(true);
+            }
+        }
+    }
+    for _ in 0..512 {
+        let current = platform::identity(&directory)?;
+        if current == identity {
+            return Ok(true);
+        }
+        let parent = platform::parent_directory(&directory)?;
+        if platform::identity(&parent)? == current {
+            return Ok(false);
+        }
+        directory = parent;
+    }
+    Err(denied(
+        "The user-home ancestor chain exceeds the authorization limit",
+    ))
 }
 fn check_sensitive(path: &Path) -> Result<()> {
     let components: Vec<_> = path
@@ -771,6 +812,29 @@ mod platform {
     }
     pub(super) fn open_staging(parent: &File, name: &OsStr, _hint: &Path) -> Result<File> {
         directory_at(parent, name)
+    }
+    pub(super) fn parent_directory(directory: &File) -> Result<File> {
+        directory_at(directory, OsStr::new(".."))
+    }
+    #[cfg(target_os = "macos")]
+    pub(super) fn physical_directory_path(directory: &File) -> Result<PathBuf> {
+        use std::{ffi::CStr, os::unix::ffi::OsStringExt};
+        let mut bytes = [0u8; libc::MAXPATHLEN as usize];
+        if unsafe {
+            libc::fcntl(
+                directory.as_raw_fd(),
+                libc::F_GETPATH_NOFIRMLINK,
+                bytes.as_mut_ptr(),
+            )
+        } < 0
+        {
+            return Err(denied(
+                "The physical user-home path is unavailable for authorization",
+            ));
+        }
+        let path = CStr::from_bytes_until_nul(&bytes)
+            .map_err(|_| denied("The physical user-home path is invalid"))?;
+        Ok(PathBuf::from(OsString::from_vec(path.to_bytes().to_vec())))
     }
     pub(super) fn open_directory(root: &File, relative: &Path, _hint: &Path) -> Result<File> {
         let mut directory = root
@@ -914,6 +978,15 @@ mod platform {
     }
     pub(super) fn open_staging(_parent: &File, _name: &OsStr, hint: &Path) -> Result<File> {
         open(hint, true)
+    }
+    pub(super) fn parent_directory(directory: &File) -> Result<File> {
+        let path = directory_path(directory, Path::new(""))?;
+        match path.parent() {
+            Some(parent) => open(parent, true),
+            None => directory
+                .try_clone()
+                .map_err(|_| denied("Could not retain the user-home ancestor")),
+        }
     }
     pub(super) fn open_directory(root: &File, relative: &Path, hint: &Path) -> Result<File> {
         // Root ancestor handles remain open without SHARE_DELETE for the full task.
@@ -1090,6 +1163,131 @@ mod tests {
         let mut limited = AccessPolicy::new(&limited).unwrap();
         assert!(limited.authorize(scan(&input)).is_ok());
         assert!(limited.authorize(scan(&input)).is_err());
+    }
+
+    #[test]
+    fn case_alias_of_home_cannot_expand_directory_grants() {
+        let home = std::env::var_os(if cfg!(windows) { "USERPROFILE" } else { "HOME" })
+            .map(PathBuf::from)
+            .and_then(|path| fs::canonicalize(path).ok())
+            .expect("test process has a resolvable home directory");
+        let alias: String = home
+            .to_string_lossy()
+            .chars()
+            .map(|character| {
+                if character.is_ascii_lowercase() {
+                    character.to_ascii_uppercase()
+                } else {
+                    character.to_ascii_lowercase()
+                }
+            })
+            .collect();
+        let alias = PathBuf::from(alias);
+        let aliases_same_directory = platform::open_absolute_directory(&alias)
+            .ok()
+            .and_then(|(directory, _)| platform::identity(&directory).ok())
+            .zip(
+                platform::open_absolute_directory(&home)
+                    .ok()
+                    .and_then(|(directory, _)| platform::identity(&directory).ok()),
+            )
+            .is_some_and(|(alias, home)| alias == home);
+        if alias == home || !aliases_same_directory {
+            // Case-sensitive filesystems have no corresponding directory alias.
+            return;
+        }
+        assert!(config(&[&alias], &[]).validate().is_err());
+        assert!(config(&[], &[&alias]).validate().is_err());
+    }
+
+    #[test]
+    fn home_ancestors_are_rejected_and_specific_project_directories_remain_allowed() {
+        let home = fs::canonicalize(
+            std::env::var_os(if cfg!(windows) { "USERPROFILE" } else { "HOME" }).unwrap(),
+        )
+        .unwrap();
+        for ancestor in home.ancestors() {
+            assert!(config(&[ancestor], &[]).validate().is_err());
+            assert!(config(&[], &[ancestor]).validate().is_err());
+            let case_alias = PathBuf::from(
+                ancestor
+                    .to_string_lossy()
+                    .chars()
+                    .map(|character| {
+                        if character.is_ascii_lowercase() {
+                            character.to_ascii_uppercase()
+                        } else {
+                            character.to_ascii_lowercase()
+                        }
+                    })
+                    .collect::<String>(),
+            );
+            if let Ok((alias_directory, _)) = platform::open_absolute_directory(&case_alias)
+                && let Ok((ancestor_directory, _)) = platform::open_absolute_directory(ancestor)
+                && platform::identity(&alias_directory).unwrap()
+                    == platform::identity(&ancestor_directory).unwrap()
+            {
+                assert!(config(&[&case_alias], &[]).validate().is_err());
+            }
+        }
+        let project = std::env::current_dir().unwrap().canonicalize().unwrap();
+        assert!(config(&[&project], &[&project]).validate().is_ok());
+        let specific = directory();
+        assert!(
+            config(&[specific.path()], &[specific.path()])
+                .validate()
+                .is_ok()
+        );
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn physical_home_ancestor_namespaces_cannot_bypass_firmlink_protection() {
+        let home = fs::canonicalize(std::env::var_os("HOME").unwrap()).unwrap();
+        let (directory, _) = platform::open_absolute_directory(&home).unwrap();
+        let physical = platform::physical_directory_path(&directory).unwrap();
+        for ancestor in physical.ancestors() {
+            assert!(config(&[ancestor], &[]).validate().is_err());
+            assert!(config(&[], &[ancestor]).validate().is_err());
+        }
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn short_names_cannot_bypass_sensitive_directory_protection() {
+        use std::os::windows::ffi::{OsStrExt, OsStringExt};
+        use windows_sys::Win32::Storage::FileSystem::GetShortPathNameW;
+        let source = directory();
+        let secret = source.path().join(".aws");
+        fs::create_dir(&secret).unwrap();
+        fs::write(secret.join("credentials.txt"), "private synthetic value").unwrap();
+        let public = source.path().join("public.txt");
+        fs::write(&public, "ordinary synthetic value").unwrap();
+        let wide: Vec<_> = secret.as_os_str().encode_wide().chain(Some(0)).collect();
+        let mut short = vec![0u16; 32768];
+        let length =
+            unsafe { GetShortPathNameW(wide.as_ptr(), short.as_mut_ptr(), short.len() as u32) };
+        if length == 0 || length as usize >= short.len() {
+            return;
+        }
+        let alias = PathBuf::from(OsString::from_wide(&short[..length as usize]));
+        if check_sensitive(&alias).is_err() {
+            // Volumes with 8.3 creation disabled retain the ordinary long name.
+            return;
+        }
+        let mut policy = AccessPolicy::new(&config(&[source.path()], &[source.path()])).unwrap();
+        assert!(config(&[&alias], &[]).validate().is_err());
+        assert!(
+            policy
+                .authorize(scan(&alias.join("credentials.txt")))
+                .is_err()
+        );
+        assert!(
+            policy
+                .authorize(sanitize(&public, &alias.join("copy.txt")))
+                .is_err()
+        );
+        assert!(!secret.join("copy.txt").exists());
     }
 
     #[test]

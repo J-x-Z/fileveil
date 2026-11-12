@@ -705,3 +705,48 @@ fn public_watermarks_and_reference_groups_use_authorized_mcp_workers() {
     assert_eq!(fs::read(&first).unwrap(), original);
     assert_eq!(client.close(), 0);
 }
+
+#[cfg(unix)]
+#[test]
+fn home_case_alias_is_rejected_before_starting_the_stdio_server() {
+    use std::os::unix::fs::MetadataExt;
+    let home = fs::canonicalize(std::env::var_os("HOME").unwrap()).unwrap();
+    let alias = PathBuf::from(
+        home.to_string_lossy()
+            .chars()
+            .map(|character| {
+                if character.is_ascii_lowercase() {
+                    character.to_ascii_uppercase()
+                } else {
+                    character.to_ascii_lowercase()
+                }
+            })
+            .collect::<String>(),
+    );
+    let mut protected = home
+        .parent()
+        .map(Path::to_path_buf)
+        .into_iter()
+        .collect::<Vec<_>>();
+    let home_metadata = fs::metadata(&home).unwrap();
+    if let Ok(alias_metadata) = fs::metadata(&alias)
+        && alias != home
+        && (alias_metadata.dev(), alias_metadata.ino())
+            == (home_metadata.dev(), home_metadata.ino())
+    {
+        protected.push(alias);
+    }
+    for protected in protected {
+        for permission in ["--mcp-read-root", "--mcp-write-root"] {
+            let result = Command::new(env!("CARGO_BIN_EXE_fileveil-gui"))
+                .args(["--mcp", permission])
+                .arg(&protected)
+                .stdin(Stdio::null())
+                .output()
+                .unwrap();
+            assert_eq!(result.status.code(), Some(2));
+            assert!(result.stdout.is_empty());
+            assert!(String::from_utf8_lossy(&result.stderr).contains("user-home root"));
+        }
+    }
+}

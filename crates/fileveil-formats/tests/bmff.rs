@@ -595,3 +595,99 @@ fn nested_image_metadata_namespaces_are_protected() {
     );
     assert!(bmff::sanitize(&original, Format::Heic, &Limits::default()).is_err());
 }
+
+#[test]
+fn quicktime_key_reconstruction_also_cleans_nested_standard_metadata() {
+    for (kind, payload, protected) in [
+        (
+            *b"XMP_",
+            b"<x:xmpmeta>PRIVATE-XMP-AUTHOR</x:xmpmeta>".as_slice(),
+            false,
+        ),
+        (
+            *b"xml ",
+            b"<x:xmpmeta>PRIVATE-XML-AUTHOR</x:xmpmeta>".as_slice(),
+            false,
+        ),
+        (
+            *b"XMP_",
+            b"<x:xmpmeta c2pa:provenance='protected'/>".as_slice(),
+            true,
+        ),
+        (
+            *b"XMP_",
+            b"<x:xmpmeta tiff:Orientation='6'/>".as_slice(),
+            true,
+        ),
+    ] {
+        let key = b"com.apple.quicktime.model";
+        let mut keys = 1u32.to_be_bytes().to_vec();
+        keys.extend_from_slice(&((key.len() + 8) as u32).to_be_bytes());
+        keys.extend_from_slice(b"mdta");
+        keys.extend_from_slice(key);
+        let mut children = full_atom(b"keys", &keys);
+        children.extend_from_slice(&atom(
+            b"ilst",
+            &atom(&1u32.to_be_bytes(), &atom(b"data", b"PRIVATE-DEVICE")),
+        ));
+        children.extend_from_slice(&atom(&kind, payload));
+        let mut original = movie(b"qt  ", &full_atom(b"meta", &children));
+        original.extend_from_slice(&atom(b"mdat", b"UNCHANGED-CODED-SAMPLES"));
+        let result = bmff::sanitize(&original, Format::Mov, &Limits::default());
+        if protected {
+            assert!(
+                result.is_err(),
+                "Nested XMP presentation and credentials must stay protected"
+            );
+        } else {
+            let cleaned = result.unwrap();
+            assert!(
+                !cleaned
+                    .windows(b"PRIVATE-".len())
+                    .any(|bytes| bytes == b"PRIVATE-")
+            );
+            assert!(
+                cleaned
+                    .windows(b"UNCHANGED-CODED-SAMPLES".len())
+                    .any(|bytes| bytes == b"UNCHANGED-CODED-SAMPLES")
+            );
+            assert_eq!(cleaned.len(), original.len());
+            bmff::verify(&original, &cleaned, Format::Mov, &Limits::default()).unwrap();
+            assert_eq!(
+                bmff::sanitize(&cleaned, Format::Mov, &Limits::default()).unwrap(),
+                cleaned
+            );
+        }
+    }
+}
+
+#[test]
+fn wide_image_property_trees_keep_payload_and_remove_selected_xmp() {
+    let xmp = b"<x:xmpmeta>PRIVATE-WIDE-TREE</x:xmpmeta>";
+    let mut children = information(&[
+        item(1, b"av01", None),
+        item(2, b"mime", Some("application/rdf+xml")),
+    ]);
+    children.extend_from_slice(&location(1, 1, 0, 1, 0));
+    children.extend_from_slice(&location(2, 1, 1, xmp.len() as u32, 0));
+    let properties = atom(b"colr", b"nclx\0\x01\0\x01\0\x01\x80").repeat(4_000);
+    children.extend_from_slice(&atom(b"iprp", &atom(b"ipco", &properties)));
+    let mut payload = vec![0x42];
+    payload.extend_from_slice(xmp);
+    children.extend_from_slice(&atom(b"idat", &payload));
+    let original = heif(b"avif", &children);
+    let started = std::time::Instant::now();
+    let cleaned = bmff::sanitize(&original, Format::Avif, &Limits::default()).unwrap();
+    println!("4000-property HEIF rewrite elapsed {:?}", started.elapsed());
+    assert_eq!(cleaned.len(), original.len());
+    assert!(
+        !cleaned
+            .windows(b"PRIVATE-WIDE-TREE".len())
+            .any(|bytes| bytes == b"PRIVATE-WIDE-TREE")
+    );
+    assert_eq!(
+        bmff::retained_media_digest(&original, Format::Avif, &Limits::default()).unwrap(),
+        bmff::retained_media_digest(&cleaned, Format::Avif, &Limits::default()).unwrap()
+    );
+    bmff::verify(&original, &cleaned, Format::Avif, &Limits::default()).unwrap();
+}

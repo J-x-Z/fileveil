@@ -480,6 +480,21 @@ fn independent_python_zip_and_xml_interoperability() {
             sanitize_with_options(&original, Format::Docx, &Limits::default(), &options).unwrap();
         outputs.push((output, "word/document.xml", expected));
     }
+    let history = format!(
+        r#"<w:document xmlns:w="{W}"><w:body><w:p><w:r><w:rPr><w:rPrChange w:author="Unselected history"><w:rPr><w:vanish/></w:rPr></w:rPrChange></w:rPr><w:t>Currently visible text</w:t></w:r><w:r><w:rPr><w:vanish/></w:rPr><w:t>PRIVATE_CURRENT_HIDDEN</w:t></w:r></w:p></w:body></w:document>"#
+    );
+    let original = package(Format::Docx, &history, &[]);
+    let output = sanitize_with_options(
+        &original,
+        Format::Docx,
+        &Limits::default(),
+        &deep(DeepOptions {
+            remove_hidden_text: true,
+            ..Default::default()
+        }),
+    )
+    .unwrap();
+    outputs.push((output, "word/document.xml", "Currently visible text"));
     let modern =
         modern_powerpoint("http://schemas.microsoft.com/office/2018/10/relationships/comments");
     let output = sanitize_with_options(
@@ -1196,6 +1211,43 @@ fn strict_spreadsheet_objects_and_links_are_removed_without_touching_cells() {
         &original,
         &output,
         Format::Xlsx,
+        &Limits::default(),
+        &options,
+    )
+    .unwrap();
+    assert_eq!(digest(&original), original_hash);
+}
+
+#[test]
+fn historical_hidden_formatting_never_removes_current_visible_text() {
+    let body = format!(
+        r#"<w:document xmlns:w="{W}"><w:body><w:p><w:r><w:rPr><w:rPrChange w:author="RETAINED-UNSELECTED-HISTORY"><w:rPr><w:vanish/></w:rPr></w:rPrChange></w:rPr><w:t>Currently visible text</w:t></w:r><w:r><w:rPr><w:vanish/></w:rPr><w:t>REMOVE-CURRENT-HIDDEN</w:t></w:r><w:r><w:t>Visible plain text</w:t></w:r></w:p></w:body></w:document>"#
+    );
+    let original = package(Format::Docx, &body, &[]);
+    let original_hash = digest(&original);
+    let options = deep(DeepOptions {
+        remove_hidden_text: true,
+        ..Default::default()
+    });
+    let cleaned =
+        sanitize_with_options(&original, Format::Docx, &Limits::default(), &options).unwrap();
+    let xml = part(&cleaned, "word/document.xml").unwrap();
+    let text = String::from_utf8(xml).unwrap();
+    assert!(text.contains("Currently visible text"));
+    assert!(text.contains("Visible plain text"));
+    assert!(text.contains("RETAINED-UNSELECTED-HISTORY"));
+    assert!(!text.contains("REMOVE-CURRENT-HIDDEN"));
+    let independent = roxmltree::Document::parse(&text).unwrap();
+    let visible: Vec<_> = independent
+        .descendants()
+        .filter(|node| node.has_tag_name((W, "t")))
+        .map(|node| node.text().unwrap())
+        .collect();
+    assert_eq!(visible, ["Currently visible text", "Visible plain text"]);
+    verify_scoped(
+        &original,
+        &cleaned,
+        Format::Docx,
         &Limits::default(),
         &options,
     )

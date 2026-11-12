@@ -36,3 +36,31 @@ fn unsupported_detector_input_is_explicitly_unsupported() {
     );
     assert_eq!(report.integrity.original_unchanged, Some(true));
 }
+
+#[test]
+fn lab_rejects_invalid_groups_before_opening_inputs() {
+    let inputs = ["missing-first.png".into(), "missing-second.png".into()];
+    let groups = [fileveil_engine::lab::SampleGroup {
+        label: "control".into(),
+        sample_indices: vec![0, 9],
+    }];
+    let error =
+        fileveil_engine::audits::lab_with_groups(&inputs, &groups, &Limits::default()).unwrap_err();
+    assert!(error.to_string().contains("indices"));
+}
+
+#[test]
+fn lab_enforces_remaining_snapshot_budget_before_reading_the_next_file() {
+    let directory = tempfile::tempdir().unwrap();
+    let first = directory.path().join("first.png");
+    let second = directory.path().join("second.png");
+    let bytes = include_bytes!("../../../tests/fixtures/png_clean.png");
+    fs::write(&first, bytes).unwrap();
+    fs::write(&second, bytes).unwrap();
+    let limits = Limits {
+        max_uncompressed_bytes: bytes.len() as u64,
+        ..Default::default()
+    };
+    let error = fileveil_engine::audits::lab(&[first, second], &limits).unwrap_err();
+    assert!(error.to_string().contains("file byte limit"));
+}

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 //! Bounded, reproducible image statistics for explicitly selected control samples.
-use std::{f64::consts::PI, io::Cursor};
+use std::{borrow::Cow, f64::consts::PI, io::Cursor};
 
 use fileveil_core::{Error, Format, Limits, Result, digest};
 use image::{ImageFormat, ImageReader, RgbImage};
@@ -82,6 +82,10 @@ pub struct PairwiseComparison {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SignalObservation {
+    #[serde(default)]
+    pub source_sample_model: String,
+    #[serde(default)]
+    pub converted_to_rgb8: bool,
     pub signal: SignalAnalysis,
     pub previews: SignalPreviews,
 }
@@ -143,9 +147,29 @@ pub fn analyze_signal(data: &[u8], format: Format, limits: &Limits) -> Result<Si
             "Signal container does not match the format hint".into(),
         ));
     }
-    let rgb = super::decode_pixels(data, limits)?.into_rgb8();
+    let image = super::decode_pixels(data, limits)?;
+    Ok(analyze_signal_decoded(&image, data))
+}
+
+pub(crate) fn analyze_signal_decoded(
+    image: &image::DynamicImage,
+    data: &[u8],
+) -> SignalObservation {
+    let converted = !matches!(
+        image,
+        image::DynamicImage::ImageRgb8(_) | image::DynamicImage::ImageRgba8(_)
+    );
+    let rgb = match image {
+        image::DynamicImage::ImageRgb8(rgb) => Cow::Borrowed(rgb),
+        _ => Cow::Owned(image.to_rgb8()),
+    };
     let (signal, previews, _) = signals::analyze(&rgb, data);
-    Ok(SignalObservation { signal, previews })
+    SignalObservation {
+        source_sample_model: format!("{:?}", image.color()),
+        converted_to_rgb8: converted,
+        signal,
+        previews,
+    }
 }
 
 /// Inputs are authorized byte snapshots. Sample indices preserve the caller's
@@ -164,12 +188,11 @@ pub fn analyze_with_groups(
             "Diff Lab requires two to eight samples".into(),
         ));
     }
+    validate_groups(groups, inputs.len())?;
     let mut total_bytes = 0u64;
     let mut total_pixels = 0u64;
-    let mut images = Vec::with_capacity(inputs.len());
-    let mut samples = Vec::with_capacity(inputs.len());
-    let mut noise_grids = Vec::with_capacity(inputs.len());
-    for (index, input) in inputs.iter().enumerate() {
+    let mut dimensions = Vec::with_capacity(inputs.len());
+    for input in inputs {
         total_bytes = total_bytes.saturating_add(input.data.len() as u64);
         if input.data.len() as u64 > limits.max_file_bytes
             || total_bytes > limits.max_uncompressed_bytes
@@ -202,6 +225,12 @@ pub fn analyze_with_groups(
                 "Diff Lab images exceed the aggregate pixel budget".into(),
             ));
         }
+        dimensions.push((width, height));
+    }
+    let mut images = Vec::with_capacity(inputs.len());
+    let mut samples = Vec::with_capacity(inputs.len());
+    let mut noise_grids = Vec::with_capacity(inputs.len());
+    for ((index, input), (width, height)) in inputs.iter().enumerate().zip(dimensions) {
         let image = super::decode_pixels(input.data, limits)?;
         let converted = !matches!(
             image,
@@ -264,7 +293,7 @@ pub fn analyze_with_groups(
         .iter()
         .map(|sample| sample.input_sha256.as_str())
         .collect::<Vec<_>>();
-    let group_comparisons = compare_groups(&noise_grids, groups, &hashes)?;
+    let group_comparisons = compare_groups(&noise_grids, groups, &hashes);
     Ok(LabReport {
         method_id: "image_diff_lab".into(),
         method_version: "1.1.0".into(),
@@ -287,19 +316,15 @@ pub fn analyze_with_groups(
     })
 }
 
-fn compare_groups(
-    noise: &[signals::NoiseGrid],
-    groups: &[SampleGroup],
-    hashes: &[&str],
-) -> Result<Vec<GroupComparison>> {
-    if groups.len() > noise.len() {
+pub(crate) fn validate_groups(groups: &[SampleGroup], sample_count: usize) -> Result<()> {
+    if groups.len() > sample_count {
         return Err(Error::Input(
             "Reference groups exceed the sample count".into(),
         ));
     }
-    let mut output = Vec::with_capacity(groups.len());
-    for (group_index, group) in groups.iter().enumerate() {
-        if group.label.trim().is_empty()
+    for group in groups {
+        if group.label.len() > 320
+            || group.label.trim().is_empty()
             || group.label.chars().count() > 80
             || group.label.chars().any(char::is_control)
         {
@@ -307,17 +332,35 @@ fn compare_groups(
                 "Reference group labels require one to 80 printable characters".into(),
             ));
         }
+        if !(2..=sample_count).contains(&group.sample_indices.len()) {
+            return Err(Error::Input(
+                "Reference group sample counts exceed the input budget".into(),
+            ));
+        }
         let mut indices = group.sample_indices.clone();
         indices.sort_unstable();
         indices.dedup();
         if indices.len() != group.sample_indices.len()
             || indices.len() < 2
-            || indices.iter().any(|index| *index >= noise.len())
+            || indices.iter().any(|index| *index >= sample_count)
         {
             return Err(Error::Input(
                 "Each reference group requires two or more distinct valid sample indices".into(),
             ));
         }
+    }
+    Ok(())
+}
+
+fn compare_groups(
+    noise: &[signals::NoiseGrid],
+    groups: &[SampleGroup],
+    hashes: &[&str],
+) -> Vec<GroupComparison> {
+    let mut output = Vec::with_capacity(groups.len());
+    for (group_index, group) in groups.iter().enumerate() {
+        let mut indices = group.sample_indices.clone();
+        indices.sort_unstable();
         let tests = noise
             .iter()
             .enumerate()
@@ -346,7 +389,7 @@ fn compare_groups(
                 .into(),
         });
     }
-    Ok(output)
+    output
 }
 
 fn channel_statistics(image: &RgbImage) -> [ChannelStatistics; 3] {

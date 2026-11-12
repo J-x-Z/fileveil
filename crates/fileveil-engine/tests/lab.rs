@@ -425,3 +425,72 @@ fn count_byte_pixel_and_format_limits_reject_invalid_inputs() {
     ];
     assert!(lab::analyze(&broken, &Limits::default()).is_err());
 }
+
+#[test]
+fn invalid_groups_are_rejected_before_touching_image_decoders() {
+    let invalid_image = LabSample {
+        data: b"damaged",
+        format: Format::Png,
+    };
+    let samples = [
+        invalid_image,
+        LabSample {
+            data: b"damaged",
+            format: Format::Png,
+        },
+    ];
+    for group in [
+        lab::SampleGroup {
+            label: "reference".into(),
+            sample_indices: vec![0; 100_000],
+        },
+        lab::SampleGroup {
+            label: "reference".into(),
+            sample_indices: vec![0, 99],
+        },
+        lab::SampleGroup {
+            label: "\u{200d}".repeat(1_000_000),
+            sample_indices: vec![0, 1],
+        },
+    ] {
+        let result = lab::analyze_with_groups(&samples, &[group], &Limits::default());
+        let error = result.unwrap_err().to_string();
+        assert!(
+            error.contains("Reference group") || error.contains("reference group"),
+            "{error}"
+        );
+        assert!(!error.contains("container"), "{error}");
+    }
+}
+
+#[test]
+fn single_image_signal_reports_sample_conversion_and_reads_old_envelopes() {
+    for image in [
+        DynamicImage::ImageLuma16(image::ImageBuffer::from_pixel(
+            16,
+            16,
+            image::Luma([32_768u16]),
+        )),
+        DynamicImage::ImageLuma8(image::ImageBuffer::from_pixel(16, 16, image::Luma([128u8]))),
+        DynamicImage::ImageRgb8(RgbImage::from_pixel(16, 16, image::Rgb([128; 3]))),
+    ] {
+        let mut buffer = Cursor::new(Vec::new());
+        image.write_to(&mut buffer, ImageFormat::Png).unwrap();
+        let observation =
+            lab::analyze_signal(&buffer.into_inner(), Format::Png, &Limits::default()).unwrap();
+        assert_eq!(
+            observation.converted_to_rgb8,
+            !matches!(image, DynamicImage::ImageRgb8(_))
+        );
+        assert_eq!(
+            observation.source_sample_model,
+            format!("{:?}", image.color())
+        );
+        let mut old = serde_json::to_value(observation).unwrap();
+        old.as_object_mut().unwrap().remove("converted_to_rgb8");
+        old.as_object_mut().unwrap().remove("source_sample_model");
+        let restored: lab::SignalObservation = serde_json::from_value(old).unwrap();
+        assert!(!restored.converted_to_rgb8);
+        assert!(restored.source_sample_model.is_empty());
+    }
+}

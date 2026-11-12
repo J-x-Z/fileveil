@@ -173,13 +173,20 @@ fn transform(
             Ok(output)
         }
         ImageProcessMode::Signal => {
-            let rgb = original.to_rgb8();
+            let rgb = match original {
+                DynamicImage::ImageRgb8(rgb) => std::borrow::Cow::Borrowed(rgb),
+                _ => std::borrow::Cow::Owned(original.to_rgb8()),
+            };
             let down_width = (u64::from(rgb.width()) * 95 / 100).max(1) as u32;
             let down_height = (u64::from(rgb.height()) * 95 / 100).max(1) as u32;
-            let smaller = imageops::resize(&rgb, down_width, down_height, FilterType::Lanczos3);
+            let smaller =
+                imageops::resize(rgb.as_ref(), down_width, down_height, FilterType::Lanczos3);
             let restored =
                 imageops::resize(&smaller, rgb.width(), rgb.height(), FilterType::Lanczos3);
+            drop(smaller);
+            drop(rgb);
             let blurred: RgbImage = imageops::blur(&restored, BLUR_SIGMA as f32);
+            drop(restored);
             let mut encoded = Vec::new();
             JpegEncoder::new_with_quality(&mut encoded, JPEG_QUALITY)
                 .write_image(
@@ -196,7 +203,9 @@ fn transform(
                     "Intermediate JPEG exceeds the configured byte limit".into(),
                 ));
             }
+            drop(blurred);
             let jpeg = decode_pixels(&encoded, limits)?.into_rgb8();
+            drop(encoded);
             if let DynamicImage::ImageRgba8(source) = original {
                 let mut output = source.clone();
                 for (destination, rgb) in output.pixels_mut().zip(jpeg.pixels()) {
@@ -424,6 +433,7 @@ fn verify_snapshots(
             "Decoded output does not match the requested image-processing recipe".into(),
         ));
     }
+    drop(expected);
     let processing = metrics(&input_pixels, &actual, options)?;
     let equal = input_pixels.as_bytes() == actual.as_bytes();
     let mut report = Report::new("verify", before.format);
@@ -483,8 +493,9 @@ fn verify_snapshots(
     report.warnings.push("PNG rebuilding intentionally changes image samples and omits original privacy metadata and non-color ancillary records.".into());
     report.warnings.push("Color profiles, applicable PNG display records, alpha samples and readable platform attributes are preserved.".into());
     report.warnings.push("Compiled-in synthetic LSB and public Stable Diffusion dwtDct detectors were repeated after processing. Unknown and proprietary watermarks remain unassessed. Low-bit clearing alone establishes sample-bit clearing.".into());
-    let detections_before = crate::watermark::detect_all(&original.bytes, before.format, limits)?;
-    let detections_after = crate::watermark::detect_all(&output.bytes, Format::Png, limits)?;
+    let detections_before =
+        crate::watermark::detect_decoded(Some(&input_pixels), before.format, limits)?;
+    let detections_after = crate::watermark::detect_decoded(Some(&actual), Format::Png, limits)?;
     let detector_retests = detections_before
         .iter()
         .zip(&detections_after)
@@ -546,6 +557,8 @@ pub fn process_image_in(
     let image = decode_pixels(&original.bytes, limits)?;
     let transformed = transform(&image, options, limits)?;
     let encoded = encode_png(&transformed, &original.bytes, profile)?;
+    drop(transformed);
+    drop(image);
     if encoded.len() as u64 > limits.max_file_bytes {
         return Err(Error::Blocked(
             "Processed PNG exceeds the configured byte limit".into(),
@@ -559,6 +572,7 @@ pub fn process_image_in(
     temporary
         .write_all(&encoded)
         .map_err(|_| Error::Io("Could not write processed PNG".into()))?;
+    drop(encoded);
     os::write(temporary.as_file(), temporary.path(), &original.attributes)?;
     temporary
         .as_file()

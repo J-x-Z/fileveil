@@ -4,6 +4,7 @@
 //! Only fixed status codes, algorithm names and structural counts leave the SDK.
 //! Manifest values, credential subjects, URLs and SDK error messages stay private.
 use std::{
+    borrow::Cow,
     collections::BTreeSet,
     fs,
     io::{Cursor, Read, Write},
@@ -705,7 +706,11 @@ pub fn text_scope(data: &[u8], mime: &str, limits: &Limits) -> Result<TextCreden
             ));
         }
     }
-    let visible = without_ranges(data, &scope.ranges);
+    let visible = if scope.ranges.is_empty() {
+        Cow::Borrowed(data)
+    } else {
+        Cow::Owned(without_ranges(data, &scope.ranges))
+    };
     scope.visible_sha256 = digest(&visible);
     scope.is_nfc =
         is_nfc(std::str::from_utf8(&visible).map_err(|_| {
@@ -819,6 +824,25 @@ fn markdown_ranges(text: &str, limits: &Limits, scope: &mut TextCredentialScope)
     const BEGIN: &str = "-----BEGIN C2PA MANIFEST-----";
     const END: &str = "-----END C2PA MANIFEST-----";
     const DATA: &str = "data:application/c2pa;base64,";
+    // Only a dedicated initial comment can be removed. Compute its candidate
+    // start once so repeated invalid markers cannot rescan a long prefix.
+    let indentation = text
+        .bytes()
+        .take(4)
+        .take_while(|byte| *byte == b' ')
+        .count();
+    let allowed_begin = if indentation <= 3 {
+        text[indentation..].strip_prefix("<!--").map(|comment| {
+            indentation
+                + 4
+                + comment
+                    .bytes()
+                    .take_while(|byte| matches!(byte, b' ' | b'\t'))
+                    .count()
+        })
+    } else {
+        None
+    };
     let mut from = 0;
     while let Some(relative) = text[from..].find(BEGIN) {
         let begin = from + relative;
@@ -856,17 +880,15 @@ fn markdown_ranges(text: &str, limits: &Limits, scope: &mut TextCredentialScope)
                 "C2PA text wrapper exceeds the metadata limit".into(),
             ));
         }
+        if allowed_begin != Some(begin) || reference.contains(char::is_whitespace) {
+            scope.removal_supported = false;
+            scope.issue = Some("fileveil.c2pa.markdown_context_unsupported".into());
+            continue;
+        }
         let line_end = text[past_end..]
             .find('\n')
             .map_or(text.len(), |relative| past_end + relative + 1);
-        let prefix = &text[..begin];
-        let unindented = prefix.trim_start_matches(' ');
-        let safe_prefix = prefix.len() - unindented.len() <= 3
-            && unindented
-                .strip_prefix("<!--")
-                .is_some_and(|spacing| spacing.bytes().all(|byte| matches!(byte, b' ' | b'\t')));
-        let safe_suffix = text[past_end..line_end].trim() == "-->";
-        if !safe_prefix || !safe_suffix || reference.contains(char::is_whitespace) {
+        if text[past_end..line_end].trim() != "-->" {
             scope.removal_supported = false;
             scope.issue = Some("fileveil.c2pa.markdown_context_unsupported".into());
             continue;

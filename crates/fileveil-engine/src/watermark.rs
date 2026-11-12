@@ -7,6 +7,7 @@
 //! traversing rows top to bottom and pixels left to right. Alpha is excluded.
 use fileveil_core::{Confidence, Error, Format, Limits, Result, digest};
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 
 mod dwt_dct;
 
@@ -78,14 +79,14 @@ impl Detector for StableDiffusionDwtDct {
     fn descriptor(&self) -> DetectorDescriptor {
         DetectorDescriptor {
             method_id: self.method_id().into(),
-            version: "1.0.0".into(),
+            version: "1.1.0".into(),
             formats: vec![Format::Jpeg, Format::Png],
             min_samples: 1,
             max_samples: 1,
             requires_key: false,
             requires_network: false,
             evidence_types: vec!["public_payload_bit_match".into(), "haar_chroma_block_votes".into()],
-            false_positive_limits: "Public payloads can be copied by anyone. Thresholds are method-specific signal evidence. Error rates for arbitrary images and OEM/device attribution have not been calibrated.".into(),
+            false_positive_limits: "Public payloads can be copied by anyone. Detection requires agreement across exact-half, unfused Haar and FMA Haar numerical routes. Thresholds are method-specific signal evidence. Error rates for arbitrary images and OEM/device attribution have not been calibrated.".into(),
             false_negative_limits: "Only invisible-watermark's 8-bit U-channel dwtDct matrix route and the official SD1/SDXL payloads are tested. Cropping, resizing, re-encoding, floating-point variants, other payloads and other watermark families can evade detection.".into(),
             supports_postprocess_retest: true,
         }
@@ -97,10 +98,13 @@ impl Detector for StableDiffusionDwtDct {
                 "Stable Diffusion detection requires one sample".into(),
             ));
         };
-        let Some(image) = signal_image(sample.data, sample.format, limits)? else {
+        let Some(image) = decode_image(sample.data, sample.format, limits)? else {
             return Ok(self.unassessed("unsupported_container_or_sample_model"));
         };
-        Ok(self.evaluate(&image, &dwt_dct::block_decisions(&image)))
+        let Some(rgb) = rgb8(&image) else {
+            return Ok(self.unassessed("unsupported_container_or_sample_model"));
+        };
+        Ok(self.evaluate(&rgb, &dwt_dct::block_decisions(&rgb)))
     }
 }
 
@@ -116,7 +120,7 @@ impl StableDiffusionDwtDct {
     fn unassessed(&self, evidence: &str) -> DetectionReport {
         DetectionReport {
             method_id: self.method_id().into(),
-            detector_version: "1.0.0".into(),
+            detector_version: "1.1.0".into(),
             status: DetectionStatus::NotAssessed,
             confidence: Confidence::Unknown,
             evidence_codes: vec![evidence.into()],
@@ -127,7 +131,7 @@ impl StableDiffusionDwtDct {
         }
     }
 
-    fn evaluate(&self, image: &image::RgbImage, decisions: &[bool]) -> DetectionReport {
+    fn evaluate(&self, image: &image::RgbImage, decisions: &[Vec<bool>; 3]) -> DetectionReport {
         let mut report = self.unassessed("");
         report.evidence_codes.clear();
         if u64::from(image.width()) * u64::from(image.height()) < 256 * 256 {
@@ -142,33 +146,47 @@ impl StableDiffusionDwtDct {
             b"StableDiffusionV1"
         };
         let length = payload.len() * 8;
-        let votes = dwt_dct::votes(decisions, length);
-        if votes.iter().any(|(_, total)| *total < 4) {
+        let votes = decisions
+            .each_ref()
+            .map(|route| dwt_dct::votes(route, length));
+        if votes.iter().flatten().any(|(_, total)| *total < 4) {
             report
                 .evidence_codes
                 .push("insufficient_independent_block_votes".into());
             return report;
         }
-        let matched = votes
-            .iter()
-            .enumerate()
-            .filter(|(index, (ones, total))| {
-                let expected = (payload[index / 8] >> (7 - index % 8)) & 1 != 0;
-                (*ones as f64 * 255.0 > *total as f64 * 127.0) == expected
-            })
-            .count();
-        let margin = votes
-            .iter()
-            .map(|(ones, total)| (2.0 * *ones as f64 / *total as f64 - 1.0).abs())
-            .sum::<f64>()
-            / length as f64;
+        let matched = votes.each_ref().map(|votes| {
+            votes
+                .iter()
+                .enumerate()
+                .filter(|(index, (ones, total))| {
+                    let expected = (payload[index / 8] >> (7 - index % 8)) & 1 != 0;
+                    (*ones as f64 * 255.0 > *total as f64 * 127.0) == expected
+                })
+                .count()
+        });
+        let margins = votes.each_ref().map(|votes| {
+            votes
+                .iter()
+                .map(|(ones, total)| (2.0 * *ones as f64 / *total as f64 - 1.0).abs())
+                .sum::<f64>()
+                / length as f64
+        });
         let (positive, partial) = if self.xl { (36, 28) } else { (128, 102) };
-        report.status = if matched >= positive {
-            DetectionStatus::Detected
-        } else if matched >= partial {
-            DetectionStatus::Indeterminate
+        let statuses = matched.map(|score| {
+            if score >= positive {
+                DetectionStatus::Detected
+            } else if score >= partial {
+                DetectionStatus::Indeterminate
+            } else {
+                DetectionStatus::NotDetected
+            }
+        });
+        let consensus = statuses.iter().all(|status| *status == statuses[0]);
+        report.status = if consensus {
+            statuses[0]
         } else {
-            DetectionStatus::NotDetected
+            DetectionStatus::Indeterminate
         };
         report.confidence = if report.status == DetectionStatus::Detected {
             Confidence::StrongEvidence
@@ -178,11 +196,16 @@ impl StableDiffusionDwtDct {
             Confidence::Unknown
         };
         report.evidence_codes = vec![
-            format!("matched_bits={matched}"),
+            format!("matched_bits={}", matched[0]),
             format!("total_bits={length}"),
             format!("positive_threshold={positive}"),
-            format!("block_votes={}", decisions.len()),
-            format!("mean_vote_margin={margin:.6}"),
+            format!("block_votes={}", decisions[0].len()),
+            format!("mean_vote_margin={:.6}", margins[0]),
+            format!("matched_bits_unfused={}", matched[1]),
+            format!("matched_bits_fma={}", matched[2]),
+            format!("matched_bits_min={}", matched.iter().min().unwrap_or(&0)),
+            format!("matched_bits_max={}", matched.iter().max().unwrap_or(&0)),
+            format!("numerical_consensus={consensus}"),
             "public_payload_is_not_authenticated_model_or_device_identity".into(),
         ];
         if report.status == DetectionStatus::Detected {
@@ -193,7 +216,11 @@ impl StableDiffusionDwtDct {
     }
 }
 
-fn signal_image(data: &[u8], format: Format, limits: &Limits) -> Result<Option<image::RgbImage>> {
+fn decode_image(
+    data: &[u8],
+    format: Format,
+    limits: &Limits,
+) -> Result<Option<image::DynamicImage>> {
     if data.len() as u64 > limits.max_file_bytes {
         return Err(Error::Blocked(
             "Watermark input exceeds the file size limit".into(),
@@ -209,14 +236,15 @@ fn signal_image(data: &[u8], format: Format, limits: &Limits) -> Result<Option<i
             "Watermark container does not match the format hint".into(),
         ));
     }
-    let image = super::decode_pixels(data, limits)?;
-    if !matches!(
-        image,
-        image::DynamicImage::ImageRgb8(_) | image::DynamicImage::ImageRgba8(_)
-    ) {
-        return Ok(None);
+    super::decode_pixels(data, limits).map(Some)
+}
+
+fn rgb8(image: &image::DynamicImage) -> Option<Cow<'_, image::RgbImage>> {
+    match image {
+        image::DynamicImage::ImageRgb8(rgb) => Some(Cow::Borrowed(rgb)),
+        image::DynamicImage::ImageRgba8(_) => Some(Cow::Owned(image.to_rgb8())),
+        _ => None,
     }
-    Ok(Some(image.into_rgb8()))
 }
 
 impl Detector for SyntheticLsbV1 {
@@ -242,43 +270,45 @@ impl Detector for SyntheticLsbV1 {
                 "The synthetic LSB detector requires exactly one sample".into(),
             ));
         };
-        let (data, format) = (sample.data, sample.format);
-        if data.len() as u64 > limits.max_file_bytes {
+        if sample.data.len() as u64 > limits.max_file_bytes {
             return Err(Error::Blocked(
                 "Watermark input exceeds the file size limit".into(),
             ));
         }
-        let mut report = DetectionReport {
-            method_id: "synthetic_lsb_v1".into(),
-            detector_version: "1.0.0".into(),
-            status: DetectionStatus::NotAssessed,
-            confidence: Confidence::Unknown,
-            evidence_codes: Vec::new(),
-            payload_sha256: None,
-            payload_bytes: None,
-            offline: true,
-            scope: "fileveil_synthetic_packet_only".into(),
-        };
-        if format != Format::Png {
-            report.evidence_codes.push("unsupported_container".into());
-            return Ok(report);
+        if sample.format != Format::Png {
+            return Ok(Self::unassessed("unsupported_container"));
         }
-        if !data.starts_with(b"\x89PNG\r\n\x1a\n") {
+        if !sample.data.starts_with(b"\x89PNG\r\n\x1a\n") {
             return Err(Error::Input(
                 "Watermark detector expected a PNG container".into(),
             ));
         }
-        let image = super::decode_pixels(data, limits)?;
-        if !matches!(
-            image,
-            image::DynamicImage::ImageRgb8(_) | image::DynamicImage::ImageRgba8(_)
-        ) {
-            report
-                .evidence_codes
-                .push("unsupported_sample_model".into());
-            return Ok(report);
+        let image = super::decode_pixels(sample.data, limits)?;
+        let Some(rgb) = rgb8(&image) else {
+            return Ok(Self::unassessed("unsupported_sample_model"));
+        };
+        Self::from_rgb(&rgb, limits)
+    }
+}
+
+impl SyntheticLsbV1 {
+    fn unassessed(code: &str) -> DetectionReport {
+        DetectionReport {
+            method_id: "synthetic_lsb_v1".into(),
+            detector_version: "1.0.0".into(),
+            status: DetectionStatus::NotAssessed,
+            confidence: Confidence::Unknown,
+            evidence_codes: vec![code.into()],
+            payload_sha256: None,
+            payload_bytes: None,
+            offline: true,
+            scope: "fileveil_synthetic_packet_only".into(),
         }
-        let rgb = image.into_rgb8();
+    }
+
+    fn from_rgb(rgb: &image::RgbImage, limits: &Limits) -> Result<DetectionReport> {
+        let mut report = Self::unassessed("");
+        report.evidence_codes.clear();
         let samples = rgb.as_raw();
         if samples.len() / 8 < SYNTHETIC_HEADER_BYTES {
             report.status = DetectionStatus::NotDetected;
@@ -357,13 +387,48 @@ pub fn detect(data: &[u8], format: Format, limits: &Limits) -> Result<DetectionR
 
 /// Additive multi-method entry point. `detect` retains its V1 packet contract.
 pub fn detect_all(data: &[u8], format: Format, limits: &Limits) -> Result<Vec<DetectionReport>> {
-    let mut reports = vec![detect(data, format, limits)?];
+    let image = decode_image(data, format, limits)?;
+    detect_decoded(image.as_ref(), format, limits)
+}
+
+/// The audit operation shares one bounded decode between named detectors and
+/// signal observations. The legacy detector-only API keeps its original output.
+pub(crate) fn detect_with_signal(
+    data: &[u8],
+    format: Format,
+    limits: &Limits,
+) -> Result<(Vec<DetectionReport>, Option<crate::lab::SignalObservation>)> {
+    let image = decode_image(data, format, limits)?;
+    let reports = detect_decoded(image.as_ref(), format, limits)?;
+    let observation = image
+        .as_ref()
+        .map(|image| crate::lab::analyze_signal_decoded(image, data));
+    Ok((reports, observation))
+}
+
+/// Callers must provide pixels from the corresponding authorized snapshot.
+/// Reusing verified decoded pixels avoids retaining another full image during
+/// processing verification and preserves the source sample-model distinction.
+pub(crate) fn detect_decoded(
+    image: Option<&image::DynamicImage>,
+    format: Format,
+    limits: &Limits,
+) -> Result<Vec<DetectionReport>> {
+    let rgb = image.and_then(rgb8);
+    let synthetic = if format != Format::Png {
+        SyntheticLsbV1::unassessed("unsupported_container")
+    } else if let Some(rgb) = &rgb {
+        SyntheticLsbV1::from_rgb(rgb, limits)?
+    } else {
+        SyntheticLsbV1::unassessed("unsupported_sample_model")
+    };
+    let mut reports = vec![synthetic];
     let sd1 = StableDiffusionDwtDct { xl: false };
     let sdxl = StableDiffusionDwtDct { xl: true };
-    if let Some(image) = signal_image(data, format, limits)? {
-        let decisions = dwt_dct::block_decisions(&image);
-        reports.push(sd1.evaluate(&image, &decisions));
-        reports.push(sdxl.evaluate(&image, &decisions));
+    if let Some(rgb) = rgb {
+        let decisions = dwt_dct::block_decisions(&rgb);
+        reports.push(sd1.evaluate(&rgb, &decisions));
+        reports.push(sdxl.evaluate(&rgb, &decisions));
     } else {
         reports.push(sd1.unassessed("unsupported_container_or_sample_model"));
         reports.push(sdxl.unassessed("unsupported_container_or_sample_model"));
@@ -381,4 +446,47 @@ fn lsb_bytes(samples: &[u8]) -> Vec<u8> {
                 .fold(0, |value, sample| (value << 1) | (sample & 1))
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn numeric_routes_require_consensus_and_preserve_disagreement_evidence() {
+        let detector = StableDiffusionDwtDct { xl: true };
+        let payload = [0xb3u8, 0xec, 0x90, 0x7b, 0xb1, 0x9e];
+        let marked: Vec<_> = (0..1024)
+            .map(|index| (payload[index % 48 / 8] >> (7 - index % 8)) & 1 != 0)
+            .collect();
+        let clean = vec![false; 1024];
+        let image = image::RgbImage::new(256, 256);
+        let positive = detector.evaluate(&image, &[marked.clone(), marked.clone(), marked.clone()]);
+        assert_eq!(positive.status, DetectionStatus::Detected);
+        assert_eq!(positive.detector_version, "1.1.0");
+        let negative = detector.evaluate(&image, &[clean.clone(), clean.clone(), clean.clone()]);
+        assert_eq!(negative.status, DetectionStatus::NotDetected);
+        let disagreement = detector.evaluate(&image, &[marked.clone(), marked, clean]);
+        assert_eq!(disagreement.status, DetectionStatus::Indeterminate);
+        assert_eq!(disagreement.confidence, Confidence::Heuristic);
+        assert!(disagreement.payload_sha256.is_none());
+        assert!(
+            disagreement
+                .evidence_codes
+                .iter()
+                .any(|code| code == "matched_bits_min=21")
+        );
+        assert!(
+            disagreement
+                .evidence_codes
+                .iter()
+                .any(|code| code == "matched_bits_max=48")
+        );
+        assert!(
+            disagreement
+                .evidence_codes
+                .iter()
+                .any(|code| code == "numerical_consensus=false")
+        );
+    }
 }

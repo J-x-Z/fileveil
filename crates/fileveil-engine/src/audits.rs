@@ -76,16 +76,8 @@ pub fn provenance(input: &Path, trust_roots: Option<&Path>, limits: &Limits) -> 
 pub fn detect_watermark(input: &Path, limits: &Limits) -> Result<Report> {
     let snapshot = Snapshot::open(input, limits)?;
     let inspection = inspect_snapshot(&snapshot.bytes, input, limits)?;
-    let detections = crate::watermark::detect_all(&snapshot.bytes, inspection.format, limits)?;
-    let signal_analysis = if inspection.format.is_image() {
-        Some(crate::lab::analyze_signal(
-            &snapshot.bytes,
-            inspection.format,
-            limits,
-        )?)
-    } else {
-        None
-    };
+    let (detections, signal_analysis) =
+        crate::watermark::detect_with_signal(&snapshot.bytes, inspection.format, limits)?;
     let unsupported = detections
         .iter()
         .all(|detection| detection.status == crate::watermark::DetectionStatus::NotAssessed);
@@ -121,10 +113,15 @@ pub fn lab_with_groups(
             "The difference lab requires 2 to 8 explicit samples".into(),
         ));
     }
+    crate::lab::validate_groups(groups, inputs.len())?;
     let mut total = 0u64;
     let mut snapshots = Vec::with_capacity(inputs.len());
     for input in inputs {
-        let snapshot = Snapshot::open(input, limits)?;
+        let mut remaining_limits = limits.clone();
+        remaining_limits.max_file_bytes = limits
+            .max_file_bytes
+            .min(limits.max_uncompressed_bytes.saturating_sub(total));
+        let snapshot = Snapshot::open(input, &remaining_limits)?;
         total = total.saturating_add(snapshot.bytes.len() as u64);
         if total > limits.max_uncompressed_bytes {
             return Err(Error::Blocked(

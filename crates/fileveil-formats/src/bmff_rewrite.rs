@@ -137,11 +137,15 @@ fn xmp_is_removable(payload: &[u8]) -> Result<()> {
 }
 
 fn child_indices(parser: &Parser<'_>, parent: usize) -> Vec<usize> {
-    parser
-        .nodes
+    // The parser stores nodes in preorder. Descendants form one contiguous
+    // range, so leaf processing never scans unrelated image properties/items.
+    let start = parent + 1;
+    let end = parser.nodes[parent].header.end;
+    let descendants = parser.nodes[start..].partition_point(|node| node.header.start < end);
+    parser.nodes[start..start + descendants]
         .iter()
         .enumerate()
-        .filter_map(|(index, node)| (node.parent == Some(parent)).then_some(index))
+        .filter_map(|(index, node)| (node.parent == Some(parent)).then_some(start + index))
         .collect()
 }
 
@@ -615,18 +619,15 @@ pub(super) fn normalized(data: &[u8], format: Format, limits: &Limits) -> Result
         }
     }
     // HEIF meta contains its image graph. Movie metadata has a separate key/value layout.
-    let mut replaced = Vec::<Range<usize>>::new();
-    for (index, node) in parser.nodes.iter().enumerate() {
+    // Clean descendants before reconstructing parents. A rebuilt key/value
+    // metadata box must include the already-cleaned XMP and author children.
+    for (index, node) in parser.nodes.iter().enumerate().rev() {
         let header = &node.header;
-        if replaced.iter().any(|range| range.contains(&header.start)) {
-            continue;
-        }
         if header.kind == *b"meta" && !heif {
             if let Some((rebuilt, codes)) =
                 rewrite_movie_meta(&result.bytes, &parser, index, limits)?
             {
                 install_box(&mut result.bytes, header, &rebuilt)?;
-                replaced.push(header.start..header.end);
                 result.codes.extend(codes);
             }
         } else if metadata_atom(&header.kind)
@@ -636,7 +637,6 @@ pub(super) fn normalized(data: &[u8], format: Format, limits: &Limits) -> Result
                 xmp_is_removable(&data[header.payload..header.end])?;
             }
             wipe_box(&mut result.bytes, header)?;
-            replaced.push(header.start..header.end);
             result.codes.extend([
                 "bmff.metadata.packet",
                 "bmff.metadata.location",

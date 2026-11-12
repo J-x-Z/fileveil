@@ -30,8 +30,11 @@ struct Snapshot {
 }
 impl Snapshot {
     fn open(path: &Path, limits: &Limits) -> Result<Self> {
+        Self::from_open_file(Self::open_file(path)?, path, limits)
+    }
+    fn open_file(path: &Path) -> Result<File> {
         if let Some(file) = access_guard::open_bound(path)? {
-            return Self::from_open_file(file, path, limits);
+            return Ok(file);
         }
         let metadata = fs::symlink_metadata(path)
             .map_err(|e| Error::Input(format!("Could not inspect input ({e})")))?;
@@ -45,7 +48,7 @@ impl Snapshot {
         #[cfg(unix)]
         {
             use std::os::unix::fs::OpenOptionsExt;
-            options.custom_flags(libc::O_NOFOLLOW);
+            options.custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK);
         }
         #[cfg(windows)]
         {
@@ -57,7 +60,7 @@ impl Snapshot {
         let file = options
             .open(path)
             .map_err(|e| Error::Io(format!("Could not open input ({e})")))?;
-        Self::from_open_file(file, path, limits)
+        Ok(file)
     }
     fn from_open_file(mut file: File, path: &Path, limits: &Limits) -> Result<Self> {
         let opened = file
@@ -73,7 +76,7 @@ impl Snapshot {
         }
         let mut bytes = Vec::new();
         Read::by_ref(&mut file)
-            .take(limits.max_file_bytes + 1)
+            .take(limits.max_file_bytes.saturating_add(1))
             .read_to_end(&mut bytes)
             .map_err(|_| Error::Io("Could not read input".into()))?;
         if bytes.len() as u64 > limits.max_file_bytes {
@@ -89,8 +92,69 @@ impl Snapshot {
         })
     }
     fn unchanged(&self, path: &Path, limits: &Limits) -> Result<bool> {
-        let current = Self::open(path, limits)?;
-        Ok(self.bytes == current.bytes && self.attributes == current.attributes)
+        let mut file = Self::open_file(path)?;
+        let metadata = file
+            .metadata()
+            .map_err(|_| Error::Io("Could not inspect verification input".into()))?;
+        if !metadata.is_file()
+            || metadata.len() != self.bytes.len() as u64
+            || metadata.len() > limits.max_file_bytes
+        {
+            return Ok(false);
+        }
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::MetadataExt;
+            let original = self
+                .file
+                .metadata()
+                .map_err(|_| Error::Io("Could not verify original file identity".into()))?;
+            if (original.dev(), original.ino()) != (metadata.dev(), metadata.ino()) {
+                return Ok(false);
+            }
+        }
+        #[cfg(windows)]
+        {
+            use std::os::windows::io::AsRawHandle;
+            use windows_sys::Win32::Storage::FileSystem::{
+                BY_HANDLE_FILE_INFORMATION, GetFileInformationByHandle,
+            };
+            let mut original: BY_HANDLE_FILE_INFORMATION = unsafe { std::mem::zeroed() };
+            let mut current: BY_HANDLE_FILE_INFORMATION = unsafe { std::mem::zeroed() };
+            if unsafe { GetFileInformationByHandle(self.file.as_raw_handle(), &mut original) } == 0
+                || unsafe { GetFileInformationByHandle(file.as_raw_handle(), &mut current) } == 0
+            {
+                return Err(Error::Io("Could not verify original file identity".into()));
+            }
+            if (
+                original.dwVolumeSerialNumber,
+                original.nFileIndexHigh,
+                original.nFileIndexLow,
+            ) != (
+                current.dwVolumeSerialNumber,
+                current.nFileIndexHigh,
+                current.nFileIndexLow,
+            ) {
+                return Ok(false);
+            }
+        }
+        let mut buffer = [0u8; 64 * 1024];
+        for expected in self.bytes.chunks(buffer.len()) {
+            file.read_exact(&mut buffer[..expected.len()])
+                .map_err(|_| Error::Io("Could not read verification input".into()))?;
+            if &buffer[..expected.len()] != expected {
+                return Ok(false);
+            }
+        }
+        let mut extra = [0u8; 1];
+        if file
+            .read(&mut extra)
+            .map_err(|_| Error::Io("Could not finish input verification".into()))?
+            != 0
+        {
+            return Ok(false);
+        }
+        Ok(os::read(&file, path, limits)? == self.attributes)
     }
 }
 
@@ -197,6 +261,14 @@ fn has_residual(inspection: &Inspection, attributes: &[os::Attribute]) -> bool {
             .any(|f| f.action == Action::AskUser)
 }
 fn inspect_snapshot(data: &[u8], hint: &Path, limits: &Limits) -> Result<Inspection> {
+    inspect_snapshot_details(data, hint, limits).map(|(inspection, _)| inspection)
+}
+
+fn inspect_snapshot_details(
+    data: &[u8],
+    hint: &Path,
+    limits: &Limits,
+) -> Result<(Inspection, Option<serde_json::Value>)> {
     if fileveil_formats::identify(data, hint) == Format::Pdf {
         let parsed = pdf::inspect(data, limits)?;
         let mut inspection = Inspection::new(Format::Pdf, parsed.content_digest);
@@ -207,12 +279,12 @@ fn inspect_snapshot(data: &[u8], hint: &Path, limits: &Limits) -> Result<Inspect
             .iter()
             .any(|f| f.action == Action::AskUser);
         protect_container_credentials(&mut inspection, data, limits)?;
-        return Ok(inspection);
+        return Ok((inspection, Some(parsed.details)));
     }
     let mut inspection = fileveil_formats::inspect(data, hint, limits)?;
     protect_text_credentials(&mut inspection, data, hint, limits)?;
     protect_container_credentials(&mut inspection, data, limits)?;
-    Ok(inspection)
+    Ok((inspection, None))
 }
 
 fn protect_container_credentials(
@@ -360,10 +432,9 @@ fn extension_warning(path: &Path, format: Format) -> Option<String> {
 }
 pub fn scan(path: &Path, limits: &Limits) -> Result<Report> {
     let snapshot = Snapshot::open(path, limits)?;
-    let inspection = inspect_snapshot(&snapshot.bytes, path, limits)?;
+    let (inspection, details) = inspect_snapshot_details(&snapshot.bytes, path, limits)?;
     let mut report = report_for("scan", &inspection, &snapshot);
-    if inspection.format == Format::Pdf {
-        let mut details = pdf::inspect(&snapshot.bytes, limits)?.details;
+    if let Some(mut details) = details {
         details["scan_status"] = serde_json::json!("complete");
         details["safe_rewrite_allowed"] = serde_json::json!(inspection.blockers.is_empty());
         details["rewrite_restrictions"] = serde_json::json!(inspection.blockers);
@@ -409,7 +480,7 @@ fn decode_pixels(data: &[u8], limits: &Limits) -> Result<image::DynamicImage> {
     let mut decode_limits = image::Limits::default();
     decode_limits.max_image_width = Some(width);
     decode_limits.max_image_height = Some(height);
-    decode_limits.max_alloc = Some(limits.max_pixels * 16);
+    decode_limits.max_alloc = Some(limits.max_pixels.saturating_mul(16));
     reader.limits(decode_limits);
     reader
         .decode()
@@ -800,4 +871,63 @@ pub fn capabilities(limits: &Limits) -> serde_json::Value {
         "c2pa_signature_verification": "offline_available", "content_watermark_detection": "public_lsb_and_stable_diffusion_dwt", "statistical_watermark_detection": "named_image_statistics_only",
         "limits": limits, "timeout_enforcement": "isolated_worker_process", "overwrite": false
     })
+}
+
+#[cfg(test)]
+mod snapshot_audit_tests {
+    use super::*;
+
+    #[test]
+    fn public_extreme_limits_do_not_overflow_and_rechecks_detect_changes() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("sample.png");
+        let bytes = include_bytes!("../../../tests/fixtures/png_clean.png");
+        fs::write(&path, bytes).unwrap();
+        let limits = Limits {
+            max_file_bytes: u64::MAX,
+            max_pixels: u64::MAX,
+            ..Default::default()
+        };
+        let snapshot = Snapshot::open(&path, &limits).unwrap();
+        assert!(snapshot.unchanged(&path, &limits).unwrap());
+        decode_pixels(bytes, &limits).unwrap();
+        let mut changed = bytes.to_vec();
+        changed[20] ^= 1;
+        fs::write(&path, changed).unwrap();
+        assert!(!snapshot.unchanged(&path, &limits).unwrap());
+        fs::write(&path, &bytes[..bytes.len() - 1]).unwrap();
+        assert!(!snapshot.unchanged(&path, &limits).unwrap());
+        fs::write(&path, [bytes.as_slice(), b"extra"].concat()).unwrap();
+        assert!(!snapshot.unchanged(&path, &limits).unwrap());
+    }
+
+    #[test]
+    fn identical_bytes_at_a_replaced_path_do_not_keep_original_identity() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("original.txt");
+        fs::write(&path, b"same bytes").unwrap();
+        let snapshot = Snapshot::open(&path, &Limits::default()).unwrap();
+        fs::remove_file(&path).unwrap();
+        fs::write(&path, b"same bytes").unwrap();
+        assert!(!snapshot.unchanged(&path, &Limits::default()).unwrap());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn input_handles_cannot_block_on_a_fifo_replacement() {
+        use std::{
+            ffi::CString,
+            os::unix::{ffi::OsStrExt, io::AsRawFd},
+        };
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("file");
+        fs::write(&path, b"regular").unwrap();
+        let file = Snapshot::open_file(&path).unwrap();
+        let flags = unsafe { libc::fcntl(file.as_raw_fd(), libc::F_GETFL) };
+        assert_ne!(flags & libc::O_NONBLOCK, 0);
+        fs::remove_file(&path).unwrap();
+        let name = CString::new(path.as_os_str().as_bytes()).unwrap();
+        assert_eq!(unsafe { libc::mkfifo(name.as_ptr(), 0o600) }, 0);
+        assert!(Snapshot::open_file(&path).is_err());
+    }
 }

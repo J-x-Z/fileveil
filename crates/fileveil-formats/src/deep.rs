@@ -99,19 +99,7 @@ fn nodes(data: &[u8], limits: &Limits) -> Result<Vec<Node>> {
                 }
                 let previous_properties = stack.last().is_some_and(|parent| {
                     let parent: &Node = &result[*parent];
-                    parent.previous_properties
-                        || (parent.word()
-                            && matches!(
-                                parent.local.as_str(),
-                                "rPrChange"
-                                    | "pPrChange"
-                                    | "sectPrChange"
-                                    | "tblPrChange"
-                                    | "trPrChange"
-                                    | "tcPrChange"
-                                    | "tblGridChange"
-                                    | "numberingChange"
-                            ))
+                    parent.previous_properties || property_history(&parent.namespace, &parent.local)
                 });
                 result.push(Node {
                     namespace,
@@ -402,13 +390,29 @@ fn deleted_rows(nodes: &[Node]) -> Result<BTreeMap<usize, usize>> {
     Ok(markers)
 }
 fn hidden(node: &Node) -> bool {
-    node.word()
+    !node.previous_properties
+        && node.word()
         && matches!(node.local.as_str(), "vanish" | "webHidden")
         && !node.attributes.iter().any(|attribute| {
             matches!(attribute.namespace.as_str(), W_NS | W_STRICT)
                 && attribute.local == "val"
                 && matches!(attribute.value.as_str(), "0" | "false" | "off")
         })
+}
+
+fn property_history(namespace: &str, local: &str) -> bool {
+    matches!(namespace, W_NS | W_STRICT)
+        && matches!(
+            local,
+            "rPrChange"
+                | "pPrChange"
+                | "sectPrChange"
+                | "tblPrChange"
+                | "trPrChange"
+                | "tcPrChange"
+                | "tblGridChange"
+                | "numberingChange"
+        )
 }
 
 struct Plan {
@@ -1178,6 +1182,12 @@ fn independent_postconditions(
                 || (choices.remove_hidden_text
                     && word
                     && matches!(local, "vanish" | "webHidden")
+                    && !node.ancestors().any(|ancestor| {
+                        property_history(
+                            ancestor.tag_name().namespace().unwrap_or(""),
+                            ancestor.tag_name().name(),
+                        )
+                    })
                     && !node.attributes().any(|attr| {
                         matches!(attr.namespace(), Some(W_NS | W_STRICT))
                             && attr.name() == "val"
