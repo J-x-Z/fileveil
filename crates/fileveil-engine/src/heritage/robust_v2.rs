@@ -26,7 +26,7 @@ mod geometry;
 
 pub const METHOD_ID: &str = "fileveil_keyed_dct_bch_v2";
 pub const VERSION: &str = "2.0.0";
-pub const DEFAULT_STRENGTH: u8 = 16;
+pub const DEFAULT_STRENGTH: u8 = 12;
 const REFERENCE: u32 = 512;
 const TILE: usize = 16;
 const SLOTS: usize = 512;

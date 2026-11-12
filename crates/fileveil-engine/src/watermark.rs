@@ -54,6 +54,100 @@ pub struct DetectionReport {
     pub scope: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PublicCleanReport {
+    pub before: Vec<DetectionReport>,
+    pub after: Vec<DetectionReport>,
+    pub processed_methods: Vec<String>,
+    pub scope: String,
+}
+
+/// Target only successfully decoded public protocols and recheck their signals.
+/// The caller applies its own quality budget and encoded-output verification.
+pub fn clean_known_public(
+    image: &image::DynamicImage,
+    limits: &Limits,
+) -> Result<(image::DynamicImage, PublicCleanReport)> {
+    if u64::from(image.width()) * u64::from(image.height()) > limits.max_pixels {
+        return Err(Error::Blocked(
+            "Public watermark cleaning exceeds the pixel budget".into(),
+        ));
+    }
+    let before = detect_decoded(Some(image), Format::Png, limits)?;
+    let mut processed_methods = Vec::new();
+    if !before
+        .iter()
+        .any(|report| report.status == DetectionStatus::Detected)
+    {
+        return Ok((
+            image.clone(),
+            PublicCleanReport {
+                after: before.clone(),
+                before,
+                processed_methods,
+                scope: "recognized_public_payloads_only".into(),
+            },
+        ));
+    }
+    let mut rgb = rgb8(image)
+        .ok_or_else(|| {
+            Error::Unsupported("Public watermark cleaning requires 8-bit RGB/RGBA samples".into())
+        })?
+        .into_owned();
+    for report in before
+        .iter()
+        .filter(|report| report.status == DetectionStatus::Detected)
+    {
+        match report.method_id.as_str() {
+            "synthetic_lsb_v1" => {
+                let length =
+                    SYNTHETIC_HEADER_BYTES + report.payload_bytes.unwrap_or_default() as usize;
+                for sample in rgb.as_mut().iter_mut().take(length * 8) {
+                    *sample &= !1;
+                }
+            }
+            "stable_diffusion_dwt_dct_v1" | "stable_diffusion_xl_dwt_dct" => {
+                dwt_dct::clean_public_carrier(&mut rgb)
+            }
+            _ => continue,
+        }
+        processed_methods.push(report.method_id.clone());
+    }
+    let output = match image {
+        image::DynamicImage::ImageRgb8(_) => image::DynamicImage::ImageRgb8(rgb),
+        image::DynamicImage::ImageRgba8(original) => {
+            let mut output = original.clone();
+            for (output, rgb) in output.pixels_mut().zip(rgb.pixels()) {
+                output.0[..3].copy_from_slice(&rgb.0);
+            }
+            image::DynamicImage::ImageRgba8(output)
+        }
+        _ => {
+            return Err(Error::Unsupported(
+                "Public watermark cleaning requires 8-bit RGB/RGBA samples".into(),
+            ));
+        }
+    };
+    let after = detect_decoded(Some(&output), Format::Png, limits)?;
+    if after
+        .iter()
+        .any(|report| report.status == DetectionStatus::Detected)
+    {
+        return Err(Error::Verification(
+            "A recognized public watermark remains after targeted processing".into(),
+        ));
+    }
+    Ok((
+        output,
+        PublicCleanReport {
+            before,
+            after,
+            processed_methods,
+            scope: "recognized_public_payloads_only_with_same_method_recheck".into(),
+        },
+    ))
+}
+
 pub struct DetectorSample<'a> {
     pub data: &'a [u8],
     pub format: Format,
