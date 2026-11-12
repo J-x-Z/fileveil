@@ -15,6 +15,15 @@ pub fn tr(language: Language, english: &str) -> &str {
     }
     match english {
         "Image exceeds the pixel budget" => "图片超过像素预算，请在设置中调整或选择更小的图片。",
+        "PNG pixel-count limit exceeded" => {
+            "PNG 图片超过像素预算，请在设置中调整或选择更小的图片。"
+        }
+        "JPEG pixel-count limit exceeded" => {
+            "JPEG 图片超过像素预算，请在设置中调整或选择更小的图片。"
+        }
+        "Diff Lab inputs exceed the aggregate byte budget" => {
+            "实验室输入超过总字节预算，请减少样本或调整设置。"
+        }
         "Diff Lab images exceed the aggregate pixel budget" => {
             "实验室图片超过总像素预算，请减少样本或调整设置。"
         }

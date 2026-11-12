@@ -1878,9 +1878,11 @@ mod tests {
             };
             let mut report = Report::new("detect_watermark", Format::Png);
             report.result = Outcome::Blocked;
-            report
-                .warnings
-                .push("Image exceeds the pixel budget".into());
+            report.warnings.extend([
+                "Image exceeds the pixel budget".into(),
+                "PNG pixel-count limit exceeded".into(),
+                "JPEG pixel-count limit exceeded".into(),
+            ]);
             let mut session = Session::default();
             session.items.push(FileItem {
                 id: 1,
@@ -1896,18 +1898,24 @@ mod tests {
             let output = context.run_ui(Default::default(), |ui| {
                 workspaces.ui(ui, language, &mut session);
             });
-            let expected = crate::i18n::tr(language, "Image exceeds the pixel budget");
-            assert!(
-                output
-                    .platform_output
-                    .accesskit_update
-                    .as_ref()
-                    .unwrap()
-                    .nodes
-                    .iter()
-                    .any(|(_, node)| node.label() == Some(expected)
-                        || node.value() == Some(expected))
-            );
+            for warning in [
+                "Image exceeds the pixel budget",
+                "PNG pixel-count limit exceeded",
+                "JPEG pixel-count limit exceeded",
+            ] {
+                let expected = crate::i18n::tr(language, warning);
+                assert!(
+                    output
+                        .platform_output
+                        .accesskit_update
+                        .as_ref()
+                        .unwrap()
+                        .nodes
+                        .iter()
+                        .any(|(_, node)| node.label() == Some(expected)
+                            || node.value() == Some(expected))
+                );
+            }
             output.drop_without_applying_deltas();
         }
     }
