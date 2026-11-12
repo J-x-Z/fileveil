@@ -155,6 +155,8 @@ class PackagingTests(unittest.TestCase):
             "tests/operator-secret.pem": b"-----BEGIN EC PRIVATE KEY-----\nSYNTHETIC PRIVATE MATERIAL\n",
             "tests/prefaced-private.pem": b"Bag Attributes\r\n    friendlyName: FileVeil test\r\n" + b"x" * 16000 + b"\r\n-----BEGIN PRIVATE KEY-----\r\nSYNTHETIC\r\n",
             "assets/bom-private.pem": b"\xef\xbb\xbf-----BEGIN PRIVATE KEY-----\r\nSYNTHETIC\r\n",
+            "tests/split-bom-private.pem": b" " * (packaging.PRIVATE_KEY_SCAN_CHUNK - 1) + b"\xef\xbb\xbf-----BEGIN PRIVATE KEY-----\nSYNTHETIC\n",
+            "tests/split-bom-indented.pem": b" " * 10 + b"\xef\xbb\xbf" + b" " * (packaging.PRIVATE_KEY_SCAN_CHUNK + 5) + b"-----BEGIN EC PRIVATE KEY-----\nSYNTHETIC\n",
             "tests/rsa-private.pem": b"-----BEGIN RSA PRIVATE KEY-----\nSYNTHETIC\n",
             "tests/encrypted-private.pem": b"-----BEGIN ENCRYPTED PRIVATE KEY-----\nSYNTHETIC\n",
             "tests/openssh-private.pem": b"-----BEGIN OPENSSH PRIVATE KEY-----\nSYNTHETIC\n",
@@ -168,6 +170,7 @@ class PackagingTests(unittest.TestCase):
             path = self.root / name
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(data)
+            self.assertTrue(packaging.has_private_key(path), name)
         destination = self.temporary / "private-key-source-check"
         literals = {
             "crates/fileveil-gui/src/key_literals.rs": b'const PEM: &str = "-----BEGIN PRIVATE KEY-----";\nconst ED: &str = "FILEVEIL-ED25519-KEY-V1\\n";\n',

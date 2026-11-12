@@ -119,6 +119,7 @@ def has_private_key(path: Path) -> bool:
         # consume no additional memory. readline's size cap also bounds binary
         # and single-line source files.
         prefix = bytearray()
+        bom_prefix = bytearray()
         started = False
         boundary = False
         rejected = False
@@ -128,8 +129,18 @@ def has_private_key(path: Path) -> bool:
             if not rejected:
                 if not started:
                     content = content.lstrip(b" \t")
-                    if content.startswith(b"\xef\xbb\xbf"):
-                        content = content[3:].lstrip(b" \t")
+                    if bom_prefix or content.startswith(b"\xef"):
+                        count = min(3 - len(bom_prefix), len(content))
+                        bom_prefix.extend(content[:count])
+                        content = content[count:]
+                        if len(bom_prefix) < 3:
+                            content = b""
+                        else:
+                            if bom_prefix == b"\xef\xbb\xbf":
+                                content = content.lstrip(b" \t")
+                            else:
+                                content = bytes(bom_prefix) + content
+                            bom_prefix.clear()
                     started = bool(content)
                 if boundary:
                     rejected = bool(content.strip(b" \t\r"))
@@ -145,6 +156,7 @@ def has_private_key(path: Path) -> bool:
                 if boundary and not rejected:
                     return True
                 prefix.clear()
+                bom_prefix.clear()
                 started = boundary = rejected = False
         return boundary and not rejected
 
