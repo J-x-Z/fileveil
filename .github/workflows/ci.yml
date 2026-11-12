@@ -35,6 +35,29 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-${{ runner.arch }}-cargo-${{ hashFiles('Cargo.lock') }}-
             ${{ runner.os }}-${{ runner.arch }}-cargo-
+      - name: Bound Linux build storage
+        if: runner.os == 'Linux'
+        shell: python {0}
+        run: |
+          import os
+          import pathlib
+          import shutil
+          import subprocess
+          subprocess.run(['df', '-h', '.'], check=True)
+          subprocess.run(['du', '-sh', 'target/debug', 'target/release'], check=False)
+          # Migrate the older symbol-heavy cache once. Subsequent jobs retain
+          # the compatible debug cache, release cache and downloaded crates.
+          marker = pathlib.Path('target/.fileveil-linux-ci-debug0')
+          if not marker.is_file():
+              debug = pathlib.Path('target/debug')
+              if debug.is_dir():
+                  shutil.rmtree(debug)
+              marker.parent.mkdir(parents=True, exist_ok=True)
+              marker.write_text('dev_debug=0\ntest_debug=0\nincremental=0\n')
+          with pathlib.Path(os.environ['GITHUB_ENV']).open('a') as environment:
+              environment.write('CARGO_INCREMENTAL=0\nCARGO_PROFILE_DEV_DEBUG=0\nCARGO_PROFILE_TEST_DEBUG=0\nCARGO_BUILD_JOBS=2\n')
+          subprocess.run(['df', '-h', '.'], check=True)
+          subprocess.run(['du', '-sh', 'target/debug', 'target/release'], check=False)
       - name: Linux desktop dependencies
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install --no-install-recommends -y libx11-dev libxi-dev libxcursor-dev libxrandr-dev libxinerama-dev libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev libegl1-mesa-dev libgl1-mesa-dev libgl1-mesa-dri qpdf poppler-utils xvfb xauth xdotool
