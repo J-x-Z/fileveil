@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "date": "2026-11-12",
-  "cargo_lock_sha256": "55550cdea150947b1255d85dba7743d6cb50049dbe2fe39355ef40e7d32c9482",
+  "cargo_lock_sha256": "96012a5a8b601de2a6ffba238c1212906635f01442e5df8ee4ea6968753cf4a1",
   "registry_packages": [
     {
       "name": "abnf",
@@ -376,6 +376,28 @@
           "path": "assets/licenses/adler2-2.0.1/LICENSE-MIT",
           "origin": "published_crate",
           "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        }
+      ]
+    },
+    {
+      "name": "aes",
+      "version": "0.9.4",
+      "license": "MIT OR Apache-2.0",
+      "authors": [
+        "RustCrypto Developers"
+      ],
+      "crate_url": "https://crates.io/crates/aes/0.9.4",
+      "repository": "https://github.com/RustCrypto/block-ciphers",
+      "files": [
+        {
+          "path": "assets/licenses/aes-0.9.4/LICENSE-APACHE",
+          "origin": "published_crate",
+          "sha256": "a9040321c3712d8fd0b09cf52b17445de04a23a10165049ae187cd39e5c86be5"
+        },
+        {
+          "path": "assets/licenses/aes-0.9.4/LICENSE-MIT",
+          "origin": "published_crate",
+          "sha256": "25f77efa393854f7c15eaf6a2589a2071db2d7337642742763adb12bdecf0445"
         }
       ]
     },
@@ -1375,6 +1397,28 @@
       ]
     },
     {
+      "name": "block-padding",
+      "version": "0.4.2",
+      "license": "MIT OR Apache-2.0",
+      "authors": [
+        "RustCrypto Developers"
+      ],
+      "crate_url": "https://crates.io/crates/block-padding/0.4.2",
+      "repository": "https://github.com/RustCrypto/utils",
+      "files": [
+        {
+          "path": "assets/licenses/block-padding-0.4.2/LICENSE-APACHE",
+          "origin": "published_crate",
+          "sha256": "a9040321c3712d8fd0b09cf52b17445de04a23a10165049ae187cd39e5c86be5"
+        },
+        {
+          "path": "assets/licenses/block-padding-0.4.2/LICENSE-MIT",
+          "origin": "published_crate",
+          "sha256": "98181e7249d0c01737645ec982499ce99a0f07eb8f7d625b8840d799d10dbc01"
+        }
+      ]
+    },
+    {
       "name": "block2",
       "version": "0.5.1",
       "license": "MIT",
@@ -1477,6 +1521,24 @@
       "files": [
         {
           "path": "assets/licenses/brotli-decompressor-4.0.3/LICENSE",
+          "origin": "published_crate",
+          "sha256": "c0c56f26d9c051cac4d200c34c84e7ae9aaa853e01a982a1df08b09931e518ae"
+        }
+      ]
+    },
+    {
+      "name": "brotli-decompressor",
+      "version": "5.0.3",
+      "license": "BSD-3-Clause/MIT",
+      "authors": [
+        "Daniel Reiter Horn <danielrh@dropbox.com>",
+        "The Brotli Authors"
+      ],
+      "crate_url": "https://crates.io/crates/brotli-decompressor/5.0.3",
+      "repository": "https://github.com/dropbox/rust-brotli-decompressor",
+      "files": [
+        {
+          "path": "assets/licenses/brotli-decompressor-5.0.3/LICENSE",
           "origin": "published_crate",
           "sha256": "c0c56f26d9c051cac4d200c34c84e7ae9aaa853e01a982a1df08b09931e518ae"
         }
@@ -1866,6 +1928,28 @@
       ]
     },
     {
+      "name": "cbc",
+      "version": "0.2.1",
+      "license": "MIT OR Apache-2.0",
+      "authors": [
+        "RustCrypto Developers"
+      ],
+      "crate_url": "https://crates.io/crates/cbc/0.2.1",
+      "repository": "https://github.com/RustCrypto/block-modes",
+      "files": [
+        {
+          "path": "assets/licenses/cbc-0.2.1/LICENSE-APACHE",
+          "origin": "published_crate",
+          "sha256": "a9040321c3712d8fd0b09cf52b17445de04a23a10165049ae187cd39e5c86be5"
+        },
+        {
+          "path": "assets/licenses/cbc-0.2.1/LICENSE-MIT",
+          "origin": "published_crate",
+          "sha256": "63af4bea227c94d021e99427f6ca3a4b8efddadcca93ab6130f708cf6138cf68"
+        }
+      ]
+    },
+    {
       "name": "cc",
       "version": "1.11.1",
       "license": "MIT OR Apache-2.0",
@@ -2063,6 +2147,28 @@
           "path": "assets/licenses/ciborium-ll-0.2.2/LICENSE",
           "origin": "published_crate",
           "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        }
+      ]
+    },
+    {
+      "name": "cipher",
+      "version": "0.5.2",
+      "license": "MIT OR Apache-2.0",
+      "authors": [
+        "RustCrypto Developers"
+      ],
+      "crate_url": "https://crates.io/crates/cipher/0.5.2",
+      "repository": "https://github.com/RustCrypto/traits",
+      "files": [
+        {
+          "path": "assets/licenses/cipher-0.5.2/LICENSE-APACHE",
+          "origin": "published_crate",
+          "sha256": "a9040321c3712d8fd0b09cf52b17445de04a23a10165049ae187cd39e5c86be5"
+        },
+        {
+          "path": "assets/licenses/cipher-0.5.2/LICENSE-MIT",
+          "origin": "published_crate",
+          "sha256": "950d712c518a02fcb7cff96950aee304a1cc5283361712c980ea21e8d6d669a5"
         }
       ]
     },
@@ -2628,6 +2734,46 @@
           "path": "assets/licenses/crc32fast-1.5.5/LICENSE-MIT",
           "origin": "published_crate",
           "sha256": "61d383b05b87d78f94d2937e2580cce47226d17823c0430fbcad09596537efcf"
+        }
+      ]
+    },
+    {
+      "name": "crossbeam-deque",
+      "version": "0.8.8",
+      "license": "MIT OR Apache-2.0",
+      "authors": [],
+      "crate_url": "https://crates.io/crates/crossbeam-deque/0.8.8",
+      "repository": "https://github.com/crossbeam-rs/crossbeam",
+      "files": [
+        {
+          "path": "assets/licenses/crossbeam-deque-0.8.8/LICENSE-APACHE",
+          "origin": "published_crate",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "assets/licenses/crossbeam-deque-0.8.8/LICENSE-MIT",
+          "origin": "published_crate",
+          "sha256": "5734ed989dfca1f625b40281ee9f4530f91b2411ec01cb748223e7eb87e201ab"
+        }
+      ]
+    },
+    {
+      "name": "crossbeam-epoch",
+      "version": "0.9.21",
+      "license": "MIT OR Apache-2.0",
+      "authors": [],
+      "crate_url": "https://crates.io/crates/crossbeam-epoch/0.9.21",
+      "repository": "https://github.com/crossbeam-rs/crossbeam",
+      "files": [
+        {
+          "path": "assets/licenses/crossbeam-epoch-0.9.21/LICENSE-APACHE",
+          "origin": "published_crate",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "assets/licenses/crossbeam-epoch-0.9.21/LICENSE-MIT",
+          "origin": "published_crate",
+          "sha256": "5734ed989dfca1f625b40281ee9f4530f91b2411ec01cb748223e7eb87e201ab"
         }
       ]
     },
@@ -3267,6 +3413,28 @@
       ]
     },
     {
+      "name": "ecb",
+      "version": "0.2.1",
+      "license": "MIT OR Apache-2.0",
+      "authors": [
+        "RustCrypto Developers"
+      ],
+      "crate_url": "https://crates.io/crates/ecb/0.2.1",
+      "repository": "https://github.com/RustCrypto/block-modes",
+      "files": [
+        {
+          "path": "assets/licenses/ecb-0.2.1/LICENSE-APACHE",
+          "origin": "published_crate",
+          "sha256": "a9040321c3712d8fd0b09cf52b17445de04a23a10165049ae187cd39e5c86be5"
+        },
+        {
+          "path": "assets/licenses/ecb-0.2.1/LICENSE-MIT",
+          "origin": "published_crate",
+          "sha256": "f2e4fad8a368f5bb6610e9843f142a0098c80c3718d1ce75c7133ee0acddd786"
+        }
+      ]
+    },
+    {
       "name": "ecdsa",
       "version": "0.17.0",
       "license": "Apache-2.0 OR MIT",
@@ -3646,6 +3814,38 @@
         ],
         "resolved_release_commit": "841a328ba2dd8f6996beb7189ebb7fc00e668a2a"
       }
+    },
+    {
+      "name": "encoding_rs",
+      "version": "0.8.42",
+      "license": "(Apache-2.0 OR MIT) AND BSD-3-Clause",
+      "authors": [
+        "Henri Sivonen <hsivonen@hsivonen.fi>"
+      ],
+      "crate_url": "https://crates.io/crates/encoding_rs/0.8.42",
+      "repository": "https://github.com/hsivonen/encoding_rs",
+      "files": [
+        {
+          "path": "assets/licenses/encoding_rs-0.8.42/COPYRIGHT",
+          "origin": "published_crate",
+          "sha256": "11789f45bb180841cd362a5eee6789c68ddb573a11105e30768c308a6add0190"
+        },
+        {
+          "path": "assets/licenses/encoding_rs-0.8.42/LICENSE-APACHE",
+          "origin": "published_crate",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "assets/licenses/encoding_rs-0.8.42/LICENSE-MIT",
+          "origin": "published_crate",
+          "sha256": "3fa4ca83dcc9237839b1bdeb2e6d16bdfb5ec0c5ce42b24694d8bbf0dcbef72c"
+        },
+        {
+          "path": "assets/licenses/encoding_rs-0.8.42/LICENSE-WHATWG",
+          "origin": "published_crate",
+          "sha256": "838118388fe5c2e7f1dbbaeed13e1c7f3ebf88be91319c7c1d77c18e987d1a50"
+        }
+      ]
     },
     {
       "name": "endi",
@@ -5421,6 +5621,28 @@
       ]
     },
     {
+      "name": "inout",
+      "version": "0.2.6",
+      "license": "MIT OR Apache-2.0",
+      "authors": [
+        "RustCrypto Developers"
+      ],
+      "crate_url": "https://crates.io/crates/inout/0.2.6",
+      "repository": "https://github.com/RustCrypto/utils",
+      "files": [
+        {
+          "path": "assets/licenses/inout-0.2.6/LICENSE-APACHE",
+          "origin": "published_crate",
+          "sha256": "a9040321c3712d8fd0b09cf52b17445de04a23a10165049ae187cd39e5c86be5"
+        },
+        {
+          "path": "assets/licenses/inout-0.2.6/LICENSE-MIT",
+          "origin": "published_crate",
+          "sha256": "a07fcacc3c60de4dc0fab10ac9d6aaba7379974e28451c99da7f7df09c25b28c"
+        }
+      ]
+    },
+    {
       "name": "iref",
       "version": "3.2.2",
       "license": "MIT/Apache-2.0",
@@ -6205,6 +6427,46 @@
       ]
     },
     {
+      "name": "lopdf",
+      "version": "0.45.0",
+      "license": "MIT",
+      "authors": [
+        "Junfeng Liu <china.liujunfeng@gmail.com>",
+        "Emulator <emulator@hotmail.it>"
+      ],
+      "crate_url": "https://crates.io/crates/lopdf/0.45.0",
+      "repository": "https://github.com/J-F-Liu/lopdf.git",
+      "files": [
+        {
+          "path": "assets/licenses/lopdf-0.45.0/LICENSE",
+          "origin": "published_crate",
+          "sha256": "2fb01e6708ea9d53e8b7e74bd82af23bce5256f19f4de93915027a53173c50d8"
+        }
+      ]
+    },
+    {
+      "name": "md-5",
+      "version": "0.11.0",
+      "license": "MIT OR Apache-2.0",
+      "authors": [
+        "RustCrypto Developers"
+      ],
+      "crate_url": "https://crates.io/crates/md-5/0.11.0",
+      "repository": "https://github.com/RustCrypto/hashes",
+      "files": [
+        {
+          "path": "assets/licenses/md-5-0.11.0/LICENSE-APACHE",
+          "origin": "published_crate",
+          "sha256": "a9040321c3712d8fd0b09cf52b17445de04a23a10165049ae187cd39e5c86be5"
+        },
+        {
+          "path": "assets/licenses/md-5-0.11.0/LICENSE-MIT",
+          "origin": "published_crate",
+          "sha256": "831e0f43ad0bf014c1c4fec5767aae470434c1d66d6e671be2d823e729063e25"
+        }
+      ]
+    },
+    {
       "name": "memchr",
       "version": "2.8.3",
       "license": "Unlicense OR MIT",
@@ -6387,6 +6649,33 @@
           "path": "assets/licenses/moxcms-0.8.1/LICENSE.md",
           "origin": "published_crate",
           "sha256": "2aa92cada6431e75615e3fe6cb1a9082c98f777d48ae1c087c0da0e37f7b8bff"
+        }
+      ]
+    },
+    {
+      "name": "multiversion_no_op",
+      "version": "1.0.0",
+      "license": "Apache-2.0 OR MIT",
+      "authors": [
+        "Henri Sivonen <hsivonen@hsivonen.fi>"
+      ],
+      "crate_url": "https://crates.io/crates/multiversion_no_op/1.0.0",
+      "repository": "https://github.com/hsivonen/multiversion_no_op",
+      "files": [
+        {
+          "path": "assets/licenses/multiversion_no_op-1.0.0/COPYRIGHT",
+          "origin": "published_crate",
+          "sha256": "d2a809eafabba137f508bea16a1b93d8ff24df7da6f38129d830db9bc118bdfe"
+        },
+        {
+          "path": "assets/licenses/multiversion_no_op-1.0.0/LICENSE-APACHE",
+          "origin": "published_crate",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "assets/licenses/multiversion_no_op-1.0.0/LICENSE-MIT",
+          "origin": "published_crate",
+          "sha256": "3fa4ca83dcc9237839b1bdeb2e6d16bdfb5ec0c5ce42b24694d8bbf0dcbef72c"
         }
       ]
     },
@@ -8875,6 +9164,28 @@
       "selected_license": "Apache-2.0"
     },
     {
+      "name": "rangemap",
+      "version": "1.8.0",
+      "license": "MIT/Apache-2.0",
+      "authors": [
+        "Jeff Parsons <jeff@parsons.io>"
+      ],
+      "crate_url": "https://crates.io/crates/rangemap/1.8.0",
+      "repository": "https://github.com/jeffparsons/rangemap",
+      "files": [
+        {
+          "path": "assets/licenses/rangemap-1.8.0/LICENSE-APACHE",
+          "origin": "published_crate",
+          "sha256": "1c7745cc26c7294bc9dbc883bcd50700b99a8c0f4859bfce84ec555098ce1ab5"
+        },
+        {
+          "path": "assets/licenses/rangemap-1.8.0/LICENSE-MIT",
+          "origin": "published_crate",
+          "sha256": "29a4c3823ee29ee5a97c145574a1bac20629fd5e6708be1df0d25bab563e093c"
+        }
+      ]
+    },
+    {
       "name": "rasn",
       "version": "0.28.15",
       "license": "MIT OR Apache-2.0",
@@ -9036,6 +9347,46 @@
           "path": "assets/licenses/raw-window-handle-0.6.2/LICENSE-ZLIB.md",
           "origin": "published_crate",
           "sha256": "ae895c8576e682f310fb70d93d9f99b1dd82872094c54a8f6cdfe2ca5c2d6ecb"
+        }
+      ]
+    },
+    {
+      "name": "rayon",
+      "version": "1.12.0",
+      "license": "MIT OR Apache-2.0",
+      "authors": [],
+      "crate_url": "https://crates.io/crates/rayon/1.12.0",
+      "repository": "https://github.com/rayon-rs/rayon",
+      "files": [
+        {
+          "path": "assets/licenses/rayon-1.12.0/LICENSE-APACHE",
+          "origin": "published_crate",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "assets/licenses/rayon-1.12.0/LICENSE-MIT",
+          "origin": "published_crate",
+          "sha256": "0621878e61f0d0fda054bcbe02df75192c28bde1ecc8289cbd86aeba2dd72720"
+        }
+      ]
+    },
+    {
+      "name": "rayon-core",
+      "version": "1.13.0",
+      "license": "MIT OR Apache-2.0",
+      "authors": [],
+      "crate_url": "https://crates.io/crates/rayon-core/1.13.0",
+      "repository": "https://github.com/rayon-rs/rayon",
+      "files": [
+        {
+          "path": "assets/licenses/rayon-core-1.13.0/LICENSE-APACHE",
+          "origin": "published_crate",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "assets/licenses/rayon-core-1.13.0/LICENSE-MIT",
+          "origin": "published_crate",
+          "sha256": "0621878e61f0d0fda054bcbe02df75192c28bde1ecc8289cbd86aeba2dd72720"
         }
       ]
     },
@@ -10581,6 +10932,28 @@
       ]
     },
     {
+      "name": "stringprep",
+      "version": "0.1.5",
+      "license": "MIT/Apache-2.0",
+      "authors": [
+        "Steven Fackler <sfackler@gmail.com>"
+      ],
+      "crate_url": "https://crates.io/crates/stringprep/0.1.5",
+      "repository": "https://github.com/sfackler/rust-stringprep",
+      "files": [
+        {
+          "path": "assets/licenses/stringprep-0.1.5/LICENSE-APACHE",
+          "origin": "published_crate",
+          "sha256": "c6596eb7be8581c18be736c846fb9173b69eccf6ef94c5135893ec56bd92ba08"
+        },
+        {
+          "path": "assets/licenses/stringprep-0.1.5/LICENSE-MIT",
+          "origin": "published_crate",
+          "sha256": "a07450fd4496cb8b58466e6d529f1f502444eee4a235659337e9194d694739d6"
+        }
+      ]
+    },
+    {
       "name": "strsim",
       "version": "0.11.1",
       "license": "MIT",
@@ -11305,6 +11678,38 @@
           "path": "assets/licenses/unarray-0.1.4/LICENSE-MIT",
           "origin": "published_crate",
           "sha256": "002c2696d92b5c8cf956c11072baa58eaf9f6ade995c031ea635c6a1ee342ad1"
+        }
+      ]
+    },
+    {
+      "name": "unicode-bidi",
+      "version": "0.3.18",
+      "license": "MIT OR Apache-2.0",
+      "authors": [
+        "The Servo Project Developers"
+      ],
+      "crate_url": "https://crates.io/crates/unicode-bidi/0.3.18",
+      "repository": "https://github.com/servo/unicode-bidi",
+      "files": [
+        {
+          "path": "assets/licenses/unicode-bidi-0.3.18/AUTHORS",
+          "origin": "published_crate",
+          "sha256": "1ff3a7c8519b29544bb28ba9b1e7502df0cb764051fb9a1172e60006aa2b8dcc"
+        },
+        {
+          "path": "assets/licenses/unicode-bidi-0.3.18/COPYRIGHT",
+          "origin": "published_crate",
+          "sha256": "edb20b474f6cbd4f4db066b54a9e0f687d0009d309412a63431189b59b8e2a07"
+        },
+        {
+          "path": "assets/licenses/unicode-bidi-0.3.18/LICENSE-APACHE",
+          "origin": "published_crate",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "assets/licenses/unicode-bidi-0.3.18/LICENSE-MIT",
+          "origin": "published_crate",
+          "sha256": "7b63ecd5f1902af1b63729947373683c32745c16a10e8e6292e2e2dcd7e90ae0"
         }
       ]
     },
@@ -12147,6 +12552,28 @@
         },
         {
           "path": "assets/licenses/weezl-0.1.12/LICENSE-MIT",
+          "origin": "published_crate",
+          "sha256": "573f5227db835cd30bbdd3aed3f82615f80119a4d5c82b4daf642dbfe2b6afde"
+        }
+      ]
+    },
+    {
+      "name": "weezl",
+      "version": "0.2.1",
+      "license": "MIT OR Apache-2.0",
+      "authors": [
+        "The image-rs Developers"
+      ],
+      "crate_url": "https://crates.io/crates/weezl/0.2.1",
+      "repository": "https://github.com/image-rs/weezl",
+      "files": [
+        {
+          "path": "assets/licenses/weezl-0.2.1/LICENSE-APACHE",
+          "origin": "published_crate",
+          "sha256": "769f80b5bcb42ed0af4e4d2fd74e1ac9bf843cb80c5a29219d1ef3544428a6bb"
+        },
+        {
+          "path": "assets/licenses/weezl-0.2.1/LICENSE-MIT",
           "origin": "published_crate",
           "sha256": "573f5227db835cd30bbdd3aed3f82615f80119a4d5c82b4daf642dbfe2b6afde"
         }

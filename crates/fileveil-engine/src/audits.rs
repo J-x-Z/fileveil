@@ -15,13 +15,17 @@ pub fn provenance(input: &Path, trust_roots: Option<&Path>, limits: &Limits) -> 
                 .map_err(|_| Error::Input("Local trust roots must be UTF-8 PEM".into()))
         })
         .transpose()?;
-    let credentials =
-        crate::provenance::inspect_with_trust(&snapshot.bytes, inspection.format, limits, pem)?;
+    let credentials = if inspection.format == Format::Text {
+        crate::provenance::inspect_mime(&snapshot.bytes, text_credential_mime(input), limits, pem)?
+    } else {
+        crate::provenance::inspect_with_trust(&snapshot.bytes, inspection.format, limits, pem)?
+    };
     let mut report = report_for("provenance", &inspection, &snapshot);
     report.provenance = credentials
         .map(serde_json::to_value)
         .transpose()
         .map_err(|_| Error::Io("Could not serialize provenance evidence".into()))?;
+    neutralize_provenance_findings(&mut report);
     report.advanced = Some(
         serde_json::json!({"capabilities":crate::provenance::capabilities(),
         "external_interfaces":crate::provenance::external_interfaces(),

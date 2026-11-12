@@ -115,6 +115,7 @@ impl Workspaces {
         })
     }
     pub fn tabs(&mut self, ui: &mut egui::Ui, language: Language) {
+        let previous = self.selected;
         ui.horizontal_wrapped(|ui| {
             for workspace in [
                 Workspace::Files,
@@ -130,6 +131,9 @@ impl Workspaces {
                 }
             }
         });
+        if self.selected != previous {
+            self.notice = None;
+        }
         ui.separator();
     }
     fn start(&mut self, kind: JobKind, session: &Session, context: &egui::Context) {
@@ -410,35 +414,53 @@ impl Workspaces {
             ui.selectable_value(&mut self.options.policy, Policy::Safe, "Safe");
             ui.selectable_value(&mut self.options.policy, Policy::Deep, "Deep");
         });
-        ui.add_enabled_ui(idle && self.options.policy == Policy::Deep, |ui| {
-            ui.checkbox(
-                &mut self.options.remove_provenance,
-                t(
-                    language,
-                    "移除可移除来源凭据及其签名",
-                    "Remove removable source credentials and their signatures",
-                ),
-            );
-        });
-        if self.options.remove_provenance {
+        let mime = session
+            .selected_item()
+            .and_then(|item| item.scan.as_ref())
+            .map(|report| report.input_format.as_str())
+            .unwrap_or("");
+        let office = mime.starts_with("application/vnd.openxmlformats-officedocument.");
+        let text = matches!(mime, "text/plain" | "text/markdown" | "text/html");
+        let credentials = matches!(
+            mime,
+            "image/jpeg" | "image/png" | "application/pdf" | "text/plain" | "text/markdown"
+        );
+        ui.add_enabled_ui(
+            idle && self.options.policy == Policy::Deep && credentials,
+            |ui| {
+                ui.checkbox(
+                    &mut self.options.remove_provenance,
+                    t(
+                        language,
+                        "移除可移除来源凭据及其签名",
+                        "Remove removable source credentials and their signatures",
+                    ),
+                );
+            },
+        );
+        if self.options.remove_provenance && credentials && self.options.policy == Policy::Deep {
             ui.label(t(language,"输出副本将失去这些来源签名，其他来源关联仍需对应检测器评估。","The copy will lose these source signatures. Other source associations require their corresponding detectors."));
         }
         ui.add_enabled_ui(idle,|ui| {
             egui::CollapsingHeader::new(t(language,"Office 深度范围","Office content scope")).default_open(true).show(ui,|ui| {
-                ui.add_enabled_ui(self.options.policy==Policy::Deep,|ui| {
+                ui.add_enabled_ui(self.options.policy==Policy::Deep && office,|ui| {
                     ui.checkbox(&mut self.options.deep.remove_comments,t(language,"批注与作者","Comments and authors"));
-                    ui.checkbox(&mut self.options.deep.accept_revisions,t(language,"接受简单 Word 修订","Accept simple Word revisions"));
-                    ui.checkbox(&mut self.options.deep.remove_hidden_text,t(language,"显式隐藏的 Word 文本","Explicitly hidden Word text"));
-                    ui.checkbox(&mut self.options.deep.remove_hidden_sheets,t(language,"无依赖的隐藏工作表","Hidden worksheets without dependencies"));
+                    ui.add_enabled_ui(mime == fileveil_core::Format::Docx.mime(), |ui| {
+                        ui.checkbox(&mut self.options.deep.accept_revisions,t(language,"接受简单 Word 修订","Accept simple Word revisions"));
+                        ui.checkbox(&mut self.options.deep.remove_hidden_text,t(language,"显式隐藏的 Word 文本","Explicitly hidden Word text"));
+                        ui.checkbox(&mut self.options.deep.remove_internal_identifiers,t(language,"Word 内部编辑标识符","Word internal editing identifiers"));
+                    });
+                    ui.add_enabled_ui(mime == fileveil_core::Format::Xlsx.mime(), |ui| {
+                        ui.checkbox(&mut self.options.deep.remove_hidden_sheets,t(language,"无依赖的隐藏工作表","Hidden worksheets without dependencies"));
+                    });
                     ui.checkbox(&mut self.options.deep.remove_custom_xml,t(language,"自定义 XML 与绑定","Custom XML and bindings"));
                     ui.checkbox(&mut self.options.deep.remove_embedded_objects,t(language,"可安全解除引用的嵌入对象","Embedded objects with supported references"));
                     ui.checkbox(&mut self.options.deep.remove_external_relationships,t(language,"外部超链接关系","External hyperlink relationships"));
-                    ui.checkbox(&mut self.options.deep.remove_internal_identifiers,t(language,"内部编辑标识符","Internal editing identifiers"));
                 });
                 ui.label(t(language,"存在公式、共享字符串、图表或复杂修订依赖时会报告阻断原因。","Formula, shared-string, chart and complex revision dependencies report explicit blockers."));
             });
             egui::CollapsingHeader::new(t(language,"PDF 深度范围","PDF content scope")).show(ui,|ui| {
-                ui.add_enabled_ui(self.options.policy==Policy::Deep,|ui| {
+                ui.add_enabled_ui(self.options.policy==Policy::Deep && mime == "application/pdf",|ui| {
                     ui.checkbox(&mut self.options.pdf.remove_attachments,t(language,"附件及嵌入文件","Attachments and embedded files"));
                     ui.checkbox(&mut self.options.pdf.remove_javascript,t(language,"JavaScript 主动内容","JavaScript active content"));
                     ui.checkbox(&mut self.options.pdf.remove_annotations,t(language,"注释与批注","Annotations and comments"));
@@ -446,11 +468,15 @@ impl Workspaces {
                 ui.label(t(language,"带签名、加密或受保护表单的操作将报告阻断原因。","Signed, encrypted and protected form structures report explicit blockers."));
             });
             egui::CollapsingHeader::new(t(language,"文本与 HTML","Text and HTML")).show(ui,|ui| {
+                ui.add_enabled_ui(text, |ui| {
                 ui.checkbox(&mut self.options.text.remove_bom,t(language,"移除开头 BOM","Remove leading BOM"));
                 ui.checkbox(&mut self.options.text.remove_control_characters,t(language,"异常控制符与非语言标记","Abnormal controls and nonlinguistic markers"));
-                ui.checkbox(&mut self.options.text.remove_html_metadata,t(language,"HTML 作者、生成器和来源字段","HTML author, generator and source fields"));
-                ui.checkbox(&mut self.options.text.remove_html_comments,t(language,"HTML 注释","HTML comments"));
+                ui.add_enabled_ui(mime == "text/html", |ui| {
+                    ui.checkbox(&mut self.options.text.remove_html_metadata,t(language,"HTML 作者、生成器和来源字段","HTML author, generator and source fields"));
+                    ui.checkbox(&mut self.options.text.remove_html_comments,t(language,"HTML 注释","HTML comments"));
+                });
                 ui.label(t(language,"保留 ZWJ、ZWNJ 和合法双向文本字符。复杂 HTML 结构会安全失败。","ZWJ, ZWNJ and legitimate bidirectional text are preserved. Unsupported complex HTML structures fail safely."));
+                });
             });
             egui::CollapsingHeader::new(t(language,"文件系统隐私属性","Filesystem privacy attributes")).show(ui,|ui| {
                 ui.checkbox(&mut self.options.filesystem.remove_download_origin,t(language,"macOS 下载来源","macOS download origins"));
@@ -461,11 +487,6 @@ impl Workspaces {
                 ui.label(t(language,"保留 Quarantine、Mark-of-the-Web 和受保护属性。资源叉会阻断重写。","Quarantine, Mark-of-the-Web and protected attributes are preserved. Resource forks block rewriting."));
             });
         });
-        if self.options.policy == Policy::Safe {
-            self.options.deep = Default::default();
-            self.options.pdf = Default::default();
-            self.options.remove_provenance = false;
-        }
         if let Some(scan) = session.selected_item().and_then(|item| item.scan.as_ref()) {
             egui::CollapsingHeader::new(t(
                 language,
@@ -506,12 +527,17 @@ impl Workspaces {
         }
         let supported = session
             .selected_item()
-            .and_then(|item| item.latest.as_ref())
-            .is_none_or(|report| {
+            .and_then(|item| item.scan.as_ref())
+            .is_some_and(|report| {
                 report.result != fileveil_core::Outcome::Unsupported
                     && !matches!(
-                        report.input_format.as_str(),
-                        "image/heif" | "image/avif" | "video/mp4" | "video/quicktime"
+                        mime,
+                        "image/heif"
+                            | "image/avif"
+                            | "video/mp4"
+                            | "video/quicktime"
+                            | "audio/mpeg"
+                            | "application/octet-stream"
                     )
             });
         if !supported {
@@ -536,12 +562,13 @@ impl Workspaces {
                 .set_file_name(format!("{name}.deep.{extension}"))
                 .save_file()
             {
-                self.last_write = Some((input.to_path_buf(), self.options.clone()));
+                let options = options_for_format(&self.options, mime);
+                self.last_write = Some((input.to_path_buf(), options.clone()));
                 self.start(
                     JobKind::SanitizeAdvanced {
                         input: input.to_path_buf(),
                         output: Some(output),
-                        options: self.options.clone(),
+                        options,
                     },
                     session,
                     ui.ctx(),
@@ -618,9 +645,19 @@ impl Workspaces {
             ui.label(name);
         }
         if let Some(details) = &result.report.provenance {
+            if result
+                .report
+                .advanced
+                .as_ref()
+                .is_some_and(|advanced| advanced.get("provenance_removal").is_some())
+            {
+                ui.strong(t(language, "原件来源凭据", "Original source credentials"));
+                ui.label(t(language, "输出复验未发现对应凭据或来源引用，其签名已随所选凭据移除。", "Output verification found no corresponding credentials or source references. Their signatures were discarded with the selected credentials."));
+            }
             for (key, zh, en) in [
                 ("signature", "签名", "Signature"),
                 ("asset_binding", "文件绑定", "Asset binding"),
+                ("manifest_validation", "凭据整体校验", "Manifest validation"),
                 ("trust", "根信任", "Root trust"),
                 ("revocation", "吊销证据", "Revocation evidence"),
             ] {
@@ -629,6 +666,23 @@ impl Workspaces {
                     t(language, zh, en),
                     status(language, details[key].as_str().unwrap_or("not_assessed"))
                 ));
+            }
+            if let Some(scope) = details.get("text_scope").filter(|value| value.is_object()) {
+                ui.label(t(
+                    language,
+                    "实验性标准文本来源包装",
+                    "Experimental standard text credential wrappers",
+                ));
+                if scope["removal_supported"] == false {
+                    ui.small(t(
+                        language,
+                        "当前包装上下文受到保护，无法安全移除。",
+                        "The current wrapper context is protected from removal.",
+                    ));
+                }
+                if details["asset_binding_scope"] == "nfc_normalization_required_not_performed" {
+                    ui.small(t(language, "保留原始 Unicode 字节，非 NFC 文本的资产绑定无法完整验证。", "Original Unicode bytes are preserved. Asset binding for non-NFC text cannot be fully verified."));
+                }
             }
         } else if self.result_workspace == Workspace::Provenance {
             ui.label(t(language,"本次未取得可读取的 C2PA 来源凭据，未知 AI 水印仍未评估。","This run obtained no readable C2PA credentials. Unknown AI watermarks remain unassessed."));
@@ -754,7 +808,14 @@ impl Workspaces {
             }
         }
         for finding in &result.report.findings {
-            ui.label(crate::i18n::finding_summary(language, finding));
+            ui.label(format!(
+                "{} · {}",
+                crate::i18n::finding_title(language, finding),
+                crate::i18n::state(language, finding.state)
+            ));
+            if finding.state != fileveil_core::FindingState::RemovedVerified {
+                ui.small(crate::i18n::finding_summary(language, finding));
+            }
         }
         for warning in &result.report.warnings {
             ui.small(crate::i18n::tr(language, warning));
@@ -993,6 +1054,40 @@ fn bar_plot(
         }
     }
 }
+fn options_for_format(saved: &SanitizeOptions, mime: &str) -> SanitizeOptions {
+    let mut options = saved.clone();
+    let office = mime.starts_with("application/vnd.openxmlformats-officedocument.");
+    if !office || options.policy != Policy::Deep {
+        options.deep = Default::default();
+    }
+    if mime != fileveil_core::Format::Docx.mime() {
+        options.deep.accept_revisions = false;
+        options.deep.remove_hidden_text = false;
+        options.deep.remove_internal_identifiers = false;
+    }
+    if mime != fileveil_core::Format::Xlsx.mime() {
+        options.deep.remove_hidden_sheets = false;
+    }
+    if mime != "application/pdf" || options.policy != Policy::Deep {
+        options.pdf = Default::default();
+    }
+    if !matches!(mime, "text/plain" | "text/markdown" | "text/html") {
+        options.text = Default::default();
+    }
+    if mime != "text/html" {
+        options.text.remove_html_metadata = false;
+        options.text.remove_html_comments = false;
+    }
+    if !matches!(
+        mime,
+        "image/jpeg" | "image/png" | "application/pdf" | "text/plain" | "text/markdown"
+    ) || options.policy != Policy::Deep
+    {
+        options.remove_provenance = false;
+    }
+    options
+}
+
 fn t<'a>(language: Language, zh: &'a str, en: &'a str) -> &'a str {
     if language == Language::Chinese {
         zh
@@ -1051,6 +1146,58 @@ mod tests {
         workspaces.selected = Workspace::Deep;
         workspaces.record_result(result("sanitize", None));
         assert!(workspaces.verification_request().is_none());
+    }
+
+    #[test]
+    fn switching_formats_keeps_preferences_and_passes_only_applicable_options() {
+        let mut saved = SanitizeOptions {
+            policy: Policy::Deep,
+            remove_provenance: true,
+            ..Default::default()
+        };
+        saved.deep.remove_comments = true;
+        saved.pdf.remove_annotations = true;
+        saved.text.remove_bom = true;
+        saved.text.remove_html_comments = true;
+        saved.text.remove_html_metadata = true;
+        saved.filesystem.normalize_output_timestamps = true;
+        for mime in [
+            "image/png",
+            "application/pdf",
+            "text/plain",
+            "text/markdown",
+        ] {
+            let effective = options_for_format(&saved, mime);
+            assert!(!effective.deep.any());
+            assert_eq!(effective.pdf.any(), mime == "application/pdf");
+            assert_eq!(effective.text.any(), mime.starts_with("text/"));
+            assert!(effective.remove_provenance);
+            assert!(!effective.text.remove_html_comments);
+            assert!(!effective.text.remove_html_metadata);
+            assert!(effective.filesystem.normalize_output_timestamps);
+        }
+        let office = options_for_format(&saved, Format::Docx.mime());
+        assert!(office.deep.remove_comments);
+        assert!(!office.pdf.any() && !office.text.any());
+        assert!(!office.remove_provenance);
+        assert!(saved.deep.remove_comments);
+        saved.deep.accept_revisions = true;
+        saved.deep.remove_hidden_text = true;
+        saved.deep.remove_internal_identifiers = true;
+        saved.deep.remove_hidden_sheets = true;
+        let spreadsheet = options_for_format(&saved, Format::Xlsx.mime());
+        assert!(!spreadsheet.deep.accept_revisions);
+        assert!(!spreadsheet.deep.remove_hidden_text);
+        assert!(!spreadsheet.deep.remove_internal_identifiers);
+        assert!(spreadsheet.deep.remove_hidden_sheets);
+        let word = options_for_format(&saved, Format::Docx.mime());
+        assert!(word.deep.accept_revisions);
+        assert!(!word.deep.remove_hidden_sheets);
+        saved.policy = Policy::Safe;
+        let safe = options_for_format(&saved, Format::Docx.mime());
+        assert!(!safe.deep.any() && !safe.pdf.any());
+        assert!(!safe.remove_provenance);
+        assert!(saved.deep.remove_comments);
     }
 
     #[test]

@@ -28,6 +28,10 @@ def main() -> None:
     commands = [
         ["scan", "tests/fixtures/png_clean.png", "--json"],
         ["provenance", "crates/fileveil-engine/tests/fixtures/provenance/signed.png", "--json"],
+        ["provenance", "crates/fileveil-engine/tests/fixtures/provenance/signed.pdf", "--json"],
+        ["provenance", "crates/fileveil-engine/tests/fixtures/provenance/signed.txt", "--json"],
+        ["provenance", "crates/fileveil-engine/tests/fixtures/provenance/signed.md", "--json"],
+        ["provenance", "crates/fileveil-engine/tests/fixtures/provenance/signed.wav", "--json"],
         ["lab", "tests/fixtures/png_clean.png", "tests/fixtures/png_itxt_exif_icc.png", "--json"],
         ["scan", "tests/fixtures/pdf_corrupt.pdf", "--json"],
     ]

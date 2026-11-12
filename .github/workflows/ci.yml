@@ -21,6 +21,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
+      - name: Packaging unit tests
+        run: python -m unittest discover -s tests -p test_packaging.py -v
       - name: Restore platform Cargo cache
         uses: actions/cache/restore@v4
         id: cargo-cache
@@ -69,6 +71,9 @@ jobs:
           sips -s format png tests/fixtures/heic_exif_gps.heic --out work/heic-decoded.png > work/native-media-interop.log
           sips -s format png tests/fixtures/avif_exif_gps.avif --out work/avif-decoded.png >> work/native-media-interop.log
           swift crates/fileveil-formats/tests/support/decode_native_video.swift tests/fixtures/mp4_container_times.mp4 tests/fixtures/mov_model_metadata.mov >> work/native-media-interop.log
+          sips -s format png crates/fileveil-engine/tests/fixtures/provenance/signed.heic --out work/signed-heic-decoded.png >> work/native-media-interop.log
+          sips -s format png crates/fileveil-engine/tests/fixtures/provenance/signed.avif --out work/signed-avif-decoded.png >> work/native-media-interop.log
+          swift crates/fileveil-formats/tests/support/decode_native_video.swift crates/fileveil-engine/tests/fixtures/provenance/signed.mp4 crates/fileveil-engine/tests/fixtures/provenance/signed.mov >> work/native-media-interop.log
       - name: CLI capabilities
         run: cargo run --locked -p fileveil-cli -- capabilities --json
       - name: Scan synthetic JPEG
@@ -168,6 +173,66 @@ jobs:
           print(json.dumps(report))
       - name: Package desktop application
         run: python tools/package-desktop.py --skip-build
+      - name: Exercise packaged CLI and report schemas
+        shell: python {0}
+        run: |
+          import hashlib
+          import json
+          import os
+          import pathlib
+          import subprocess
+          import sys
+          import tomllib
+          version = tomllib.loads(pathlib.Path('Cargo.toml').read_text())['workspace']['package']['version']
+          if sys.platform == 'darwin':
+              executable = pathlib.Path('dist/FileVeil.app/Contents/MacOS/fileveil')
+          else:
+              platform = 'windows' if os.name == 'nt' else 'linux'
+              executable = pathlib.Path(f'dist/FileVeil-{version}-{platform}') / ('fileveil.exe' if os.name == 'nt' else 'fileveil')
+          environment = dict(os.environ)
+          environment.pop('FILEVEIL_QPDF', None)
+          capabilities = json.loads(subprocess.check_output([str(executable), 'capabilities', '--json'], env=environment, text=True))
+          assert capabilities['pdf']['available'] is True, capabilities['pdf']
+          subprocess.run([sys.executable, 'tools/check-report-schemas.py', '--executable', str(executable)], env=environment, check=True, timeout=120)
+          original = pathlib.Path('work/ci-fixtures/jpeg_exif_gps_author.jpg')
+          original_hash = hashlib.sha256(original.read_bytes()).hexdigest()
+          output = pathlib.Path('work/packaged-jpeg.clean.jpg')
+          for arguments in [['sanitize', str(original), '--output', str(output), '--json'], ['verify', str(original), str(output), '--json']]:
+              process = subprocess.run([str(executable), *arguments], env=environment, capture_output=True, text=True, timeout=120)
+              assert process.returncode in (0, 4), (process.stdout, process.stderr)
+              report = json.loads(process.stdout)
+              assert report['integrity']['content_equal'] is True, report
+              assert report['integrity']['original_unchanged'] is True, report
+          assert hashlib.sha256(original.read_bytes()).hexdigest() == original_hash
+          pathlib.Path('work/packaged-cli.json').write_text(json.dumps({'version':version, 'pdf_backend_available':True, 'schema_reports_validated':True, 'jpeg_sanitize_verify':True, 'original_unchanged':True}) + '\n')
+      - name: Inspect macOS package signatures and Gatekeeper
+        if: runner.os == 'macOS'
+        shell: python {0}
+        run: |
+          import json
+          import pathlib
+          import subprocess
+          bundle = 'dist/FileVeil.app'
+          subprocess.run(['codesign', '--verify', '--strict', '--verbose=2', bundle], check=True, timeout=60)
+          details = subprocess.run(['codesign', '--display', '--verbose=4', bundle], capture_output=True, text=True, timeout=30)
+          evidence = {'platform':'macos', 'codesign_verified':True, 'signing_mode':'ad_hoc', 'developer_id_notarization':'not_configured', 'signature_details':details.stderr}
+          for name, arguments in [('gatekeeper_policy',['spctl','--status']), ('gatekeeper_assessment',['spctl','--assess','--type','execute','--verbose=2',bundle])]:
+              try:
+                  result = subprocess.run(arguments, capture_output=True, text=True, timeout=60)
+                  evidence[name] = {'exit_code':result.returncode, 'stdout':result.stdout, 'stderr':result.stderr}
+              except subprocess.TimeoutExpired:
+                  evidence[name] = {'status':'not_completed', 'reason':'assessment_timeout'}
+          pathlib.Path('work/native-signature.json').write_text(json.dumps(evidence, indent=2) + '\n')
+      - name: Inspect Windows Authenticode status
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $package = (Get-ChildItem dist -Recurse -Filter fileveil-package.json | Select-Object -First 1).Directory
+          $evidence = @('fileveil-gui.exe', 'fileveil.exe') | ForEach-Object {
+            $signature = Get-AuthenticodeSignature -FilePath (Join-Path $package.FullName $_)
+            [PSCustomObject]@{ binary = $_; status = $signature.Status.ToString() }
+          }
+          $evidence | ConvertTo-Json -Depth 10 | Set-Content work/native-signature.json
       - uses: actions/upload-artifact@v4
         with:
           name: FileVeil-${{ matrix.os }}
@@ -179,6 +244,8 @@ jobs:
           path: |
             work/native-gui.*
             work/native-media-interop.log
+            work/packaged-cli.json
+            work/native-signature.json
       - name: Save platform Cargo cache
         if: always() && steps.cargo-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4

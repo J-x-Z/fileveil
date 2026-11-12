@@ -452,3 +452,138 @@ fn deep_selection_does_not_allow_unrelated_page_content_changes() {
         Err(Error::Verification(_))
     ));
 }
+
+#[test]
+fn structural_c2pa_summary_deduplicates_streams_and_preserves_default_protection() {
+    require_backend();
+    let source=fixture("Visible c2pa and jumb words are ordinary page content","/AF [8 0 R 8 0 R] /Names << /EmbeddedFiles << /Names [(credentials) 8 0 R] >> >>",vec![
+        b"<< /Type /Filespec /Subtype /application#2Fc2pa /AFRelationship /C2PA_Manifest /EF << /F 9 0 R >> >>".to_vec(),
+        stream("/Type /EmbeddedFile /Subtype /application#2Fc2pa",b"synthetic structured credential payload"),
+    ]);
+    let summary = pdf::credential_summary(&source, &Limits::default()).unwrap();
+    assert_eq!(summary.store_count, 1);
+    assert_eq!(summary.unresolved_credential_entries, 0);
+    assert!(!summary.digital_signatures_present);
+    assert!(matches!(
+        pdf::sanitize(&source, &Limits::default()),
+        Err(Error::Blocked(_))
+    ));
+    let selected = pdf::inspect_for_provenance_removal(&source, &Limits::default()).unwrap();
+    assert!(selected.blockers.is_empty());
+    let ordinary = fixture(
+        "Visible c2pa and jumb words are ordinary page content",
+        "",
+        vec![],
+    );
+    assert_eq!(
+        pdf::credential_summary(&ordinary, &Limits::default())
+            .unwrap()
+            .store_count,
+        0
+    );
+    assert!(
+        pdf::inspect(&ordinary, &Limits::default())
+            .unwrap()
+            .blockers
+            .is_empty()
+    );
+}
+
+#[test]
+fn credential_cleanup_keeps_ordinary_attachment_finding_present() {
+    require_backend();
+    let source = fixture(
+        "Visible retained content",
+        "/AF [8 0 R 10 0 R] /Names << /EmbeddedFiles << /Names [(credentials) 8 0 R (ordinary) 10 0 R] >> >>",
+        vec![
+            b"<< /Type /Filespec /AFRelationship /C2PA_Manifest /EF << /F 9 0 R >> >>".to_vec(),
+            stream("/Type /EmbeddedFile /Subtype /application#2Fc2pa", b"credential payload"),
+            b"<< /Type /Filespec /F (ordinary.txt) /EF << /F 11 0 R >> >>".to_vec(),
+            stream("/Type /EmbeddedFile", b"retained ordinary attachment"),
+        ],
+    );
+    let limits = Limits::default();
+    let options = Default::default();
+    let clean = pdf::sanitize_with_provenance_removal(&source, &limits, &options).unwrap();
+    let verified = pdf::verify_with_provenance_removal(&source, &clean, &limits, &options).unwrap();
+    assert_eq!(verified.details["c2pa_store_count"], 0);
+    assert!(verified.details["attachment_structures"].as_u64().unwrap() > 0);
+    let attachments: Vec<_> = verified
+        .findings
+        .iter()
+        .filter(|finding| finding.code == "pdf.attachments")
+        .collect();
+    assert_eq!(attachments.len(), 1);
+    assert_eq!(attachments[0].state, FindingState::Present);
+    assert_eq!(attachments[0].action, Action::AskUser);
+    assert!(has_bytes(&clean, b"retained ordinary attachment"));
+}
+
+#[test]
+fn malformed_c2pa_descriptors_are_protected_and_native_pdf_signatures_stay_blocked() {
+    require_backend();
+    let source = fixture(
+        "Protected source",
+        "/AF [8 0 R]",
+        vec![b"<< /Type /Filespec /AFRelationship /C2PA_Manifest >>".to_vec()],
+    );
+    let summary = pdf::credential_summary(&source, &Limits::default()).unwrap();
+    assert_eq!(summary.store_count, 0);
+    assert_eq!(summary.unresolved_credential_entries, 1);
+    assert!(matches!(
+        pdf::sanitize(&source, &Limits::default()),
+        Err(Error::Blocked(_))
+    ));
+    let signed = fixture(
+        "Native signature source",
+        "/AcroForm << /Fields [8 0 R] >>",
+        vec![b"<< /Type /Sig /ByteRange [0 1 2 3] /Contents <00> >>".to_vec()],
+    );
+    assert!(
+        pdf::credential_summary(&signed, &Limits::default())
+            .unwrap()
+            .digital_signatures_present
+    );
+    assert!(
+        !pdf::inspect_for_provenance_removal(&signed, &Limits::default())
+            .unwrap()
+            .blockers
+            .is_empty()
+    );
+    assert!(matches!(
+        pdf::sanitize_with_provenance_removal(&signed, &Limits::default(), &Default::default()),
+        Err(Error::Blocked(_))
+    ));
+}
+
+#[test]
+fn shared_metadata_and_page_content_stream_is_blocked_before_any_deletion() {
+    require_backend();
+    let source=assemble(&[
+        b"<< /Type /Catalog /Pages 2 0 R /Metadata 4 0 R >>".to_vec(),
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>".to_vec(),
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 300] /Resources << >> /Contents 4 0 R >>".to_vec(),
+        stream("/Type /Metadata /Subtype /XML",b"0 0 1 rg 20 20 100 100 re f"),
+    ],"");
+    let inspected = pdf::inspect(&source, &Limits::default()).unwrap();
+    assert!(
+        inspected
+            .findings
+            .iter()
+            .any(|finding| finding.code == "pdf.shared_metadata")
+    );
+    assert!(
+        inspected
+            .blockers
+            .iter()
+            .any(|reason| reason.contains("Shared PDF metadata"))
+    );
+    for result in [
+        pdf::sanitize(&source, &Limits::default()),
+        pdf::sanitize_with_provenance_removal(&source, &Limits::default(), &Default::default()),
+    ] {
+        assert!(
+            matches!(result,Err(Error::Blocked(ref message))if message.contains("Shared PDF metadata"))
+        );
+    }
+}

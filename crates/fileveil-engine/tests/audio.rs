@@ -141,3 +141,63 @@ fn coreaudio_independently_decodes_wav_and_flac_before_and_after_cleaning() {
         .write_all(b"CoreAudio FLAC/WAV decode and Python PCM equality passed\n")
         .unwrap();
 }
+
+#[test]
+fn remote_wav_provenance_prevents_metadata_rewriting_without_fetching_content() {
+    use fileveil_core::{Error, SanitizeOptions};
+    use fileveil_engine::{advanced, provenance};
+    let directory = tempfile::tempdir().unwrap();
+    let input = directory.path().join("remote.wav");
+    let output = directory.path().join("clean.wav");
+    let xmp=br#"<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description rdf:about="" xmlns:dcterms="http://purl.org/dc/terms/" dcterms:provenance="https://example.invalid/PRIVATE_SOURCE.c2pa"/></rdf:RDF></x:xmpmeta>"#;
+    let mut source = waveform();
+    let mut broadcast = vec![0; 602];
+    let author = b"PRIVATE_BROADCAST_AUTHOR";
+    broadcast[..author.len()].copy_from_slice(author);
+    source.extend(chunk(b"bext", &broadcast));
+    source.extend(chunk(b"XMP ", xmp));
+    let size = (source.len() - 8) as u32;
+    source[4..8].copy_from_slice(&size.to_le_bytes());
+    fs::write(&input, &source).unwrap();
+    let evidence = provenance::inspect(&source, Format::Wav, &Limits::default())
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        evidence.presence,
+        provenance::ManifestPresence::RemoteReference
+    );
+    assert!(evidence.offline);
+    let report = scan(&input, &Limits::default()).unwrap();
+    assert_eq!(report.result, Outcome::Blocked);
+    assert_eq!(
+        report.provenance.as_ref().unwrap()["presence"],
+        "remote_reference"
+    );
+    assert!(
+        report
+            .findings
+            .iter()
+            .any(|finding| finding.code == "wav.provenance")
+    );
+    assert!(
+        !serde_json::to_string(&report)
+            .unwrap()
+            .contains("PRIVATE_SOURCE")
+    );
+    assert!(matches!(
+        sanitize(&input, Some(&output), &Limits::default()),
+        Err(Error::Blocked(_))
+    ));
+    assert!(!output.exists());
+    assert!(matches!(
+        advanced::sanitize_with_options(
+            &input,
+            Some(&output),
+            &Limits::default(),
+            &SanitizeOptions::default()
+        ),
+        Err(Error::Blocked(_))
+    ));
+    assert!(!output.exists());
+    assert_eq!(fs::read(&input).unwrap(), source);
+}

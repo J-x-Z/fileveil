@@ -211,10 +211,14 @@ fn authorization_rejects_traversal_sensitive_paths_and_excess_operations() {
     fs::create_dir(source.path().join(".ssh")).unwrap();
     fs::copy(&input, source.path().join(".ssh/private.jpg")).unwrap();
     let mut client = Client::authorized("2025-11-25", source.path());
-    assert_permission_denied(&client.call(
-        "fileveil_scan",
-        json!({"path":source.path().join("nested/../original.jpg")}),
+    let mut traversal = source.path().as_os_str().to_os_string();
+    traversal.push(format!(
+        "{s}nested{s}..{s}original.jpg",
+        s = std::path::MAIN_SEPARATOR
     ));
+    assert_permission_denied(
+        &client.call("fileveil_scan", json!({"path":PathBuf::from(traversal)})),
+    );
     assert_permission_denied(&client.call(
         "fileveil_scan",
         json!({"path":source.path().join(".ssh/private.jpg")}),
@@ -506,5 +510,101 @@ fn advanced_tools_use_authorized_snapshots_and_real_backends() {
         original_hash,
         fileveil_core::digest(&fs::read(signed).unwrap())
     );
+    assert_eq!(client.close(), 0);
+}
+
+#[test]
+fn signed_documents_preserve_format_hints_through_authorized_mcp_workers() {
+    let directory = tempdir();
+    let fixtures =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../fileveil-engine/tests/fixtures/provenance");
+    let roots = directory.path().join("document-root.pem");
+    fs::copy(fixtures.join("document-root.pem"), &roots).unwrap();
+    let mut client = Client::authorized("2025-11-25", directory.path());
+    let choices = json!({"remove_provenance":true}).to_string();
+    for extension in ["md", "txt", "pdf"] {
+        if extension == "pdf" && fileveil_engine::pdf::capabilities()["available"] != true {
+            eprintln!(
+                "PDF MCP credential workflow skipped because the qpdf backend is unavailable"
+            );
+            continue;
+        }
+        let input = directory.path().join(format!("signed.{extension}"));
+        let output = directory.path().join(format!("stripped.{extension}"));
+        fs::copy(fixtures.join(format!("signed.{extension}")), &input).unwrap();
+        let original = fs::read(&input).unwrap();
+        let scanned = client.call("fileveil_scan", json!({"path":input}));
+        assert_eq!(
+            scanned["result"]["structuredContent"]["provenance"]["signature"], "valid",
+            "{extension}"
+        );
+        let trusted = client.call(
+            "fileveil_provenance",
+            json!({"path":input,"trust_roots":roots}),
+        );
+        assert_eq!(
+            report(&trusted)["provenance"]["signature"],
+            "valid",
+            "{extension}"
+        );
+        assert_eq!(
+            report(&trusted)["provenance"]["asset_binding"],
+            "valid",
+            "{extension}"
+        );
+        assert_eq!(
+            report(&trusted)["provenance"]["trust"],
+            "trusted",
+            "{extension}"
+        );
+        assert!(!trusted.to_string().contains("PRIVATE_GENERATOR"));
+        let safe_choices = if extension == "pdf" {
+            json!({})
+        } else {
+            json!({"text":{"remove_bom":true}})
+        }
+        .to_string();
+        let protected = client.call(
+            "fileveil_sanitize",
+            json!({"path":input,"output":output,"options_json":safe_choices}),
+        );
+        assert_eq!(protected["result"]["isError"], true, "{extension}");
+        assert_eq!(
+            protected["result"]["structuredContent"]["result"], "blocked",
+            "{extension}"
+        );
+        assert!(!output.exists());
+        let sanitized = client.call(
+            "fileveil_sanitize",
+            json!({"path":input,"output":output,"profile":"deep","options_json":choices}),
+        );
+        assert_eq!(
+            report(&sanitized)["integrity"]["original_unchanged"],
+            true,
+            "{extension}"
+        );
+        assert_eq!(
+            report(&sanitized)["advanced"]["provenance_removal"]["before"]["signature"],
+            "valid",
+            "{extension}"
+        );
+        assert!(report(&sanitized)["advanced"]["provenance_removal"]["after"].is_null());
+        let verified = client.call(
+            "fileveil_verify",
+            json!({"original":input,"output":output,"profile":"deep","options_json":choices}),
+        );
+        assert_eq!(
+            report(&verified)["integrity"]["original_unchanged"],
+            true,
+            "{extension}"
+        );
+        let stripped = client.call(
+            "fileveil_provenance",
+            json!({"path":output,"trust_roots":roots}),
+        );
+        assert!(report(&stripped)["provenance"].is_null(), "{extension}");
+        assert_eq!(fs::read(&input).unwrap(), original, "{extension}");
+        assert!(output.is_file());
+    }
     assert_eq!(client.close(), 0);
 }

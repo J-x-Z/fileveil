@@ -1064,11 +1064,13 @@ mod tests {
         let input = source.path().join("source.txt");
         fs::write(&input, "original").unwrap();
         let mut policy = AccessPolicy::new(&config(&[source.path()], &[source.path()])).unwrap();
-        assert!(
-            policy
-                .authorize(scan(&source.path().join("nested/../source.txt")))
-                .is_err()
-        );
+        // PathBuf::join folds parent segments on Windows verbatim paths.
+        let mut traversal = source.path().as_os_str().to_os_string();
+        traversal.push(format!(
+            "{s}nested{s}..{s}source.txt",
+            s = std::path::MAIN_SEPARATOR
+        ));
+        assert!(policy.authorize(scan(Path::new(&traversal))).is_err());
         let secret = source.path().join(".aws");
         fs::create_dir(&secret).unwrap();
         fs::write(secret.join("credentials"), "private").unwrap();

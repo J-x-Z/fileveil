@@ -128,11 +128,16 @@ def copy_resources(destination: Path) -> None:
         if source.is_file():
             shutil.copyfile(source, destination / source.name)
     # Include the corresponding project source for MPL section 3.2 distributions.
-    source_listing = subprocess.run(
-        ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
-        cwd=ROOT, capture_output=True, check=False,
-    )
-    source_paths = set(os.fsdecode(path) for path in source_listing.stdout.split(b"\0") if path) if source_listing.returncode == 0 else None
+    source_paths = None
+    try:
+        source_listing = subprocess.run(
+            ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
+            cwd=ROOT, capture_output=True, check=False, timeout=30,
+        )
+        if source_listing.returncode == 0:
+            source_paths = {os.fsdecode(path) for path in source_listing.stdout.split(b"\0") if path}
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass
     with zipfile.ZipFile(destination / "FileVeil-source.zip", "w", zipfile.ZIP_DEFLATED) as archive:
         for base in ["Cargo.toml", "Cargo.lock", "LICENSE", "README.md", ".gitignore", ".gitattributes", ".github", "crates", "tools", "docs", "tests", "assets", "THIRD_PARTY_NOTICES.txt"]:
             source = ROOT / base
@@ -141,7 +146,9 @@ def copy_resources(destination: Path) -> None:
                 relative = path.relative_to(ROOT)
                 if source_paths is not None and relative.as_posix() not in source_paths:
                     continue
-                if any(part in ("__pycache__", "target", "work", "dist") for part in relative.parts):
+                if any(part in ("__pycache__", ".git", "target") for part in relative.parts):
+                    continue
+                if path.name == ".DS_Store" or ".clean." in path.name:
                     continue
                 if path.is_file() and not path.is_symlink():
                     archive.write(path, relative)
@@ -158,7 +165,7 @@ def bundle_macos_qpdf(resources: Path) -> None:
     destination.mkdir()
     pending = [source]
     copied: dict[Path, Path] = {}
-    dependencies: dict[Path, list[str]] = {}
+    dependencies: dict[Path, list[tuple[str, Path]]] = {}
     while pending:
         current = pending.pop()
         if current in copied:
@@ -171,7 +178,7 @@ def bundle_macos_qpdf(resources: Path) -> None:
         copied[current] = target
         listing = subprocess.check_output(["otool", "-L", str(current)], text=True)
         linked = [line.strip().split(" (", 1)[0] for line in listing.splitlines()[1:]]
-        dependencies[current] = linked
+        dependencies[current] = []
         for dependency in linked:
             if dependency.startswith(("/usr/lib/", "/System/Library/")):
                 continue
@@ -185,14 +192,13 @@ def bundle_macos_qpdf(resources: Path) -> None:
             if resolved != current:
                 if not resolved.is_file():
                     raise PackagingError(f"Cannot resolve PDF backend library ({dependency})")
+                dependencies[current].append((dependency, resolved))
                 pending.append(resolved)
     for current, target in copied.items():
         if target.suffix == ".dylib":
             run(["install_name_tool", "-id", f"@loader_path/{target.name}", str(target)])
-        for dependency in dependencies[current]:
-            if dependency.startswith(("/usr/lib/", "/System/Library/")) or Path(dependency).name == current.name:
-                continue
-            run(["install_name_tool", "-change", dependency, f"@loader_path/{Path(dependency).name}", str(target)])
+        for dependency, resolved in dependencies[current]:
+            run(["install_name_tool", "-change", dependency, f"@loader_path/{copied[resolved].name}", str(target)])
         run(["codesign", "--force", "--sign", "-", "--timestamp=none", str(target)])
         # Homebrew formulae preserve their applicable attribution files at this root.
         formula = current.parent.parent

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 //! Bounded audio-container metadata handling. Encoded samples are never decoded or modified.
 use fileveil_core::{
-    Action, Error, Finding, Format, Inspection, Limits, Result, RiskLayer, digest,
+    Action, Error, Finding, FindingState, Format, Inspection, Limits, Result, RiskLayer, digest,
 };
 use sha2::{Digest, Sha256};
 
@@ -20,6 +20,19 @@ fn base(format: Format) -> Inspection {
     result.limited_support = true;
     result.findings.push(Finding::unassessed("audio.signal_watermark",RiskLayer::ContentWatermark,"audio/encoded_frames","Audio decoding, signal-domain watermarks and arbitrary content inside retained frames were not assessed"));
     result
+}
+fn protect_provenance(result: &mut Inspection, code: &str, location: &str, summary: &str) {
+    let mut found = Finding::new(
+        code,
+        RiskLayer::ProvenanceCredential,
+        location,
+        summary,
+        Action::Preserve,
+    );
+    found.state = FindingState::Blocked;
+    result.findings.push(found);
+    result.blockers.push("Audio provenance structures are protected because metadata rewriting may invalidate their binding".into());
+    result.rewrite_supported = false;
 }
 fn fingerprint(parts: &[&[u8]]) -> String {
     let mut hash = Sha256::new();
@@ -103,6 +116,10 @@ fn wav(data: &[u8], limits: &Limits) -> Result<Parsed> {
             result.findings.push(found);
         } else {
             match kind {
+                b"C2PA"=>{
+                    if payload.len()>limits.max_metadata_bytes{return Err(Error::Blocked("WAV credential chunk exceeds the metadata budget".into()));}
+                    protect_provenance(&mut result,"wav.provenance",&format!("RIFF/chunk {count} at byte {offset}"),"A standard C2PA credential chunk is present. Cryptographic validation is reported separately");
+                }
                 b"fmt "=>{
                     if fmt||samples||payload.len()<16 {return Err(malformed());}
                     let channels=u16::from_le_bytes([payload[2],payload[3]]);let rate=u32le(&payload[4..8])?;block_align=u16::from_le_bytes([payload[12],payload[13]])as usize;
@@ -284,12 +301,21 @@ fn flac(data: &[u8], limits: &Limits) -> Result<Parsed> {
                 if size < 4 {
                     return Err(malformed());
                 }
-                result.findings.push(finding(
-                    "flac.application",
-                    &format!("FLAC/block {count} at byte {offset}"),
-                    "Private application metadata is retained and remains unassessed",
-                    Action::AskUser,
-                ));
+                if matches!(&payload[..4], b"c2pa" | b"C2PA") {
+                    protect_provenance(
+                        &mut result,
+                        "flac.provenance_candidate",
+                        &format!("FLAC/block {count} at byte {offset}"),
+                        "An application block uses a C2PA-like identifier. Its private layout and authenticity are unassessed",
+                    );
+                } else {
+                    result.findings.push(finding(
+                        "flac.application",
+                        &format!("FLAC/block {count} at byte {offset}"),
+                        "Private application metadata is retained and remains unassessed",
+                        Action::AskUser,
+                    ));
+                }
             }
             3 => {
                 if seektable || !size.is_multiple_of(18) {
@@ -468,7 +494,13 @@ pub fn inspect(data: &[u8], format: Format, limits: &Limits) -> Result<Inspectio
     Ok(parse(data, format, limits)?.inspection)
 }
 pub fn sanitize(data: &[u8], format: Format, limits: &Limits) -> Result<Vec<u8>> {
-    parse(data, format, limits)?.output.ok_or_else(|| {
+    let parsed = parse(data, format, limits)?;
+    if !parsed.inspection.blockers.is_empty() {
+        return Err(Error::Blocked(
+            "Protected audio provenance prevents metadata rewriting".into(),
+        ));
+    }
+    parsed.output.ok_or_else(|| {
         Error::Unsupported(
             "MP3 metadata rewriting requires a frame-aware backend and is unavailable".into(),
         )

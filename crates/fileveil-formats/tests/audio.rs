@@ -97,6 +97,60 @@ fn wav_private_chunks_are_retained_and_reported() {
     );
     assert!(!format!("{:?}", inspected.findings).contains("PRIVATE_PAYLOAD"));
 }
+
+#[test]
+fn typed_audio_provenance_is_protected_without_treating_private_text_as_a_signature() {
+    let limits = Limits::default();
+    let original = wav(&[
+        chunk(b"bext", b"PRIVATE_AUTHOR"),
+        chunk(b"C2PA", b"not a valid signature"),
+    ]);
+    let before = original.clone();
+    let inspection = audio::inspect(&original, Format::Wav, &limits).unwrap();
+    assert!(!inspection.rewrite_supported);
+    assert!(
+        inspection
+            .findings
+            .iter()
+            .any(|finding| finding.code == "wav.provenance"
+                && finding.state == fileveil_core::FindingState::Blocked)
+    );
+    assert!(matches!(
+        audio::sanitize(&original, Format::Wav, &limits),
+        Err(Error::Blocked(_))
+    ));
+    assert_eq!(original, before);
+    let unrelated = wav(&[chunk(b"priv", b"The word C2PA in ordinary private bytes")]);
+    assert!(
+        audio::inspect(&unrelated, Format::Wav, &limits)
+            .unwrap()
+            .blockers
+            .is_empty()
+    );
+    for id in [b"c2pa", b"C2PA"] {
+        let original = flac(
+            &vorbis(&["ARTIST=PRIVATE_AUTHOR"]),
+            &[flac_block(
+                2,
+                false,
+                &[id.as_slice(), b"private candidate"].concat(),
+            )],
+        );
+        let inspection = audio::inspect(&original, Format::Flac, &limits).unwrap();
+        assert!(!inspection.rewrite_supported);
+        assert!(
+            inspection
+                .findings
+                .iter()
+                .any(|finding| finding.code == "flac.provenance_candidate"
+                    && finding.state == fileveil_core::FindingState::Blocked)
+        );
+        assert!(matches!(
+            audio::sanitize(&original, Format::Flac, &limits),
+            Err(Error::Blocked(_))
+        ));
+    }
+}
 #[test]
 fn flac_removes_human_tags_and_keeps_frames() {
     let original = flac(

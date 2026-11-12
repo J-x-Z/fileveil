@@ -14,6 +14,21 @@ pub fn tr(language: Language, english: &str) -> &str {
         return english;
     }
     match english {
+        "Verification covers standard metadata, retained reachable objects, extracted text and bounded-resolution rendered pages. Arbitrary stream contents and signature trust are outside this scope." => {
+            "复验覆盖标准元数据、保留对象图、提取文本与受限分辨率页面渲染。任意流的含义及传统 PDF 签名信任仍未评估。"
+        }
+
+        "Provenance credentials or references protect the original metadata binding from rewriting" => {
+            "来源凭据或引用受到保护，需要明确选择移除凭据后才能重写。"
+        }
+
+        "C2PA signature and asset binding are evaluated offline. Certificate root trust, online revocation and identity assertions require their separately reported verification scopes." => {
+            "C2PA 签名与文件绑定采用离线验证，根信任、吊销状态与身份断言分别记录其验证范围。"
+        }
+
+        "Deep verification checks exact selected XML edits, untouched package bytes, independent XML parsing and relationship references. Office rendering, formulas, charts and layout interoperability remain partially verified." => {
+            "Deep 复验核对所选 XML 修改、未选部件字节、独立 XML 解析及关系引用。Office 渲染、公式、图表和布局互操作性仍为部分验证。"
+        }
         "The trusted qpdf PDF backend is unavailable" => {
             "可信 qpdf 后端不可用，请安装或配置兼容的后端。"
         }
@@ -52,6 +67,63 @@ pub fn tr(language: Language, english: &str) -> &str {
         }
         "C2PA trust certificate count exceeds the member limit" => "C2PA 信任证书数量超过预算。",
         "C2PA local trust bundle contains no certificates" => "本地 C2PA 信任集合中没有证书。",
+        "Credential store removal is unavailable for this type" => {
+            "此类型尚未提供来源凭据移除能力。"
+        }
+        "C2PA reader is unavailable for this MIME type" => "此类型尚未提供 C2PA 读取能力。",
+        "C2PA text requires valid UTF-8" => "C2PA 文本处理需要有效的 UTF-8 编码。",
+        "Standard text credential wrappers are unavailable for this MIME type" => {
+            "此类型尚未提供标准文本凭据包装处理能力。"
+        }
+        "Text credential wrapper context is ambiguous or malformed" => {
+            "文本凭据包装上下文含糊或结构损坏，当前保留并阻断移除。"
+        }
+        "Credential removal changed bytes outside the recognized text wrapper" => {
+            "凭据移除改变了包装范围之外的文本字节，验证未通过。"
+        }
+        "C2PA text wrapper count exceeds the member limit" => "C2PA 文本凭据包装数量超过预算。",
+        "C2PA text wrapper exceeds the metadata limit" => "C2PA 文本凭据包装超过元数据预算。",
+        "Text Content Credentials require an explicit provenance-removal selection before rewriting" => {
+            "文本含来源凭据，需要明确选择移除来源凭据后才能重写。"
+        }
+        "Text verification compares every byte outside the selected standard wrapper. Unicode normalization is preserved. Statistical text watermarks remain unassessed." => {
+            "文本复验对照所选标准包装之外的每个字节，保留原有 Unicode 表示。统计文本水印仍未评估。"
+        }
+        "Audio provenance structures are protected because metadata rewriting may invalidate their binding" => {
+            "音频来源凭据受到保护，元数据改写可能使其文件绑定失效。"
+        }
+        "Protected audio provenance prevents metadata rewriting" => {
+            "受保护的音频来源凭据阻断元数据改写。"
+        }
+        "WAV credential chunk exceeds the metadata budget" => "WAV 来源凭据块超过元数据预算。",
+        "A standard C2PA credential chunk is present. Cryptographic validation is reported separately" => {
+            "文件含标准 C2PA 凭据块，密码学验证结果单独报告。"
+        }
+        "An application block uses a C2PA-like identifier. Its private layout and authenticity are unassessed" => {
+            "应用数据块使用 C2PA 类标识，其私有结构与真实性尚未评估。"
+        }
+        "fileveil.c2pa.plaintext_frame_malformed" => "A.8 文本凭据帧结构损坏，保留并阻断移除。",
+        "fileveil.c2pa.markdown_frame_malformed" => "A.9 Markdown 凭据包装不完整，保留并阻断移除。",
+        "fileveil.c2pa.markdown_context_unsupported" => {
+            "此 Markdown 包装上下文尚未支持安全移除，原文保留。"
+        }
+        "fileveil.c2pa.remote_manifest_disabled" => "凭据引用外部来源，当前离线模式未获取其内容。",
+        "fileveil.c2pa.multiple_text_wrappers" => {
+            "发现多个文本凭据包装，当前无法确认完整验证结果。"
+        }
+        "fileveil.c2pa.multiple_pdf_stores" => {
+            "发现多个 PDF 凭据存储，当前无法完成全部存储的验证。"
+        }
+        "fileveil.c2pa.pdf_store_structure_unresolved" => {
+            "PDF 凭据结构未能完整解析，当前保留保护。"
+        }
+        "fileveil.c2pa.multiple_riff_stores" => "发现多个 RIFF 凭据块，当前无法确认完整验证结果。",
+        "fileveil.c2pa.plaintext_nfc_binding_unverifiable" => {
+            "原文包含非 NFC 表示，当前未进行规范化绑定验证，原文字节保留。"
+        }
+        "fileveil.c2pa.pdf_incremental_history_not_fully_validated" => {
+            "PDF 存在增量历史线索，历史凭据存储尚未完成全部验证。"
+        }
         "Removing provenance credentials requires the Deep policy" => {
             "移除来源凭据需要选择 Deep 策略。"
         }
@@ -556,6 +628,55 @@ pub fn confidence(language: Language, value: Confidence) -> &'static str {
 pub fn finding_title(language: Language, finding: &Finding) -> String {
     let (chinese, english) = match finding.code.as_str() {
         "image.processing.executed" => ("图像处理已执行", "Image processing applied"),
+        "pdf.document_info" => ("PDF 文档属性", "PDF document properties"),
+        "pdf.shared_metadata" => (
+            "PDF 元数据共享内容引用",
+            "PDF shared metadata content references",
+        ),
+        "pdf.xmp" => ("PDF XMP 元数据", "PDF XMP metadata"),
+        "pdf.attachments" => ("PDF 附件", "PDF attachments"),
+        "pdf.annotations" => ("PDF 注释与批注", "PDF annotations"),
+        "pdf.active_content" | "pdf.javascript" => ("PDF 主动内容", "PDF active content"),
+        "pdf.digital_signature" => ("PDF 数字签名", "PDF digital signature"),
+        "pdf.external_actions" => ("PDF 外部动作", "PDF external actions"),
+        "pdf.incremental_history" => ("PDF 增量历史", "PDF incremental history"),
+        "pdf.hidden_content_clues" => ("PDF 隐藏内容线索", "PDF hidden content clues"),
+        "pdf.opaque_content" | "pdf.private_structure" => {
+            ("PDF 私有或不透明结构", "PDF opaque or private structures")
+        }
+        "ooxml.hidden_sheets" => ("隐藏工作表", "Hidden worksheets"),
+        "wav.info" => ("WAV 信息标签", "WAV information tags"),
+        "wav.broadcast_metadata" => ("广播音频元数据", "Broadcast audio metadata"),
+        "wav.ixml" => ("WAV iXML 元数据", "WAV iXML metadata"),
+        "wav.playback_structure" => ("WAV 播放结构", "WAV playback structures"),
+        "wav.retained_chunk" => ("保留的 WAV 数据块", "Retained WAV chunk"),
+        "flac.vorbis_comment" => ("FLAC 文本标签", "FLAC text tags"),
+        "flac.playback_fields" => ("音频播放参数", "Audio playback fields"),
+        "flac.application" => ("FLAC 应用数据", "FLAC application data"),
+        "flac.provenance_candidate" => ("音频私有凭据候选", "Private audio credential candidate"),
+        "flac.retained_metadata" | "flac.unknown_block" => {
+            ("保留的 FLAC 结构", "Retained FLAC structures")
+        }
+        "audio.signal_watermark" => ("音频信号水印范围", "Audio signal watermark coverage"),
+        "mp3.frames" => ("MP3 帧验证范围", "MP3 frame verification coverage"),
+        "bmff.exif" | "bmff.metadata.exif_item" => ("媒体 EXIF 元数据", "Media EXIF metadata"),
+        "bmff.metadata.author" => ("媒体作者字段", "Media author fields"),
+        "bmff.metadata.creation_time" | "bmff.metadata.timestamps" => {
+            ("媒体时间字段", "Media time fields")
+        }
+        "bmff.metadata.device" => ("媒体设备字段", "Media device fields"),
+        "bmff.metadata.location" => ("媒体位置字段", "Media location fields"),
+        "bmff.metadata.software" => ("媒体软件字段", "Media software fields"),
+        "bmff.metadata.identifier" => ("媒体标识字段", "Media identifier fields"),
+        "bmff.metadata.xmp_item" => ("媒体 XMP 元数据", "Media XMP metadata"),
+        "bmff.audit.scope" => ("媒体容器审计范围", "Media container audit scope"),
+        code if code.starts_with("bmff.metadata.") => {
+            ("媒体元数据结构", "Media metadata structures")
+        }
+        code if code.starts_with("bmff.structure.") => {
+            ("媒体私有结构线索", "Media private structure clues")
+        }
+
         "jpeg.exif" | "png.exif" => ("EXIF 元数据", "EXIF metadata"),
         "jpeg.exif.gps" | "png.exif.gps" => ("GPS 位置字段", "GPS location fields"),
         "jpeg.exif.identity" | "png.exif.identity" => {
@@ -569,7 +690,8 @@ pub fn finding_title(language: Language, finding: &Finding) -> String {
         "jpeg.thumbnail" => ("JPEG 缩略图", "JPEG thumbnail"),
         "jpeg.unknown_app" => ("未知 JPEG 应用段", "Unknown JPEG application segment"),
         "jpeg.trailing_data" | "png.trailing_data" => ("文件尾部附加数据", "Trailing data"),
-        "jpeg.provenance" | "png.provenance" => ("来源凭据结构", "Provenance container"),
+        "jpeg.provenance" | "png.provenance" | "pdf.provenance" | "text.provenance"
+        | "wav.provenance" => ("来源凭据结构", "Provenance container"),
         "png.text" => ("PNG 文本元数据", "PNG text metadata"),
         "png.ztxt" => ("PNG 压缩文本", "PNG compressed text"),
         "png.itxt" => ("PNG 国际文本", "PNG international text"),
@@ -600,7 +722,7 @@ pub fn finding_title(language: Language, finding: &Finding) -> String {
         "html.comment" => ("HTML 注释线索", "HTML comment marker"),
         "html.meta" => ("HTML 元标签线索", "HTML metadata tag candidate"),
         "watermark.statistical" => ("统计水印检测范围", "Statistical watermark coverage"),
-        "image.content_watermark" => ("内容级水印检测范围", "Content watermark coverage"),
+        "image.content_watermark" => ("未知内容水印检测范围", "Unknown content watermark coverage"),
         "format.unsupported" => ("格式支持限制", "Format support limitation"),
         _ => {
             if let Some(property) = finding.code.strip_prefix("ooxml.core.") {
@@ -706,8 +828,14 @@ pub fn finding_summary(language: Language, finding: &Finding) -> String {
         "jpeg.trailing_data" | "png.trailing_data" => {
             "文件结束标记之后仍有附加字节，保守策略保留这些数据。"
         }
-        "jpeg.provenance" | "png.provenance" => {
-            "检测到 JUMBF/C2PA 来源凭据线索，密码学签名有效性未评估，改写会被阻断。"
+        "jpeg.provenance" | "png.provenance" | "pdf.provenance" | "text.provenance" => {
+            "检测到来源凭据结构，签名、文件绑定和信任结果分别记录。默认保护凭据，移除需明确选择 Deep 范围。"
+        }
+        "wav.provenance" => {
+            "检测到标准 WAV C2PA 块，签名、文件绑定和信任结果分别记录。当前保护其结构并阻断改写，音频凭据移除尚未提供。"
+        }
+        "flac.provenance_candidate" => {
+            "FLAC 应用块使用 C2PA 类标识，私有布局与真实性尚未评估。当前保护该结构并阻断改写。"
         }
         "png.text" | "png.ztxt" | "png.itxt" => "PNG 文本块可记录作者、软件、说明和生成参数。",
         "png.time" => "PNG 修改时间块可暴露文件处理时间。",
@@ -745,7 +873,9 @@ pub fn finding_summary(language: Language, finding: &Finding) -> String {
         "html.comment" => "检测到 HTML 注释标记线索，当前提供只读审计。",
         "html.meta" => "检测到 HTML 元标签线索，当前提供只读审计。",
         "watermark.statistical" => "未执行需要密钥或专有检测器的统计水印检测。",
-        "image.content_watermark" => "未执行像素域或频域的内容级水印检测。",
+        "image.content_watermark" => {
+            "未知及专有图像水印方案仍未评估。已执行的具名检测器结果单独报告。"
+        }
         "format.unsupported" => "当前离线引擎未提供这个格式的受支持解析器。",
         _ if finding.code.starts_with("ooxml.core.") || finding.code.starts_with("ooxml.app.") => {
             "检测到已知 Office 隐私属性，报告省略具体值。"
@@ -767,6 +897,20 @@ mod tests {
     }
 
     #[test]
+    fn credential_scope_limits_have_chinese_explanations_and_preserve_english() {
+        for message in [
+            "Text credential wrapper context is ambiguous or malformed",
+            "Credential removal changed bytes outside the recognized text wrapper",
+            "Protected audio provenance prevents metadata rewriting",
+            "fileveil.c2pa.plaintext_nfc_binding_unverifiable",
+            "fileveil.c2pa.pdf_incremental_history_not_fully_validated",
+        ] {
+            assert_ne!(tr(Language::Chinese, message), message);
+            assert_eq!(tr(Language::English, message), message);
+        }
+    }
+
+    #[test]
     fn unknown_watermark_findings_remain_unassessed() {
         let finding = Finding::unassessed(
             "watermark.statistical",
@@ -776,6 +920,19 @@ mod tests {
         );
         assert_eq!(state(Language::Chinese, finding.state), "未评估");
         assert!(finding_summary(Language::Chinese, &finding).contains("未执行"));
+        let image = Finding::unassessed(
+            "image.content_watermark",
+            RiskLayer::ContentWatermark,
+            "image_data",
+            "Unknown and proprietary image watermark schemes remain unassessed. Results for executed named detectors are reported separately",
+        );
+        assert_eq!(state(Language::Chinese, image.state), "未评估");
+        assert_eq!(
+            finding_title(Language::Chinese, &image),
+            "未知内容水印检测范围"
+        );
+        assert!(finding_summary(Language::Chinese, &image).contains("单独报告"));
+        assert!(finding_summary(Language::English, &image).contains("Unknown and proprietary"));
     }
 
     #[test]

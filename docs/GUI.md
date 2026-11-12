@@ -140,3 +140,5 @@ Windows packages include official qpdf 12.4.2 binaries and upstream Apache-2.0 n
 macOS 包的 LSMinimumSystemVersion 按主程序实际 Mach-O 最低版本记录，可选 qpdf 后端另存 Resources/pdf-backend.json。本机 Homebrew 后端要求 macOS 27.0。较早系统可通过 FILEVEIL_QPDF 配置兼容后端，能力查询会实际探测后端能否执行。当前检测到 Apple Development 身份，Developer ID Application 身份数量为 0，正式签名和公证待提供相应凭据。
 
 完整发行包同时包含 GUI/MCP 与 CLI。macOS 的 CLI 位于 Contents/MacOS/fileveil，便携包中与 GUI 并列。使用 --skip-build 打包时，需要先构建同版本的 fileveil-gui 和 fileveil-cli。
+
+净化范围按已扫描格式启用。切换文件会保留各格式的选择，实际任务仅携带当前格式适用的参数，再次验证沿用创建副本时的范围。AI 来源工作区分别显示凭据签名、资产绑定、本地根信任与吊销验证状态。TXT/Markdown 的实验性来源包装限制见格式矩阵。

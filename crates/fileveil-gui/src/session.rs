@@ -426,7 +426,12 @@ impl Session {
             ItemStatus::Finished
         };
         match kind {
-            TaskKind::Scan if successful_report(&result.report) => {
+            TaskKind::Scan
+                if successful_report(&result.report)
+                    || (result.report.result == Outcome::Blocked
+                        && result.report.integrity.parseable
+                        && result.report.input_format != Format::Unknown.mime()) =>
+            {
                 item.scan = Some(result.report.clone());
                 if let Ok(metadata) = fs::metadata(&item.path) {
                     item.size = metadata.len();
@@ -535,6 +540,9 @@ fn successful_report(report: &Report) -> bool {
 }
 
 fn available_output(input: &Path, directory: &Path) -> Result<PathBuf, String> {
+    if !fs::metadata(directory).is_ok_and(|metadata| metadata.is_dir()) {
+        return Err("The output folder could not be inspected".into());
+    }
     for counter in 0..=10_000 {
         let mut name = input
             .file_stem()
@@ -655,6 +663,39 @@ mod tests {
         assert_ne!(first, next);
         assert_eq!(next.file_name().unwrap(), "合成 example.clean.1.png");
         assert_eq!(fs::read(first).unwrap(), b"existing content");
+    }
+
+    #[test]
+    fn parsed_protected_scan_retains_format_for_explicit_deep_choices() {
+        let mut session = Session::default();
+        session.items.push(FileItem {
+            id: 1,
+            path: "signed.md".into(),
+            size: 1,
+            scan: None,
+            latest: None,
+            output_path: None,
+            output_processing: None,
+            status: ItemStatus::Scanning,
+        });
+        let mut protected = Report::new("scan", Format::Text);
+        protected.result = Outcome::Blocked;
+        protected.integrity.parseable = true;
+        session.complete(
+            1,
+            &TaskKind::Scan,
+            JobResult {
+                report: protected,
+                exit_code: 5,
+                output_path: None,
+            },
+        );
+        assert_eq!(
+            session.items[0].scan.as_ref().unwrap().input_format,
+            Format::Text.mime()
+        );
+        assert!(!session.can_sanitize(1));
+        assert!(!session.can_process_image(1));
     }
 
     #[test]

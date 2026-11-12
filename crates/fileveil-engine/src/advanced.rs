@@ -53,9 +53,12 @@ fn validate_options(options: &SanitizeOptions) -> Result<()> {
 }
 
 fn validate_format_options(format: Format, options: &SanitizeOptions) -> Result<()> {
-    if options.remove_provenance && !format.is_image() {
+    if options.remove_provenance
+        && !format.is_image()
+        && !matches!(format, Format::Pdf | Format::Text)
+    {
         return Err(Error::Unsupported(
-            "Credential removal supports JPEG and PNG files".into(),
+            "Credential removal supports JPEG, PNG, PDF and standard UTF-8 text wrappers".into(),
         ));
     }
     if options.pdf.any() && format != Format::Pdf {
@@ -83,11 +86,22 @@ fn inspect_selected(
     options: &SanitizeOptions,
 ) -> Result<Inspection> {
     if options.remove_provenance {
-        validate_format_options(fileveil_formats::identify(data, hint), options)?;
+        let format = fileveil_formats::identify(data, hint);
+        validate_format_options(format, options)?;
+        if format == Format::Pdf {
+            let parsed = pdf::inspect_for_provenance_removal(data, limits)?;
+            let mut inspection = Inspection::new(Format::Pdf, parsed.content_digest);
+            inspection.findings = parsed.findings;
+            inspection.blockers = parsed.blockers;
+            inspection.limited_support = true;
+            return Ok(inspection);
+        }
         return fileveil_formats::inspect_with_options(data, hint, limits, options);
     }
     if options.text.any() {
-        return fileveil_formats::inspect_with_options(data, hint, limits, options);
+        let mut inspection = fileveil_formats::inspect_with_options(data, hint, limits, options)?;
+        protect_text_credentials(&mut inspection, data, hint, limits)?;
+        return Ok(inspection);
     }
     inspect_snapshot(data, hint, limits)
 }
@@ -128,7 +142,16 @@ fn compare_advanced(
         return Err(Error::Verification("Output format changed".into()));
     }
     if before.format == Format::Pdf {
-        let verified = pdf::verify_scoped(&original.bytes, &output.bytes, limits, &options.pdf)?;
+        let verified = if options.remove_provenance {
+            pdf::verify_with_provenance_removal(
+                &original.bytes,
+                &output.bytes,
+                limits,
+                &options.pdf,
+            )?
+        } else {
+            pdf::verify_scoped(&original.bytes, &output.bytes, limits, &options.pdf)?
+        };
         report.findings = verified.findings;
         report.warnings = verified.warnings;
         report.integrity = verified.integrity;
@@ -183,6 +206,45 @@ fn compare_advanced(
                 report.findings.push(finding);
             }
         }
+    } else if before.format == Format::Text && options.remove_provenance {
+        let mime = text_credential_mime(hint);
+        let expected = crate::provenance::strip_text_wrappers(&original.bytes, mime, limits)?;
+        if expected != output.bytes {
+            return Err(Error::Verification(
+                "Text credential removal changed bytes outside recognized wrapper ranges".into(),
+            ));
+        }
+        let scope = crate::provenance::text_scope(&original.bytes, mime, limits)?;
+        let after_scope = crate::provenance::text_scope(&output.bytes, mime, limits)?;
+        if after_scope.wrapper_count != 0 {
+            return Err(Error::Verification(
+                "Text credential wrapper remains after removal".into(),
+            ));
+        }
+        let mut found = Finding::new(
+            "text.provenance",
+            RiskLayer::ProvenanceCredential,
+            "text/standard_credential_wrapper",
+            "Recognized credential wrapper ranges were removed and all remaining UTF-8 bytes were retained",
+            Action::Remove,
+        );
+        found.state = FindingState::RemovedVerified;
+        found.confidence = Confidence::Verified;
+        report.findings = after.findings.clone();
+        if scope.wrapper_count > 0 {
+            report.findings.push(found);
+        }
+        report.integrity = Integrity {
+            parseable: true,
+            content_equal: Some(true),
+            ..Integrity::default()
+        };
+        report.result = Outcome::PartiallyVerified;
+        report.warnings.push("Text verification compares every byte outside the selected standard wrapper. Unicode normalization is preserved. Statistical text watermarks remain unassessed.".into());
+        report.provenance = crate::provenance::inspect_mime(&original.bytes, mime, limits, None)?
+            .map(serde_json::to_value)
+            .transpose()
+            .map_err(|_| Error::Io("Could not serialize text provenance evidence".into()))?;
     } else {
         let verified = fileveil_formats::verify_scoped(
             &original.bytes,
@@ -222,8 +284,23 @@ fn compare_advanced(
         "timestamp_scope":if options.filesystem.normalize_output_timestamps {"output_modification_only_verified"} else {"not_assessed"}}),
     );
     if options.remove_provenance {
+        let mime = if before.format == Format::Text {
+            text_credential_mime(hint)
+        } else {
+            before.format.mime()
+        };
         let before_credentials =
-            crate::provenance::inspect(&original.bytes, before.format, limits)?;
+            crate::provenance::inspect_mime(&original.bytes, mime, limits, None)?;
+        report.provenance = before_credentials
+            .as_ref()
+            .map(serde_json::to_value)
+            .transpose()
+            .map_err(|_| Error::Io("Could not serialize original provenance evidence".into()))?;
+        if crate::provenance::inspect_mime(&output.bytes, mime, limits, None)?.is_some() {
+            return Err(Error::Verification(
+                "A credential store or source reference remains after removal".into(),
+            ));
+        }
         if let Some(details) = report.advanced.as_mut() {
             details["provenance_removal"] = serde_json::json!({
                 "before": before_credentials,
@@ -234,6 +311,7 @@ fn compare_advanced(
         }
         report.result = Outcome::PartiallyVerified;
         report.warnings.push("User-selected credential removal discards removable Content Credentials and their signatures. Other source associations and unknown content watermarks remain unassessed.".into());
+        neutralize_provenance_findings(&mut report);
     }
     if options.filesystem.normalize_output_timestamps {
         let metadata = output
@@ -297,7 +375,35 @@ pub fn sanitize_with_options_in(
         ensure_new_path(path)?;
     }
     let transformed = if options.remove_provenance {
-        crate::provenance::remove(&snapshot.bytes, inspection.format, limits)?
+        match inspection.format {
+            Format::Pdf => {
+                let stripped =
+                    crate::provenance::remove_store(&snapshot.bytes, "application/pdf", limits)?;
+                pdf::sanitize_with_provenance_removal(&stripped, limits, &options.pdf)?
+            }
+            Format::Text => {
+                let mime = text_credential_mime(input);
+                let stripped = crate::provenance::remove_store(&snapshot.bytes, mime, limits)?;
+                let expected =
+                    crate::provenance::strip_text_wrappers(&snapshot.bytes, mime, limits)?;
+                if stripped != expected {
+                    return Err(Error::Verification(
+                        "The text backend changed bytes outside credential wrappers".into(),
+                    ));
+                }
+                if fileveil_formats::text::sanitize_with_options(
+                    &stripped,
+                    Format::Text,
+                    limits,
+                    &options.text,
+                )? != stripped
+                {
+                    return Err(Error::Blocked("Exact-body credential removal cannot be combined with selected text edits that change the remaining body".into()));
+                }
+                stripped
+            }
+            _ => crate::provenance::remove(&snapshot.bytes, inspection.format, limits)?,
+        }
     } else if inspection.format == Format::Pdf {
         pdf::sanitize_with_options(&snapshot.bytes, limits, &options.pdf)?
     } else {

@@ -413,6 +413,14 @@ impl FileVeilApp {
                                 .response
                                 .interact(egui::Sense::click())
                                 .on_hover_text(item.path.to_string_lossy());
+                            response.widget_info(|| {
+                                egui::WidgetInfo::selected(
+                                    egui::Role::Button,
+                                    ui.is_enabled(),
+                                    chosen,
+                                    filename(&item.path),
+                                )
+                            });
                             if response.clicked() {
                                 selected = Some(item.id);
                             }
@@ -1270,13 +1278,6 @@ impl FileVeilApp {
                         ))
                         .size(12.0),
                     );
-                    ui.label(
-                        RichText::new(tr(
-                            language,
-                            "PDF rewriting and credential signature verification are unavailable.",
-                        ))
-                        .size(12.0),
-                    );
                 });
             self.settings_open = open;
             if language != self.language {
@@ -1826,6 +1827,57 @@ mod tests {
                     || node.value() == Some("English"))
                     && node.bounds().is_some_and(|bounds| bounds.x0 > 264.0))
         );
+    }
+
+    #[test]
+    fn file_queue_rows_expose_selection_and_accept_accessibility_activation() {
+        let context = egui::Context::default();
+        context.enable_accesskit();
+        let creation = eframe::CreationContext::_new_kittest(context.clone());
+        let mut app = FileVeilApp::new(&creation, Vec::new());
+        for id in 1..=2 {
+            app.session.items.push(crate::session::FileItem {
+                id,
+                path: format!("selection-{id}.png").into(),
+                size: 12,
+                scan: None,
+                latest: None,
+                output_path: None,
+                output_processing: None,
+                status: ItemStatus::Finished,
+            });
+        }
+        app.session.selected = Some(1);
+        let mut update = render_test_frame(&mut app, &context, Vec::new());
+        for _ in 0..2 {
+            update = render_test_frame(&mut app, &context, Vec::new());
+        }
+        let target = update
+            .nodes
+            .iter()
+            .find_map(|(id, node)| {
+                (node.role() == egui::Role::Button && node.label() == Some("selection-2.png"))
+                    .then_some(*id)
+            })
+            .expect("File row has an accessible button");
+        render_test_frame(
+            &mut app,
+            &context,
+            vec![egui::Event::AccessKitActionRequest(
+                egui::accesskit::ActionRequest {
+                    action: egui::accesskit::Action::Click,
+                    target_node: target,
+                    target_tree: egui::accesskit::TreeId::ROOT,
+                    data: None,
+                },
+            )],
+        );
+        assert_eq!(app.session.selected, Some(2));
+        let update = render_test_frame(&mut app, &context, Vec::new());
+        assert!(update.nodes.iter().any(|(_, node)| {
+            node.label() == Some("selection-2.png")
+                && node.toggled() == Some(egui::accesskit::Toggled::True)
+        }));
     }
 
     #[test]

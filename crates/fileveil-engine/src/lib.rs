@@ -167,7 +167,7 @@ fn unassessed(format: Format) -> Vec<Finding> {
             "image.content_watermark",
             RiskLayer::ContentWatermark,
             "image_data",
-            "Pixel-domain and frequency-domain watermark detection was not performed",
+            "Unknown and proprietary image watermark schemes remain unassessed. Results for executed named detectors are reported separately",
         ));
     }
     if format.is_audio() {
@@ -198,9 +198,70 @@ fn inspect_snapshot(data: &[u8], hint: &Path, limits: &Limits) -> Result<Inspect
             .findings
             .iter()
             .any(|f| f.action == Action::AskUser);
+        protect_container_credentials(&mut inspection, data, limits)?;
         return Ok(inspection);
     }
-    fileveil_formats::inspect(data, hint, limits)
+    let mut inspection = fileveil_formats::inspect(data, hint, limits)?;
+    protect_text_credentials(&mut inspection, data, hint, limits)?;
+    protect_container_credentials(&mut inspection, data, limits)?;
+    Ok(inspection)
+}
+
+fn protect_container_credentials(
+    inspection: &mut Inspection,
+    data: &[u8],
+    limits: &Limits,
+) -> Result<()> {
+    let code = match inspection.format {
+        Format::Jpeg => "jpeg.provenance",
+        Format::Png => "png.provenance",
+        Format::Pdf => "pdf.provenance",
+        Format::Wav => "wav.provenance",
+        _ => return Ok(()),
+    };
+    if inspection.blockers.is_empty()
+        && provenance::inspect(data, inspection.format, limits)?.is_some()
+    {
+        let mut finding = Finding::new(
+            code,
+            RiskLayer::ProvenanceCredential,
+            "container/credential_or_source_reference",
+            "Provenance structures or a source reference are present. Signature, asset-binding and trust results are reported separately",
+            Action::Preserve,
+        );
+        finding.state = FindingState::Blocked;
+        inspection.findings.push(finding);
+        inspection.blockers.push("Provenance credentials or references protect the original metadata binding from rewriting".into());
+    }
+    Ok(())
+}
+
+pub(crate) fn text_credential_mime(hint: &Path) -> &'static str {
+    if hint
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| {
+            extension.eq_ignore_ascii_case("md") || extension.eq_ignore_ascii_case("markdown")
+        })
+    {
+        "text/markdown"
+    } else {
+        "text/plain"
+    }
+}
+fn protect_text_credentials(
+    inspection: &mut Inspection,
+    data: &[u8],
+    hint: &Path,
+    limits: &Limits,
+) -> Result<()> {
+    if inspection.format == Format::Text
+        && provenance::text_scope(data, text_credential_mime(hint), limits)?.wrapper_count > 0
+    {
+        inspection.findings.push(Finding::new("text.provenance",RiskLayer::ProvenanceCredential,"text/standard_credential_wrapper","A standard text Content Credentials wrapper is present. Signature and binding results are reported separately",Action::Preserve));
+        inspection.blockers.push("Text Content Credentials require an explicit provenance-removal selection before rewriting".into());
+    }
+    Ok(())
 }
 
 fn attach_provenance(
@@ -208,15 +269,41 @@ fn attach_provenance(
     snapshot: &Snapshot,
     format: Format,
     limits: &Limits,
+    hint: &Path,
 ) -> Result<()> {
-    if let Some(credentials) = provenance::inspect(&snapshot.bytes, format, limits)? {
+    let credentials = if format == Format::Text {
+        provenance::inspect_mime(&snapshot.bytes, text_credential_mime(hint), limits, None)?
+    } else {
+        provenance::inspect(&snapshot.bytes, format, limits)?
+    };
+    if let Some(credentials) = credentials {
         report.provenance = Some(
             serde_json::to_value(credentials)
                 .map_err(|_| Error::Io("Could not serialize provenance evidence".into()))?,
         );
         report.warnings.push("C2PA signature and asset binding are evaluated offline. Certificate root trust, online revocation and identity assertions require their separately reported verification scopes.".into());
+        neutralize_provenance_findings(report);
     }
     Ok(())
+}
+pub(crate) fn neutralize_provenance_findings(report: &mut Report) {
+    for finding in report.findings.iter_mut().filter(|finding| {
+        finding.layer == RiskLayer::ProvenanceCredential
+            && matches!(
+                finding.code.as_str(),
+                "jpeg.provenance"
+                    | "png.provenance"
+                    | "pdf.provenance"
+                    | "text.provenance"
+                    | "wav.provenance"
+            )
+    }) {
+        finding.summary=if finding.state==FindingState::RemovedVerified {
+            "Selected provenance structures were removed. Original signature, asset-binding and trust results are reported separately"
+        }else{
+            "Provenance structures or a source reference are present. Signature, asset-binding and trust results are reported separately"
+        }.into();
+    }
 }
 fn report_for(operation: &str, inspection: &Inspection, snapshot: &Snapshot) -> Report {
     let mut report = Report::new(operation, inspection.format);
@@ -268,7 +355,7 @@ pub fn scan(path: &Path, limits: &Limits) -> Result<Report> {
     if inspection.format == Format::Pdf {
         report.pdf = Some(pdf::inspect(&snapshot.bytes, limits)?.details);
     }
-    attach_provenance(&mut report, &snapshot, inspection.format, limits)?;
+    attach_provenance(&mut report, &snapshot, inspection.format, limits, path)?;
     report
         .warnings
         .extend(extension_warning(path, inspection.format));

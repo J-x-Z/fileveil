@@ -14,6 +14,7 @@ use c2pa::{Context, Reader, ValidationState, validation_results::StatusCodes};
 use fileveil_core::{Error, Format, Limits, Policy, Result, SanitizeOptions, digest};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use unicode_normalization::is_nfc;
 
 pub const SDK_VERSION: &str = "0.91.11";
 const MIB: usize = 1024 * 1024;
@@ -36,8 +37,19 @@ pub fn capabilities() -> Vec<ProvenanceCapability> {
         provider_id: "c2pa".into(),
         evidence_kind: "signed_provenance_credential".into(),
         status: "available".into(),
-        verified_formats: vec!["jpeg".into(), "png".into()],
-        additional_reader_formats: vec!["heif".into(), "avif".into(), "mp4".into(), "mov".into()],
+        verified_formats: vec![
+            "jpeg".into(),
+            "png".into(),
+            "pdf".into(),
+            "txt".into(),
+            "md".into(),
+            "wav".into(),
+            "heif".into(),
+            "avif".into(),
+            "mp4".into(),
+            "mov".into(),
+        ],
+        additional_reader_formats: Vec::new(),
         network_enabled: false,
         availability_reason: "offline_cryptographic_reader".into(),
     }];
@@ -148,6 +160,20 @@ pub struct ProvenanceReport {
     pub signature_algorithm: Option<String>,
     pub validation_codes: Vec<String>,
     pub unrecognized_code_count: usize,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text_scope: Option<TextCredentialScope>,
+}
+
+/// UTF-8 byte ranges of recognized standard text credential wrappers. The digest
+/// covers every byte outside those ranges, including meaningful format characters.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TextCredentialScope {
+    pub wrapper_count: usize,
+    pub ranges: Vec<[usize; 2]>,
+    pub visible_sha256: String,
+    pub is_nfc: bool,
+    pub removal_supported: bool,
+    pub issue: Option<String>,
 }
 
 impl ProvenanceReport {
@@ -175,11 +201,12 @@ impl ProvenanceReport {
             signature_algorithm: None,
             validation_codes: vec![code.into()],
             unrecognized_code_count: 0,
+            text_scope: None,
         }
     }
 }
 
-/// Validates JPEG, PNG and recognized ISO BMFF assets without network access.
+/// Validates supported image, PDF, WAV and plain-text assets without network access.
 /// A successful absence result means this SDK found no embedded manifest or remote reference.
 pub fn inspect(data: &[u8], format: Format, limits: &Limits) -> Result<Option<ProvenanceReport>> {
     inspect_with_trust(data, format, limits, None)
@@ -216,6 +243,37 @@ pub fn remove(data: &[u8], format: Format, limits: &Limits) -> Result<Vec<u8>> {
             "Protected image structures prevent credential removal".into(),
         ));
     }
+    let stripped = remove_store(data, format.mime(), limits)?;
+    let clean = fileveil_formats::sanitize_with_options(&stripped, format, limits, &options)?;
+    if inspect(&clean, format, limits)?.is_some() {
+        return Err(Error::Verification(
+            "A credential store or provenance reference remains after removal".into(),
+        ));
+    }
+    Ok(clean)
+}
+
+/// Removes the official embedded store from an operation-owned private copy.
+/// Callers must subsequently verify the format-specific content and structure.
+pub fn remove_store(data: &[u8], mime: &str, limits: &Limits) -> Result<Vec<u8>> {
+    check_size(data, limits)?;
+    let extension = match mime {
+        "image/jpeg" => "jpg",
+        "image/png" => "png",
+        "application/pdf" => "pdf",
+        "text/plain" => "txt",
+        "text/markdown" => "md",
+        _ => {
+            return Err(Error::Unsupported(
+                "Credential store removal is unavailable for this type".into(),
+            ));
+        }
+    };
+    let expected_text = if is_text_mime(mime) {
+        Some(strip_text_wrappers(data, mime, limits)?)
+    } else {
+        None
+    };
     let mut staging = tempfile::Builder::new();
     staging.prefix("fileveil-credential-");
     // Reuse the supervisor-owned helper root so forced worker termination also
@@ -260,13 +318,15 @@ pub fn remove(data: &[u8], format: Format, limits: &Limits) -> Result<Vec<u8>> {
             "Credential removal output exceeds the file size limit".into(),
         ));
     }
-    let clean = fileveil_formats::sanitize_with_options(&stripped, format, limits, &options)?;
-    if inspect(&clean, format, limits)?.is_some() {
+    if expected_text
+        .as_ref()
+        .is_some_and(|expected| expected != &stripped)
+    {
         return Err(Error::Verification(
-            "A credential store or provenance reference remains after removal".into(),
+            "Credential removal changed bytes outside the recognized text wrapper".into(),
         ));
     }
-    Ok(clean)
+    Ok(stripped)
 }
 
 /// Uses an explicitly supplied local PEM trust bundle. The bundle is never fetched.
@@ -277,14 +337,98 @@ pub fn inspect_with_trust(
     limits: &Limits,
     trust_anchors_pem: Option<&str>,
 ) -> Result<Option<ProvenanceReport>> {
-    if data.len() as u64 > limits.max_file_bytes {
-        return Err(Error::Blocked(
-            "C2PA input exceeds the file size limit".into(),
-        ));
-    }
     let Some(mime) = supported_mime(data, format) else {
         return Ok(None);
     };
+    inspect_mime(data, mime, limits, trust_anchors_pem)
+}
+
+/// Validates a known container MIME over an already authorized bounded snapshot.
+/// Markdown is explicit because the shared text format also represents plain text.
+pub fn inspect_mime(
+    data: &[u8],
+    mime: &str,
+    limits: &Limits,
+    trust_anchors_pem: Option<&str>,
+) -> Result<Option<ProvenanceReport>> {
+    check_size(data, limits)?;
+    if !matches!(
+        mime,
+        "image/jpeg"
+            | "image/png"
+            | "image/heic"
+            | "image/heif"
+            | "image/avif"
+            | "video/mp4"
+            | "video/quicktime"
+            | "application/pdf"
+            | "text/plain"
+            | "text/markdown"
+            | "audio/wav"
+    ) {
+        return Err(Error::Unsupported(
+            "C2PA reader is unavailable for this MIME type".into(),
+        ));
+    }
+    let scope = if is_text_mime(mime) {
+        let scope = text_scope(data, mime, limits)?;
+        if scope.wrapper_count == 0 {
+            return Ok(None);
+        }
+        let issue = scope.issue.as_deref();
+        if scope.wrapper_count != 1 || issue.is_some() {
+            let remote = issue == Some("fileveil.c2pa.remote_manifest_disabled");
+            let mut report = ProvenanceReport::unreadable(
+                if remote {
+                    ManifestPresence::RemoteReference
+                } else {
+                    ManifestPresence::Unreadable
+                },
+                issue.unwrap_or("fileveil.c2pa.multiple_text_wrappers"),
+            );
+            report.text_scope = Some(scope);
+            return Ok(Some(report));
+        }
+        Some(scope)
+    } else {
+        None
+    };
+    let wav_store_count = if mime == "audio/wav" {
+        fileveil_formats::audio::inspect(data, Format::Wav, limits)?
+            .findings
+            .iter()
+            .filter(|finding| finding.code == "wav.provenance")
+            .count()
+    } else {
+        0
+    };
+    if wav_store_count > 1 {
+        let mut report = ProvenanceReport::unreadable(
+            ManifestPresence::Unreadable,
+            "fileveil.c2pa.multiple_riff_stores",
+        );
+        report.manifest_count = wav_store_count;
+        return Ok(Some(report));
+    }
+    let pdf_summary = if mime == "application/pdf" {
+        Some(crate::pdf::credential_summary(data, limits)?)
+    } else {
+        None
+    };
+    if let Some(summary) = &pdf_summary
+        && (summary.store_count > 1 || summary.unresolved_credential_entries > 0)
+    {
+        let mut report = ProvenanceReport::unreadable(
+            ManifestPresence::Unreadable,
+            if summary.store_count > 1 {
+                "fileveil.c2pa.multiple_pdf_stores"
+            } else {
+                "fileveil.c2pa.pdf_store_structure_unresolved"
+            },
+        );
+        report.manifest_count = summary.store_count;
+        return Ok(Some(report));
+    }
     let trust_anchors_pem = trust_anchors_pem.filter(|pem| !pem.is_empty());
     if trust_anchors_pem.is_some_and(|pem| pem.len() > limits.max_metadata_bytes) {
         return Err(Error::Blocked(
@@ -294,6 +438,11 @@ pub fn inspect_with_trust(
     if let Some(pem) = trust_anchors_pem {
         validate_trust_bundle(pem, limits)?;
     }
+    let unreadable = |presence, code: &str| {
+        let mut report = ProvenanceReport::unreadable(presence, code);
+        report.text_scope = scope.clone();
+        report
+    };
 
     // The official container handler loads only embedded C2PA bytes. Its result
     // limits the stored manifest before the Reader parses assertions and certificates.
@@ -309,7 +458,7 @@ pub fn inspect_with_trust(
         Err(c2pa::Error::JumbfNotFound | c2pa::Error::NotFound) => false,
         Err(c2pa::Error::UnsupportedType) => return Ok(None),
         Err(_) => {
-            return Ok(Some(ProvenanceReport::unreadable(
+            return Ok(Some(unreadable(
                 ManifestPresence::Unreadable,
                 "fileveil.c2pa.container_unreadable",
             )));
@@ -319,15 +468,24 @@ pub fn inspect_with_trust(
     let context = offline_context(limits, trust_anchors_pem)?;
     let reader = match Reader::from_context(context).with_stream(mime, Cursor::new(data)) {
         Ok(reader) => reader,
-        Err(c2pa::Error::JumbfNotFound | c2pa::Error::NotFound) if !embedded => return Ok(None),
+        Err(c2pa::Error::JumbfNotFound | c2pa::Error::NotFound)
+            if !embedded
+                && scope.is_none()
+                && wav_store_count == 0
+                && !pdf_summary
+                    .as_ref()
+                    .is_some_and(|summary| summary.store_count > 0) =>
+        {
+            return Ok(None);
+        }
         Err(c2pa::Error::RemoteManifestUrl(_) | c2pa::Error::RemoteManifestFetch(_)) => {
-            return Ok(Some(ProvenanceReport::unreadable(
+            return Ok(Some(unreadable(
                 ManifestPresence::RemoteReference,
                 "fileveil.c2pa.remote_manifest_disabled",
             )));
         }
         Err(_) => {
-            return Ok(Some(ProvenanceReport::unreadable(
+            return Ok(Some(unreadable(
                 ManifestPresence::Unreadable,
                 "fileveil.c2pa.manifest_unreadable",
             )));
@@ -441,7 +599,260 @@ pub fn inspect_with_trust(
         }
     }
     report.validation_codes = codes.into_iter().collect();
+    if pdf_summary
+        .as_ref()
+        .is_some_and(|summary| summary.incremental_history_clues)
+    {
+        if report.manifest_validation == CheckStatus::Valid {
+            report.manifest_validation = CheckStatus::Unverifiable;
+        }
+        report
+            .validation_codes
+            .push("fileveil.c2pa.pdf_incremental_history_not_fully_validated".into());
+    }
+    if mime == "text/plain" && scope.as_ref().is_some_and(|scope| !scope.is_nfc) {
+        report.asset_binding = CheckStatus::Unverifiable;
+        report.asset_binding_scope = "nfc_normalization_required_not_performed".into();
+        if report.manifest_validation == CheckStatus::Valid
+            || reader
+                .validation_results()
+                .and_then(|results| results.active_manifest())
+                .is_some_and(|active| {
+                    active.failure().iter().all(|status| {
+                        matches!(
+                            status.code(),
+                            "assertion.dataHash.mismatch" | "signingCredential.untrusted"
+                        )
+                    })
+                })
+                && reader
+                    .validation_results()
+                    .and_then(|results| results.ingredient_deltas())
+                    .is_none_or(|ingredients| {
+                        ingredients
+                            .iter()
+                            .all(|ingredient| ingredient.validation_deltas().failure().is_empty())
+                    })
+        {
+            report.manifest_validation = CheckStatus::Unverifiable;
+        }
+        report
+            .validation_codes
+            .push("fileveil.c2pa.plaintext_nfc_binding_unverifiable".into());
+    }
+    report.text_scope = scope;
     Ok(Some(report))
+}
+
+fn check_size(data: &[u8], limits: &Limits) -> Result<()> {
+    if data.len() as u64 > limits.max_file_bytes {
+        return Err(Error::Blocked(
+            "C2PA input exceeds the file size limit".into(),
+        ));
+    }
+    Ok(())
+}
+
+fn is_text_mime(mime: &str) -> bool {
+    matches!(mime, "text/plain" | "text/markdown")
+}
+
+/// Finds A.8 frames or the conservative A.9 Markdown subset. A.9 removal is
+/// restricted to a complete dedicated comment on the first physical line, where
+/// it cannot be a fenced-code example, string literal or nested HTML content.
+pub fn text_scope(data: &[u8], mime: &str, limits: &Limits) -> Result<TextCredentialScope> {
+    check_size(data, limits)?;
+    let text = std::str::from_utf8(data)
+        .map_err(|_| Error::Unsupported("C2PA text requires valid UTF-8".into()))?;
+    let mut scope = TextCredentialScope {
+        wrapper_count: 0,
+        ranges: Vec::new(),
+        visible_sha256: String::new(),
+        is_nfc: false,
+        removal_supported: true,
+        issue: None,
+    };
+    match mime {
+        "text/plain" => plain_text_ranges(text, limits, &mut scope)?,
+        "text/markdown" => markdown_ranges(text, limits, &mut scope)?,
+        _ => {
+            return Err(Error::Unsupported(
+                "Standard text credential wrappers are unavailable for this MIME type".into(),
+            ));
+        }
+    }
+    let visible = without_ranges(data, &scope.ranges);
+    scope.visible_sha256 = digest(&visible);
+    scope.is_nfc =
+        is_nfc(std::str::from_utf8(&visible).map_err(|_| {
+            Error::Verification("Text wrapper ranges did not preserve UTF-8".into())
+        })?);
+    Ok(scope)
+}
+
+/// Preserves all bytes except independently recognized removable wrappers.
+/// Cryptographic authenticity is reported by inspect_mime, separately from framing.
+pub fn strip_text_wrappers(data: &[u8], mime: &str, limits: &Limits) -> Result<Vec<u8>> {
+    let scope = text_scope(data, mime, limits)?;
+    if !scope.removal_supported {
+        return Err(Error::Blocked(
+            "Text credential wrapper context is ambiguous or malformed".into(),
+        ));
+    }
+    Ok(without_ranges(data, &scope.ranges))
+}
+
+fn without_ranges(data: &[u8], ranges: &[[usize; 2]]) -> Vec<u8> {
+    let mut output = Vec::with_capacity(data.len());
+    let mut cursor = 0;
+    for &[start, end] in ranges {
+        output.extend_from_slice(&data[cursor..start]);
+        cursor = end;
+    }
+    output.extend_from_slice(&data[cursor..]);
+    output
+}
+
+fn selector_byte(character: char) -> Option<u8> {
+    match character as u32 {
+        point @ 0xfe00..=0xfe0f => Some((point - 0xfe00) as u8),
+        point @ 0xe0100..=0xe01ef => Some((point - 0xe0100 + 16) as u8),
+        _ => None,
+    }
+}
+
+fn plain_text_ranges(text: &str, limits: &Limits, scope: &mut TextCredentialScope) -> Result<()> {
+    let mut from = 0;
+    while let Some(relative) = text[from..].find('\u{feff}') {
+        let start = from + relative;
+        let run_start = start + '\u{feff}'.len_utf8();
+        let mut header = [0u8; 13];
+        let mut count = 0usize;
+        let mut end = run_start;
+        for character in text[run_start..].chars() {
+            let Some(byte) = selector_byte(character) else {
+                break;
+            };
+            if count < header.len() {
+                header[count] = byte;
+            }
+            count += 1;
+            end += character.len_utf8();
+        }
+        from = end;
+        if count < 8 || &header[..8] != b"C2PATXT\0" {
+            continue;
+        }
+        scope.wrapper_count += 1;
+        if scope.wrapper_count > limits.max_members {
+            return Err(Error::Blocked(
+                "C2PA text wrapper count exceeds the member limit".into(),
+            ));
+        }
+        let declared = u32::from_be_bytes(
+            header[9..13]
+                .try_into()
+                .map_err(|_| Error::Verification("Invalid text wrapper header".into()))?,
+        ) as usize;
+        if declared > limits.max_metadata_bytes
+            || count
+                > limits
+                    .max_metadata_bytes
+                    .saturating_mul(2)
+                    .saturating_add(32)
+        {
+            return Err(Error::Blocked(
+                "C2PA text wrapper exceeds the metadata limit".into(),
+            ));
+        }
+        if count < header.len() || header[8] != 1 || count - header.len() < declared {
+            scope.removal_supported = false;
+            scope.issue = Some("fileveil.c2pa.plaintext_frame_malformed".into());
+            continue;
+        }
+        scope.ranges.push([start, end]);
+    }
+    Ok(())
+}
+
+fn manifest_reference(reference: &str) -> bool {
+    if reference.starts_with("data:application/c2pa;base64,") {
+        return true;
+    }
+    if reference.is_empty() || reference.contains(char::is_whitespace) {
+        return false;
+    }
+    reference.split_once(':').is_some_and(|(scheme, rest)| {
+        !rest.is_empty()
+            && scheme.starts_with(|character: char| character.is_ascii_alphabetic())
+            && scheme.chars().all(|character| {
+                character.is_ascii_alphanumeric() || matches!(character, '+' | '-' | '.')
+            })
+    })
+}
+
+fn markdown_ranges(text: &str, limits: &Limits, scope: &mut TextCredentialScope) -> Result<()> {
+    const BEGIN: &str = "-----BEGIN C2PA MANIFEST-----";
+    const END: &str = "-----END C2PA MANIFEST-----";
+    const DATA: &str = "data:application/c2pa;base64,";
+    let mut from = 0;
+    while let Some(relative) = text[from..].find(BEGIN) {
+        let begin = from + relative;
+        let reference_start = begin + BEGIN.len();
+        let Some(relative_end) = text[reference_start..].find(END) else {
+            if text[reference_start..].trim_start().starts_with(DATA) {
+                scope.wrapper_count += 1;
+                scope.removal_supported = false;
+                scope.issue = Some("fileveil.c2pa.markdown_frame_malformed".into());
+            }
+            break;
+        };
+        let end = reference_start + relative_end;
+        let past_end = end + END.len();
+        from = past_end;
+        let reference = text[reference_start..end].trim();
+        if !manifest_reference(reference) {
+            continue;
+        }
+        scope.wrapper_count += 1;
+        if scope.wrapper_count > limits.max_members {
+            return Err(Error::Blocked(
+                "C2PA text wrapper count exceeds the member limit".into(),
+            ));
+        }
+        if let Some(encoded) = reference.strip_prefix(DATA)
+            && encoded.len()
+                > limits
+                    .max_metadata_bytes
+                    .saturating_add(2)
+                    .saturating_div(3)
+                    .saturating_mul(4)
+        {
+            return Err(Error::Blocked(
+                "C2PA text wrapper exceeds the metadata limit".into(),
+            ));
+        }
+        let line_end = text[past_end..]
+            .find('\n')
+            .map_or(text.len(), |relative| past_end + relative + 1);
+        let prefix = &text[..begin];
+        let unindented = prefix.trim_start_matches(' ');
+        let safe_prefix = prefix.len() - unindented.len() <= 3
+            && unindented
+                .strip_prefix("<!--")
+                .is_some_and(|spacing| spacing.bytes().all(|byte| matches!(byte, b' ' | b'\t')));
+        let safe_suffix = text[past_end..line_end].trim() == "-->";
+        if !safe_prefix || !safe_suffix || reference.contains(char::is_whitespace) {
+            scope.removal_supported = false;
+            scope.issue = Some("fileveil.c2pa.markdown_context_unsupported".into());
+            continue;
+        }
+        scope.ranges.push([0, line_end]);
+        if !reference.starts_with(DATA) {
+            scope.issue = Some("fileveil.c2pa.remote_manifest_disabled".into());
+        }
+    }
+    Ok(())
 }
 
 fn offline_context(limits: &Limits, trust_anchors_pem: Option<&str>) -> Result<Context> {
@@ -617,6 +1028,9 @@ fn supported_mime(data: &[u8], format: Format) -> Option<&'static str> {
     match format {
         Format::Jpeg => Some("image/jpeg"),
         Format::Png => Some("image/png"),
+        Format::Pdf => Some("application/pdf"),
+        Format::Text => Some("text/plain"),
+        Format::Wav => Some("audio/wav"),
         _ => bmff_mime(data),
     }
 }

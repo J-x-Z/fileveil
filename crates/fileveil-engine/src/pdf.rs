@@ -32,6 +32,109 @@ pub struct PdfVerification {
     pub details: Value,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct PdfCredentialSummary {
+    /// Distinct embedded stream objects identified by parsed C2PA file specifications.
+    pub store_count: usize,
+    pub digital_signatures_present: bool,
+    /// Incomplete C2PA file specifications remain protected even without a readable store.
+    pub unresolved_credential_entries: usize,
+    /// Previous-xref or raw marker clues do not prove every earlier revision was validated.
+    pub incremental_history_clues: bool,
+}
+
+fn c2pa_mime(value: &Value) -> bool {
+    matches!(
+        value.as_str(),
+        Some("/application/c2pa" | "u:application/c2pa")
+    )
+}
+fn credential_summary_from(objects: &Map<String, Value>, signatures: bool) -> PdfCredentialSummary {
+    let mut streams = BTreeSet::new();
+    let mut unresolved = 0;
+    for (key, record) in objects {
+        if record.get("stream").is_some()
+            && object_value(record).get("/Subtype").is_some_and(c2pa_mime)
+        {
+            streams.insert(key.clone());
+        }
+        credential_specs(object_value(record), objects, &mut streams, &mut unresolved);
+    }
+    PdfCredentialSummary {
+        store_count: streams.len(),
+        digital_signatures_present: signatures,
+        unresolved_credential_entries: unresolved,
+        incremental_history_clues: false,
+    }
+}
+fn credential_specs(
+    value: &Value,
+    objects: &Map<String, Value>,
+    streams: &mut BTreeSet<String>,
+    unresolved: &mut usize,
+) {
+    match value {
+        Value::Object(fields) => {
+            let relationship = fields
+                .get("/AFRelationship")
+                .map(|value| resolve(value, objects))
+                .and_then(Value::as_str)
+                == Some("/C2PA_Manifest");
+            let subtype = fields
+                .get("/Subtype")
+                .map(|value| resolve(value, objects))
+                .is_some_and(c2pa_mime);
+            if relationship || (subtype && fields.contains_key("/EF")) {
+                let embedded = fields
+                    .get("/EF")
+                    .map(|value| resolve(value, objects))
+                    .and_then(|value| value.get("/F"));
+                let stream = embedded
+                    .and_then(Value::as_str)
+                    .and_then(reference)
+                    .filter(|key| {
+                        objects
+                            .get(key)
+                            .is_some_and(|record| record.get("stream").is_some())
+                    });
+                let incomplete = stream.is_none() || !relationship || !subtype;
+                if let Some(stream) = stream {
+                    streams.insert(stream);
+                }
+                if incomplete {
+                    *unresolved += 1;
+                }
+            }
+            for value in fields.values() {
+                credential_specs(value, objects, streams, unresolved);
+            }
+        }
+        Value::Array(values) => {
+            for value in values {
+                credential_specs(value, objects, streams, unresolved);
+            }
+        }
+        _ => {}
+    }
+}
+
+/// Structural preflight for the official SDK, including stores its first-AF reader can miss.
+/// Counts and flags reveal no manifest bytes, attachment names, metadata values or paths.
+pub fn credential_summary(data: &[u8], limits: &Limits) -> Result<PdfCredentialSummary> {
+    let document = Document::open(data, limits)?;
+    let mut summary = credential_summary_from(
+        object_map(&document.json)?,
+        document.inspection.details["signature_structures"]
+            .as_u64()
+            .is_some_and(|count| count > 0),
+    );
+    summary.incremental_history_clues = document.inspection.details["has_previous_xref"] == true
+        || document.inspection.details["incremental_marker_count"]
+            .as_u64()
+            .is_some_and(|count| count > 1);
+    Ok(summary)
+}
+
 const COMMAND_TIMEOUT: Duration = Duration::from_secs(30);
 const RENDER_DIMENSION: u64 = 1024;
 
@@ -208,6 +311,9 @@ struct Document {
 }
 impl Document {
     fn open(data: &[u8], limits: &Limits) -> Result<Self> {
+        Self::open_selected(data, limits, false)
+    }
+    fn open_selected(data: &[u8], limits: &Limits, remove_provenance: bool) -> Result<Self> {
         if data.len() as u64 > limits.max_file_bytes {
             return Err(Error::Blocked("PDF exceeds the file byte limit".into()));
         }
@@ -271,7 +377,7 @@ impl Document {
                 "PDF object count exceeds the resource budget".into(),
             ));
         }
-        let inspection = analyze(&json, data, limits)?;
+        let inspection = analyze(&json, data, limits, remove_provenance)?;
         Ok(Self {
             directory,
             input,
@@ -333,7 +439,31 @@ struct Counts {
     private_data: usize,
     annotations: usize,
 }
-fn walk_fields(value: &Value, counts: &mut Counts, depth: usize) -> Result<()> {
+fn attachment_data_present(
+    value: &Value,
+    objects: &Map<String, Value>,
+    remaining: &mut usize,
+) -> bool {
+    if *remaining == 0 {
+        // Unresolved, cyclic or over-budget descriptors remain structural clues.
+        return true;
+    }
+    *remaining -= 1;
+    match resolve(value, objects) {
+        Value::Null => false,
+        Value::Array(values) => !values.is_empty(),
+        Value::Object(fields) => fields
+            .values()
+            .any(|value| attachment_data_present(value, objects, remaining)),
+        _ => true,
+    }
+}
+fn walk_fields(
+    value: &Value,
+    objects: &Map<String, Value>,
+    counts: &mut Counts,
+    depth: usize,
+) -> Result<()> {
     if depth > 96 {
         return Err(Error::Blocked(
             "PDF dictionary nesting exceeds the resource budget".into(),
@@ -342,7 +472,7 @@ fn walk_fields(value: &Value, counts: &mut Counts, depth: usize) -> Result<()> {
     match value {
         Value::Array(values) => {
             for value in values {
-                walk_fields(value, counts, depth + 1)?;
+                walk_fields(value, objects, counts, depth + 1)?;
             }
         }
         Value::Object(fields) => {
@@ -390,9 +520,11 @@ fn walk_fields(value: &Value, counts: &mut Counts, depth: usize) -> Result<()> {
                 counts.metadata += 1;
             }
             if fields.get("/Type").and_then(Value::as_str) == Some("/EmbeddedFile")
-                || fields.contains_key("/EmbeddedFiles")
-                || fields.contains_key("/EF")
-                || fields.contains_key("/AF")
+                || ["/EmbeddedFiles", "/EF", "/AF"].iter().any(|key| {
+                    fields
+                        .get(*key)
+                        .is_some_and(|value| attachment_data_present(value, objects, &mut 256))
+                })
             {
                 counts.attachments += 1;
             }
@@ -433,7 +565,7 @@ fn walk_fields(value: &Value, counts: &mut Counts, depth: usize) -> Result<()> {
                 counts.private_data += 1;
             }
             for value in fields.values() {
-                walk_fields(value, counts, depth + 1)?;
+                walk_fields(value, objects, counts, depth + 1)?;
             }
         }
         _ => {}
@@ -462,6 +594,29 @@ fn metadata_ref(value: &Value, found: &mut BTreeSet<String>) {
         _ => {}
     }
 }
+fn nonmetadata_reference(value: &Value, metadata: &BTreeSet<String>) -> bool {
+    if value
+        .as_str()
+        .and_then(reference)
+        .is_some_and(|key| metadata.contains(&key))
+    {
+        return true;
+    }
+    match value {
+        Value::Object(fields) => fields
+            .iter()
+            .any(|(key, value)| key != "/Metadata" && nonmetadata_reference(value, metadata)),
+        Value::Array(values) => values
+            .iter()
+            .any(|value| nonmetadata_reference(value, metadata)),
+        _ => false,
+    }
+}
+fn metadata_shared_with_content(objects: &Map<String, Value>, metadata: &BTreeSet<String>) -> bool {
+    objects.iter().any(|(key, record)| {
+        !metadata.contains(key) && nonmetadata_reference(object_value(record), metadata)
+    })
+}
 fn finding(code: &str, summary: &str, action: Action) -> Finding {
     Finding::new(
         code,
@@ -472,7 +627,12 @@ fn finding(code: &str, summary: &str, action: Action) -> Finding {
     )
 }
 
-fn analyze(json: &Value, data: &[u8], limits: &Limits) -> Result<PdfInspection> {
+fn analyze(
+    json: &Value,
+    data: &[u8],
+    limits: &Limits,
+    remove_provenance: bool,
+) -> Result<PdfInspection> {
     let objects = object_map(json)?;
     let trailer = objects
         .get("trailer")
@@ -486,7 +646,7 @@ fn analyze(json: &Value, data: &[u8], limits: &Limits) -> Result<PdfInspection> 
     let mut counts = Counts::default();
     let mut metadata_objects = BTreeSet::new();
     for (key, record) in objects {
-        walk_fields(object_value(record), &mut counts, 0)?;
+        walk_fields(object_value(record), objects, &mut counts, 0)?;
         metadata_ref(object_value(record), &mut metadata_objects);
         if object_value(record).get("/Type").and_then(Value::as_str) == Some("/Metadata") {
             metadata_objects.insert(key.clone());
@@ -598,6 +758,20 @@ fn analyze(json: &Value, data: &[u8], limits: &Limits) -> Result<PdfInspection> 
         ));
     }
     let mut blockers = Vec::new();
+    if metadata_shared_with_content(objects, &metadata_objects) {
+        findings.push(finding("pdf.shared_metadata","A metadata object is also referenced outside metadata fields. Rewriting requires preservation of its content role",Action::Preserve));
+        blockers.push(
+            "Shared PDF metadata and content objects require a role-aware preservation backend"
+                .into(),
+        );
+    }
+    let credentials = credential_summary_from(objects, counts.signatures > 0);
+    if credentials.store_count > 0 || credentials.unresolved_credential_entries > 0 {
+        findings.push(Finding::new("pdf.provenance",RiskLayer::ProvenanceCredential,"pdf/associated_files","Parsed C2PA associated-file or embedded-store structures are present. Cryptographic validation is reported separately",Action::Preserve));
+        if !remove_provenance {
+            blockers.push("PDF Content Credentials require an explicit provenance-removal selection before rewriting".into());
+        }
+    }
     if counts.signatures > 0 {
         findings.push(Finding::unassessed("pdf.digital_signature", RiskLayer::ProvenanceCredential, "pdf/signature_structures", "Signature or certification structures are present. Cryptographic validity has not been checked"));
         blockers.push(
@@ -614,6 +788,7 @@ fn analyze(json: &Value, data: &[u8], limits: &Limits) -> Result<PdfInspection> 
         "document_info_fields":counts.info, "custom_info_fields":counts.custom, "metadata_objects":counts.metadata,
         "attachment_structures":counts.attachments, "javascript_actions":counts.scripts, "automatic_actions":counts.open_actions, "annotation_structures":counts.annotations,
         "signature_structures":counts.signatures, "signature_validation":"not_assessed", "hidden_content_clues":counts.hidden,
+        "c2pa_store_count":credentials.store_count,"c2pa_unresolved_entries":credentials.unresolved_credential_entries,
         "has_previous_xref":previous_xref, "incremental_marker_count":incremental_markers,
         "unreferenced_or_metadata_objects":unreferenced, "rewrite_scope":"document_info_and_xmp_full_rewrite",
         "independent_page_count_equal":null, "independent_text_equal":null, "independent_render_equal":null});
@@ -713,6 +888,9 @@ fn content_fingerprint(
 pub fn inspect(data: &[u8], limits: &Limits) -> Result<PdfInspection> {
     Ok(Document::open(data, limits)?.inspection)
 }
+pub fn inspect_for_provenance_removal(data: &[u8], limits: &Limits) -> Result<PdfInspection> {
+    Ok(Document::open_selected(data, limits, true)?.inspection)
+}
 
 fn remove_metadata(value: &mut Value) {
     match value {
@@ -731,7 +909,12 @@ fn remove_metadata(value: &mut Value) {
     }
 }
 
-fn prepare_rewrite(json: &mut Value, options: &PdfOptions, limits: &Limits) -> Result<String> {
+fn prepare_rewrite(
+    json: &mut Value,
+    options: &PdfOptions,
+    limits: &Limits,
+    remove_provenance: bool,
+) -> Result<String> {
     let objects = json
         .pointer_mut("/qpdf/1")
         .and_then(Value::as_object_mut)
@@ -742,6 +925,12 @@ fn prepare_rewrite(json: &mut Value, options: &PdfOptions, limits: &Limits) -> R
         if object_value(record).get("/Type").and_then(Value::as_str) == Some("/Metadata") {
             metadata.insert(key.clone());
         }
+    }
+    if metadata_shared_with_content(objects, &metadata) {
+        return Err(Error::Blocked(
+            "Shared PDF metadata and content objects cannot be discarded during metadata cleanup"
+                .into(),
+        ));
     }
     for record in objects.values_mut() {
         remove_metadata(record);
@@ -759,6 +948,9 @@ fn prepare_rewrite(json: &mut Value, options: &PdfOptions, limits: &Limits) -> R
         trailer.remove("/Prev");
         trailer.remove("/XRefStm");
     }
+    if remove_provenance {
+        prune_credentials(objects)?;
+    }
     prune_selected(objects, options)?;
     content_fingerprint(objects, limits).map(|(digest, _)| digest)
 }
@@ -774,11 +966,41 @@ pub fn sanitize_with_options(
     limits: &Limits,
     options: &PdfOptions,
 ) -> Result<Vec<u8>> {
-    let mut document = Document::open(data, limits)?;
+    sanitize_selected(data, limits, options, false)
+}
+pub fn sanitize_with_provenance_removal(
+    data: &[u8],
+    limits: &Limits,
+    options: &PdfOptions,
+) -> Result<Vec<u8>> {
+    sanitize_selected(data, limits, options, true)
+}
+
+fn protect_remote_credentials(data: &[u8], limits: &Limits) -> Result<()> {
+    // The SDK recognizes the standard provenance property regardless of the URI's spelling.
+    // Its PDF preflight uses credential_summary, which parses objects without calling this guard.
+    if crate::provenance::inspect_mime(data, "application/pdf", limits, None)?.is_some() {
+        return Err(Error::Blocked(
+            "PDF provenance credentials or references require explicit provenance removal before rewriting"
+                .into(),
+        ));
+    }
+    Ok(())
+}
+fn sanitize_selected(
+    data: &[u8],
+    limits: &Limits,
+    options: &PdfOptions,
+    remove_provenance: bool,
+) -> Result<Vec<u8>> {
+    let mut document = Document::open_selected(data, limits, remove_provenance)?;
     if !document.inspection.blockers.is_empty() {
         return Err(Error::Blocked(document.inspection.blockers.join(". ")));
     }
-    let expected_digest = prepare_rewrite(&mut document.json, options, limits)?;
+    if !remove_provenance {
+        protect_remote_credentials(data, limits)?;
+    }
+    let expected_digest = prepare_rewrite(&mut document.json, options, limits, remove_provenance)?;
     let patch_path = document.directory.path().join("metadata-patch.json");
     let patch = json!({"qpdf":document.json["qpdf"]});
     File::create(&patch_path)
@@ -824,6 +1046,13 @@ pub fn sanitize_with_options(
         ));
     }
     check_selected_postconditions(&after, options)?;
+    if remove_provenance
+        && (after.details["c2pa_store_count"] != 0 || after.details["c2pa_unresolved_entries"] != 0)
+    {
+        return Err(Error::Verification(
+            "PDF credential structures remain after explicitly selected removal".into(),
+        ));
+    }
     Ok(bytes)
 }
 
@@ -970,14 +1199,35 @@ pub fn verify_scoped(
     limits: &Limits,
     options: &PdfOptions,
 ) -> Result<PdfVerification> {
-    let mut original = Document::open(before, limits)?;
+    verify_selected(before, after, limits, options, false)
+}
+pub fn verify_with_provenance_removal(
+    before: &[u8],
+    after: &[u8],
+    limits: &Limits,
+    options: &PdfOptions,
+) -> Result<PdfVerification> {
+    verify_selected(before, after, limits, options, true)
+}
+fn verify_selected(
+    before: &[u8],
+    after: &[u8],
+    limits: &Limits,
+    options: &PdfOptions,
+    remove_provenance: bool,
+) -> Result<PdfVerification> {
+    let mut original = Document::open_selected(before, limits, remove_provenance)?;
     let output = Document::open(after, limits)?;
     if !original.inspection.blockers.is_empty() || !output.inspection.blockers.is_empty() {
         return Err(Error::Blocked(
             "Protected PDF credentials prevent rewriting verification".into(),
         ));
     }
-    let expected_digest = prepare_rewrite(&mut original.json, options, limits)?;
+    if !remove_provenance {
+        protect_remote_credentials(before, limits)?;
+    }
+    protect_remote_credentials(after, limits)?;
+    let expected_digest = prepare_rewrite(&mut original.json, options, limits, remove_provenance)?;
     if expected_digest != output.inspection.content_digest {
         return Err(Error::Verification(
             "PDF retained content graph differs".into(),
@@ -999,7 +1249,12 @@ pub fn verify_scoped(
         &original,
         &output,
         limits,
-        options.remove_annotations || options.remove_attachments,
+        options.remove_annotations
+            || options.remove_attachments
+            || (remove_provenance
+                && original.inspection.details["annotation_structures"]
+                    .as_u64()
+                    .is_some_and(|count| count > 0)),
     )?;
     let complete =
         checks.pages == Some(true) && checks.text == Some(true) && checks.render == Some(true);
@@ -1010,6 +1265,7 @@ pub fn verify_scoped(
     details["render_max_dimension"] = json!(RENDER_DIMENSION);
     details["retained_object_graph_equal"] = json!(true);
     details["deep_options"] = json!(options);
+    details["remove_provenance"] = json!(remove_provenance);
     if options.any() {
         details["rewrite_scope"] = json!("explicit_deep_options_and_standard_metadata");
     }
@@ -1030,7 +1286,10 @@ pub fn verify_scoped(
     }
     for mut found in original.inspection.findings {
         if found.action == Action::Remove
-            || (found.code == "pdf.attachments" && options.remove_attachments)
+            || (found.code == "pdf.provenance" && remove_provenance)
+            || (found.code == "pdf.attachments"
+                && (options.remove_attachments
+                    || (remove_provenance && details["attachment_structures"] == 0)))
             || (found.code == "pdf.annotations" && options.remove_annotations)
         {
             found.state = FindingState::RemovedVerified;
@@ -1052,7 +1311,7 @@ pub fn verify_scoped(
         parseable: true,
         decodeable: checks.render.map(|_| true),
         pixel_equal: checks.render,
-        content_equal: (complete && !options.any()).then_some(true),
+        content_equal: (complete && !options.any() && !remove_provenance).then_some(true),
         ..Integrity::default()
     };
     let mut warnings = checks.warnings;
@@ -1064,7 +1323,7 @@ pub fn verify_scoped(
         findings,
         warnings,
         integrity,
-        result: if complete && !residual && !options.any() {
+        result: if complete && !residual && !options.any() && !remove_provenance {
             Outcome::VerifiedWithinScope
         } else {
             Outcome::PartiallyVerified
@@ -1228,4 +1487,204 @@ fn check_selected_postconditions(inspection: &PdfInspection, options: &PdfOption
         ));
     }
     Ok(())
+}
+
+struct CredentialPruner {
+    specs: BTreeSet<String>,
+    streams: BTreeSet<String>,
+    annotations: BTreeSet<String>,
+    name_arrays: BTreeSet<String>,
+    scalars: Map<String, Value>,
+}
+impl CredentialPruner {
+    fn is_spec(&self, value: &Value) -> bool {
+        let role = value
+            .get("/AFRelationship")
+            .map(|value| resolve(value, &self.scalars))
+            .and_then(Value::as_str)
+            == Some("/C2PA_Manifest");
+        role || (value
+            .get("/Subtype")
+            .map(|value| resolve(value, &self.scalars))
+            .is_some_and(c2pa_mime)
+            && value.get("/EF").is_some())
+    }
+    fn is_spec_reference(&self, value: &Value) -> bool {
+        value
+            .as_str()
+            .and_then(reference)
+            .is_some_and(|key| self.specs.contains(&key))
+            || self.is_spec(value)
+    }
+    fn is_annotation(&self, value: &Value) -> bool {
+        value.get("/Subtype").and_then(Value::as_str) == Some("/FileAttachment")
+            && value
+                .get("/FS")
+                .is_some_and(|value| self.is_spec_reference(value))
+    }
+    fn shared_stream(&self, value: &Value) -> bool {
+        if self.is_spec(value) {
+            return false;
+        }
+        if value
+            .as_str()
+            .and_then(reference)
+            .is_some_and(|key| self.streams.contains(&key))
+        {
+            return true;
+        }
+        match value {
+            Value::Object(fields) => fields.values().any(|value| self.shared_stream(value)),
+            Value::Array(values) => values.iter().any(|value| self.shared_stream(value)),
+            _ => false,
+        }
+    }
+    fn names(&self, value: &mut Value) -> Result<()> {
+        let Some(values) = value.as_array_mut() else {
+            return Ok(());
+        };
+        if !values.len().is_multiple_of(2) {
+            return Err(Error::Blocked(
+                "An embedded-file name tree has an incomplete name/reference pair".into(),
+            ));
+        }
+        let mut retained = Vec::with_capacity(values.len());
+        for pair in std::mem::take(values).as_chunks::<2>().0 {
+            if !self.is_spec_reference(&pair[1]) {
+                retained.extend_from_slice(pair);
+            }
+        }
+        *values = retained;
+        Ok(())
+    }
+    fn prune(&self, value: &mut Value) -> Result<bool> {
+        if value
+            .as_str()
+            .and_then(reference)
+            .is_some_and(|key| self.specs.contains(&key) || self.annotations.contains(&key))
+        {
+            return Ok(false);
+        }
+        if self.is_spec(value) || self.is_annotation(value) {
+            return Ok(false);
+        }
+        match value {
+            Value::Object(fields) => {
+                if let Some(names) = fields.get_mut("/Names") {
+                    self.names(names)?;
+                }
+                let mut removed = Vec::new();
+                for (key, child) in fields.iter_mut() {
+                    if !self.prune(child)? {
+                        removed.push(key.clone());
+                    }
+                }
+                for key in removed {
+                    fields.remove(&key);
+                }
+            }
+            Value::Array(values) => {
+                let mut retained = Vec::with_capacity(values.len());
+                for mut value in std::mem::take(values) {
+                    if self.prune(&mut value)? {
+                        retained.push(value);
+                    }
+                }
+                *values = retained;
+            }
+            _ => {}
+        }
+        Ok(true)
+    }
+}
+fn prune_credentials(objects: &mut Map<String, Value>) -> Result<()> {
+    let scalars = objects
+        .iter()
+        .filter(|(_, record)| {
+            record
+                .get("value")
+                .and_then(Value::as_str)
+                .is_some_and(|value| value.len() <= 128)
+        })
+        .map(|(key, record)| (key.clone(), record.clone()))
+        .collect();
+    let mut pruner = CredentialPruner {
+        specs: BTreeSet::new(),
+        streams: BTreeSet::new(),
+        annotations: BTreeSet::new(),
+        name_arrays: BTreeSet::new(),
+        scalars,
+    };
+    let mut unresolved = 0;
+    for (key, record) in objects.iter() {
+        let value = object_value(record);
+        if pruner.is_spec(value) {
+            pruner.specs.insert(key.clone());
+        }
+        credential_specs(value, objects, &mut pruner.streams, &mut unresolved);
+        if record.get("stream").is_some() && value.get("/Subtype").is_some_and(c2pa_mime) {
+            pruner.streams.insert(key.clone());
+        }
+    }
+    for (key, record) in objects.iter() {
+        let value = object_value(record);
+        if pruner.is_annotation(value) {
+            pruner.annotations.insert(key.clone());
+        }
+        collect_name_arrays(value, objects, &mut pruner.name_arrays);
+        if !pruner.streams.contains(key) && pruner.shared_stream(value) {
+            return Err(Error::Blocked("A C2PA store stream is shared with document content outside its file specification".into()));
+        }
+    }
+    for (key, record) in objects.iter_mut() {
+        if pruner.specs.contains(key)
+            || pruner.streams.contains(key)
+            || pruner.annotations.contains(key)
+        {
+            *record = json!({"value":null});
+            continue;
+        }
+        let value = if record.get("value").is_some() {
+            record.get_mut("value")
+        } else {
+            record
+                .get_mut("stream")
+                .and_then(|stream| stream.get_mut("dict"))
+        };
+        if let Some(value) = value {
+            if pruner.name_arrays.contains(key) {
+                pruner.names(value)?;
+            }
+            if !pruner.prune(value)? {
+                *record = json!({"value":null});
+            }
+        }
+    }
+    Ok(())
+}
+fn collect_name_arrays(value: &Value, objects: &Map<String, Value>, arrays: &mut BTreeSet<String>) {
+    match value {
+        Value::Object(fields) => {
+            if let Some(key) = fields
+                .get("/Names")
+                .and_then(Value::as_str)
+                .and_then(reference)
+                && objects
+                    .get(&key)
+                    .map(object_value)
+                    .is_some_and(Value::is_array)
+            {
+                arrays.insert(key);
+            }
+            for value in fields.values() {
+                collect_name_arrays(value, objects, arrays);
+            }
+        }
+        Value::Array(values) => {
+            for value in values {
+                collect_name_arrays(value, objects, arrays);
+            }
+        }
+        _ => {}
+    }
 }

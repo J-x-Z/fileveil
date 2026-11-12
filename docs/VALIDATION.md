@@ -160,7 +160,7 @@ MCP 协商 2025-11-25，兼容 2025-06-18。协议测试覆盖初始化、五工
 | Gate | 已实际完成的检查 | 尚需区分的范围 |
 | --- | --- | --- |
 | A | 完整官方 MPL-2.0、SPDX、第三方许可、首次提交、干净源码 check；MCP 权限单元 7 项、真实 stdio 8 项、jobs 9 项；8 样本 Lab FD 继承 | 依赖 RSA 已记录限定公钥验证调用范围的审计例外，原始失败日志保留 |
-| B | PDF 13 项、真实独立生成 15 页 PDF 的页数/文本/逐页渲染一致；C2PA 真实 ES256 PNG/JPEG 签名、根信任、篡改、禁远程引用；明确授权删除凭据后的 SDK/像素/结构复验 | PDF 签名信任、PDF C2PA、真实签名 BMFF、CAWG 身份验证未验收 |
+| B | PDF 13 项、真实独立生成 15 页 PDF 的页数/文本/逐页渲染一致；C2PA 真实 ES256 PNG/JPEG 签名、根信任、篡改、禁远程引用；明确授权删除凭据后的 SDK/像素/结构复验 | 传统 PDF 签名信任与 CAWG 身份验证未验收，后续 PDF/文本/WAV/BMFF 验签结果见追加记录 |
 | C | Deep 格式回归、独立 XML 与 Python ZIP 互操作；HTML tokenizer 源范围处理；平台属性与修改时间；WAV/FLAC 音频负载保持；CoreAudio 独立解码两项通过 | 复杂修订、隐藏表公式依赖、复杂 HTML、MP3 重写保持明确支持限制 |
 | D | LSB 检测 6 项、Diff Lab 6 项、C2PA/来源 9 项；Advanced 13 项包含真实 MCP 虚拟别名、原件/硬链接防护、旧报告读取与显式凭据移除 | 合成检测器覆盖公开测试协议，私有统计水印和 OEM 归因仍未评估 |
 | E | macOS sips 实际编码并解码 HEIC/AVIF，AVFoundation 编码并读取 MP4/MOV，四格式 CLI 审计且原件哈希一致；Windows GNU 全目标 check；macOS 0.3 原生 framebuffer 2720×1700 捕获 | 三平台 CI 首轮发现 Clippy 问题并修复，后续真实执行结果继续记录 |
@@ -172,3 +172,27 @@ PDF 测试包括 Info/XMP/custom、旧增量作者无残留、附件/JS 保留�
 当前全部证据保存在 `work/v03/`，历史 0.1/0.2 日志保持原样。新增测试通过既有 GUI worker、CLI 和授权 MCP 入口调用真实后端。原始全 workspace 首轮因旧 schema/未支持 Deep/PDF 的测试预期发生变化而失败，对应预期已更新，后续完整回归以本节追加结果为准。
 
 本机未找到 Developer ID Application 身份，正式签名及公证待相应凭据。Apple Development 身份存在，当前开发包继续采用 ad-hoc 签名。可选本机 qpdf 后端 Mach-O 要求 macOS 27.0，主程序最低系统要求单独记录。
+
+### 0.3 最终本机收敛验收
+
+最终单轮 `cargo test --locked --workspace --offline` 为 228 项通过、0 项失败、6 项忽略，31 个测试目标，日志为 `work/v03/final-closure-tests.log`。随后 PDF 空附件结构误报修复通过 20 项定向回归，四媒体公样新增一项循环检测回归及一个显式重生成器，记录在 `pdf-attachment-report-tests.log`、`provenance-media-tests.log`。最终源码的全目标 Clippy、6 项打包单元测试与真实 CLI JSON Schema/旧报告包络验证分别记录在 `final-closure-clippy.log`、`final-closure-packaging-tests.log`、`final-closure-schemas.log`。
+
+该轮六项忽略包括三个显式公样重生成器，以及需要本机 PDF 输入、CoreAudio 或 Python ZIP/XML 的三项互操作测试。四媒体增量再增加一个重生成器。对应原生音频、真实 PDF、Office ZIP/XML 和媒体解码已另行执行并记录，忽略状态保留以支持离线跨平台测试。
+
+来源验签公样覆盖 JPEG、PNG、PDF、TXT、Markdown、WAV、HEIC、AVIF、MP4 和 MOV。检查 COSE 签名、原始文件绑定、显式本地根、签名声明篡改和编码负载篡改。TXT A.8 与 Markdown A.9 使用固定 SDK 的实验性功能，非 NFC 纯文本绑定、歧义 Markdown 包装和旧 PDF 修订范围保持单独状态。
+
+安全回归覆盖四格式标准 XMP 来源引用的默认保护，即使 URI 不含 c2pa 字符也会阻断 Safe。新发行 CLI 独立入口再次验证 JPEG/PNG/PDF/WAV 的扫描、无输出阻断、原件哈希，以及前三格式显式 Deep 移除和再次验证。隔离关闭 Poppler 后，共享 Metadata/Contents 的 PDF 仍在修改前阻断。证据位于 `work/v03/independent-credential-guards-p0vdk9ve/`，该目录包含运行二进制摘要及逐命令报告。
+
+macOS 原生交互完成以下闭环。
+
+- 已知合成 LSB PNG 检出，1 位处理后对应检测器未检出。原件哈希保持一致，独立 CLI 对实际 GUI 输出完成复验。
+- 两样本 Diff Lab 实际计算直方图、低位、熵、DFT/DCT 和像素差分。灰阶图表可展开，导出 JSON 通过 Schema 验证。
+- 签名 Markdown 与 PDF 默认保护，Deep 明确选择移除来源凭据后生成新副本，GUI 再次验证和报告导出成功。Markdown 正文字节不变，PDF 独立页数、文本与页面渲染一致。
+- JPEG/PNG 批量任务实际生成两份副本，CLI 检查内容、像素及原件哈希，原件逐字节匹配已提交测试样本。
+- 中文/英文、灰黑深色/灰白浅色切换、MCP 读取与输出授权分离及配置生成完成实际点击验收。测试授权已清空，当前设置保留中文深色默认。
+
+交互证据包括 `native-gui-lab-report.json`、`native-gui-processing-verified.json`、`native-gui-markdown-report.json`、`native-gui-pdf-report.json`、`native-document-summary.json` 和 `native-batch-verified.json`，均在 `work/v03/`。原生 GUI 测试发现并修复了队列无障碍激活、受保护扫描类型丢失、格式间范围误传、来源状态上下文及陈旧设置说明。
+
+四份带 C2PA 的移动媒体样本分别经 macOS ImageIO/sips 与 AVAssetReader 独立解码。HEIC/AVIF 为 8×6，MP4/MOV 为 64×64 两帧，记录在 `signed-media-native-interop.log`、`signed-image-native-interop.json`。移动媒体当前提供审计与验签，净化重写保持格式矩阵中的限制。
+
+许可清单收敛为 639 个 registry 包、1215 份许可/署名文本，逐文件摘要核对通过。macOS 包同时包含 GUI、CLI、项目许可证、第三方声明、对应源码 ZIP 和 qpdf 后端。打包器已执行随包后端探测和 ad-hoc 签名验证。Gatekeeper 实际评估为 rejected，Developer ID Application 身份数量为零，正式发行签名和公证仍需凭据。
