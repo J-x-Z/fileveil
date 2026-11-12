@@ -174,3 +174,45 @@ fn synthetic_packet_removal_only_touches_its_declared_rgb_lsb_extent() {
             .all(|(a, b)| a.abs_diff(*b) <= 1)
     );
 }
+
+#[test]
+fn normal_lab_tracks_the_selected_public_protocol_and_its_targeted_clean() {
+    let directory = tempfile::tempdir().unwrap();
+    let input = directory.path().join("sdxl.png");
+    std::fs::write(
+        &input,
+        include_bytes!("fixtures/watermark/astronaut-sdxl.png"),
+    )
+    .unwrap();
+    let report = fileveil_engine::heritage::run(
+        &input,
+        None,
+        &fileveil_engine::heritage::HeritageRequest {
+            action: fileveil_engine::heritage::HeritageAction::Lab,
+            controls: vec![input.clone()],
+            ..Default::default()
+        },
+        &Limits::default(),
+    )
+    .unwrap();
+    let lab = &report.advanced.unwrap()["heritage"]["lab"];
+    assert_eq!(lab["source_method"], "stable_diffusion_xl_dwt_dct");
+    assert_eq!(lab["control_positive_count"], 1);
+    assert_eq!(lab["work_reference_assessed"], false);
+    let rows = lab["rows"].as_array().unwrap();
+    assert_eq!(
+        lab["detected_variants"],
+        rows.iter()
+            .filter(|row| row["robust"]["status"] == "detected")
+            .count()
+    );
+    let cleaned = rows
+        .iter()
+        .find(|row| row["operation"] == "targeted_public_watermark_clean")
+        .unwrap();
+    assert_eq!(
+        cleaned["robust"]["method_id"],
+        "stable_diffusion_xl_dwt_dct"
+    );
+    assert_eq!(cleaned["robust"]["status"], "not_detected");
+}

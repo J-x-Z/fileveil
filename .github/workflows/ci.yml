@@ -60,7 +60,14 @@ jobs:
           subprocess.run(['du', '-sh', 'target/debug', 'target/release'], check=False)
       - name: Linux desktop dependencies
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y libx11-dev libxi-dev libxcursor-dev libxrandr-dev libxinerama-dev libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev libegl1-mesa-dev libgl1-mesa-dev libgl1-mesa-dri qpdf poppler-utils xvfb xauth xdotool libavif-bin libheif-examples ffmpeg libsecret-tools gnome-keyring dbus-x11
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y libx11-dev libxi-dev libxcursor-dev libxrandr-dev libxinerama-dev libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev libegl1-mesa-dev libgl1-mesa-dev libgl1-mesa-dri qpdf poppler-utils xvfb xauth xdotool libavif-bin libheif-examples libheif-plugin-libde265 ffmpeg libsecret-tools gnome-keyring dbus-x11
+      - name: Probe Linux native media decoders
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p work
+          heif-convert --list-decoders > work/native-media-interop.log
+          heif-convert tests/fixtures/heic_exif_gps.heic work/native-heic.png >> work/native-media-interop.log 2>&1
+          avifdec --jobs 1 --depth 8 --size-limit 32000000 -- tests/fixtures/avif_exif_gps.avif work/native-avif.png >> work/native-media-interop.log 2>&1
       - name: macOS PDF backends
         if: runner.os == 'macOS'
         run: brew install qpdf poppler

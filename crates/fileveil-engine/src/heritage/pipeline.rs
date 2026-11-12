@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 //! Shared read-only audits and verified new-copy Heritage operations.
 use super::{container, legacy, robust, signing};
-use crate::{
-    Snapshot, decode_pixels, ensure_new_artifact, inspect_snapshot, os, output_directory, publish,
-};
+use crate::{Snapshot, ensure_new_artifact, inspect_snapshot, os, output_directory, publish};
 use fileveil_core::{Error, Format, Limits, Outcome, Policy, Report, Result, digest};
 use image::{DynamicImage, ImageEncoder, codecs::jpeg::JpegEncoder, imageops::FilterType};
 use serde::{Deserialize, Serialize};
@@ -1264,8 +1262,14 @@ fn attack_lab(
     }
     let key = watermark_key(request)?;
     let decoded = crate::media_pixels::decode(data, format, limits)?;
-    let source_detection = detect_pixels(&decoded, key.as_deref(), limits)?;
-    let clean_applicable = source_detection["frame_valid"] == true;
+    let source_detection = detect_pixels(&decoded, key.as_deref(), limits, None)?;
+    let clean_applicable = source_detection["status"] == "detected";
+    let source_method = clean_applicable
+        .then(|| source_detection["method_id"].as_str())
+        .flatten()
+        .map(str::to_owned);
+    let source_has_work_reference = source_detection["work_id_digest"].as_str().is_some();
+    let source_has_copy_reference = source_detection["copy_id_digest"].as_str().is_some();
     // One normalized source allocation also supplies the MSE reference.
     let image = DynamicImage::ImageRgba8(decoded.into_rgba8());
     let original = image.as_rgba8().expect("normalized source");
@@ -1288,7 +1292,11 @@ fn attack_lab(
         "center_crop_75_percent",
     ];
     if clean_applicable {
-        operations.push("targeted_fileveil_dct_clean");
+        operations.push(if source_detection["frame_valid"] == true {
+            "targeted_fileveil_dct_clean"
+        } else {
+            "targeted_public_watermark_clean"
+        });
     }
     for name in operations {
         // Each variant is encoded, assessed and released before the next one.
@@ -1350,7 +1358,7 @@ fn attack_lab(
                 data,
                 limits,
             )?,
-            "targeted_fileveil_dct_clean" => {
+            "targeted_fileveil_dct_clean" | "targeted_public_watermark_clean" => {
                 let (cleaned, _) = crate::watermark_engine::clean(&image, key.as_deref(), limits)?;
                 encode(&cleaned, Format::Png, 95, data, limits)?
             }
@@ -1372,8 +1380,9 @@ fn attack_lab(
                 "Heritage Lab variant exceeds the configured file byte budget".into(),
             ));
         }
-        let current = decode_pixels(&bytes, limits)?;
-        let detection = detect_pixels(&current, key.as_deref(), limits)?;
+        let variant_format = fileveil_formats::identify(&bytes, Path::new("watermark-lab"));
+        let current = crate::media_pixels::decode(&bytes, variant_format, limits)?;
+        let detection = detect_pixels(&current, key.as_deref(), limits, source_method.as_deref())?;
         let decoded = current.into_rgba8();
         let mse = (decoded.dimensions() == original.dimensions()).then(|| {
             original
@@ -1401,10 +1410,12 @@ fn attack_lab(
             .min(limits.max_uncompressed_bytes.saturating_sub(total_bytes));
         let snapshot = Snapshot::open(path, &remaining)?;
         total_bytes = total_bytes.saturating_add(snapshot.bytes.len() as u64);
+        let control_format = fileveil_formats::identify(&snapshot.bytes, path);
         let checked = detect_pixels(
-            &decode_pixels(&snapshot.bytes, limits)?,
+            &crate::media_pixels::decode(&snapshot.bytes, control_format, limits)?,
             key.as_deref(),
             limits,
+            source_method.as_deref(),
         )?;
         if !snapshot.unchanged(path, limits)? {
             return Err(Error::Blocked("Heritage Lab control changed".into()));
@@ -1413,7 +1424,10 @@ fn attack_lab(
     }
     let assessed =
         |value: &Value| matches!(value["status"].as_str(), Some("detected" | "not_detected"));
-    let positives = controls.iter().filter(|v| v["frame_valid"] == true).count();
+    let positives = controls
+        .iter()
+        .filter(|value| value["status"] == "detected")
+        .count();
     let assessed_controls = controls.iter().filter(|value| assessed(value)).count();
     let assessed_variants = rows.iter().filter(|row| assessed(&row["robust"])).count();
     let indeterminate_controls = controls
@@ -1426,7 +1440,7 @@ fn attack_lab(
         .count();
     let survived = rows
         .iter()
-        .filter(|row| row["robust"]["frame_valid"] == true)
+        .filter(|row| row["robust"]["status"] == "detected")
         .count();
     let same_work = rows
         .iter()
@@ -1435,8 +1449,17 @@ fn attack_lab(
                 && row["robust"]["work_id_digest"] == rows[0]["robust"]["work_id_digest"]
         })
         .count();
+    let same_copy = source_has_copy_reference.then(|| {
+        rows.iter()
+            .filter(|row| {
+                row["robust"]["frame_valid"] == true
+                    && row["robust"]["work_id_digest"] == rows[0]["robust"]["work_id_digest"]
+                    && row["robust"]["copy_id_digest"] == rows[0]["robust"]["copy_id_digest"]
+            })
+            .count()
+    });
     Ok(
-        json!({"rows":rows,"detected_variants":survived,"same_work_variants":same_work,"tested_variants":rows.len(),"assessed_variants":assessed_variants,"indeterminate_variants":indeterminate_variants,"controls":controls,"control_positive_count":positives,"control_count":request.controls.len(),"assessed_controls":assessed_controls,"indeterminate_controls":indeterminate_controls,"scope":"Observed outcomes on these explicit variants and user-supplied controls. Positive counts mean an executed named detector recovered a valid public frame. Assessed denominators include detected and not_detected only. These samples do not estimate population-wide false-positive rates."}),
+        json!({"source_method":source_method,"work_reference_assessed":source_has_work_reference,"same_copy_variants":same_copy,"rows":rows,"detected_variants":survived,"same_work_variants":same_work,"tested_variants":rows.len(),"assessed_variants":assessed_variants,"indeterminate_variants":indeterminate_variants,"controls":controls,"control_positive_count":positives,"control_count":request.controls.len(),"assessed_controls":assessed_controls,"indeterminate_controls":indeterminate_controls,"scope":"Comparisons follow the original sample's detected method where available. Per-method outcomes are retained. Work and copy recovery have separate counts. Assessed denominators include detected and not_detected. Measurements cover these explicit variants and user-supplied controls."}),
     )
 }
 
@@ -1470,9 +1493,19 @@ fn lab_structural_fields(data: &[u8]) -> Result<serde_json::Map<String, Value>> 
     Ok(fields)
 }
 
-fn detect_pixels(image: &DynamicImage, key: Option<&[u8; 32]>, limits: &Limits) -> Result<Value> {
+fn detect_pixels(
+    image: &DynamicImage,
+    key: Option<&[u8; 32]>,
+    limits: &Limits,
+    reference_method: Option<&str>,
+) -> Result<Value> {
     let evidence = crate::watermark_engine::inspect_pixels(image, key, limits)?;
-    let mut primary = evidence["primary"].clone();
+    let selected = reference_method.and_then(|method| {
+        evidence["detections"]
+            .as_array()
+            .and_then(|rows| rows.iter().find(|row| row["method_id"] == method))
+    });
+    let mut primary = selected.unwrap_or(&evidence["primary"]).clone();
     primary["detections"] = evidence["detections"].clone();
     Ok(primary)
 }
