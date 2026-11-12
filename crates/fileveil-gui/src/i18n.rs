@@ -14,6 +14,10 @@ pub fn tr(language: Language, english: &str) -> &str {
         return english;
     }
     match english {
+        "Image exceeds the pixel budget" => "图片超过像素预算，请在设置中调整或选择更小的图片。",
+        "Diff Lab images exceed the aggregate pixel budget" => {
+            "实验室图片超过总像素预算，请减少样本或调整设置。"
+        }
         "Verification covers standard metadata, retained reachable objects, extracted text and bounded-resolution rendered pages. Arbitrary stream contents and signature trust are outside this scope." => {
             "复验覆盖标准元数据、保留对象图、提取文本与受限分辨率页面渲染。任意流的含义及传统 PDF 签名信任仍未评估。"
         }

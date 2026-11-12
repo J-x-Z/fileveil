@@ -241,6 +241,9 @@ impl Workspaces {
                     ui.separator();
                     ui.strong(t(language, "队列检测结果", "Queued detection result"));
                     ui.label(outcome(language, report.result));
+                    for warning in &report.warnings {
+                        ui.small(crate::i18n::tr(language, warning));
+                    }
                     if let Some(detections) = report
                         .advanced
                         .as_ref()
@@ -1861,6 +1864,51 @@ mod tests {
             });
             assert!(!output.shapes.is_empty());
             output.textures_delta.clear();
+        }
+    }
+
+    #[test]
+    fn queued_detection_failures_explain_the_reason_in_both_languages() {
+        for language in [Language::Chinese, Language::English] {
+            let context = egui::Context::default();
+            context.enable_accesskit();
+            let mut workspaces = Workspaces {
+                selected: Workspace::Images,
+                ..Default::default()
+            };
+            let mut report = Report::new("detect_watermark", Format::Png);
+            report.result = Outcome::Blocked;
+            report
+                .warnings
+                .push("Image exceeds the pixel budget".into());
+            let mut session = Session::default();
+            session.items.push(FileItem {
+                id: 1,
+                path: "large.png".into(),
+                size: 0,
+                scan: None,
+                latest: Some(report),
+                output_path: None,
+                output_processing: None,
+                status: ItemStatus::Finished,
+            });
+            session.selected = Some(1);
+            let output = context.run_ui(Default::default(), |ui| {
+                workspaces.ui(ui, language, &mut session);
+            });
+            let expected = crate::i18n::tr(language, "Image exceeds the pixel budget");
+            assert!(
+                output
+                    .platform_output
+                    .accesskit_update
+                    .as_ref()
+                    .unwrap()
+                    .nodes
+                    .iter()
+                    .any(|(_, node)| node.label() == Some(expected)
+                        || node.value() == Some(expected))
+            );
+            output.drop_without_applying_deltas();
         }
     }
 

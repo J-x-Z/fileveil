@@ -989,7 +989,7 @@ impl FileVeilApp {
         height: f32,
     ) -> Option<PlanAction> {
         let id = item.id;
-        let scan = item.scan.as_ref();
+        let scan = session.current_scan(id);
         let report = item.latest.as_ref();
         let mut action = None;
         Frame::new()

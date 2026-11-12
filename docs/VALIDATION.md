@@ -260,3 +260,12 @@ Windows 使用 CI 专用 Mesa 软件 OpenGL，Linux 使用 Xvfb。CI 驱动未�
 本轮仅清理可重新生成的 Cargo 缓存，实际释放 7.4 GiB。开始可用 17.4 GiB，构建、归档和保留旧发行包后可用 20.8 GiB。源码、原测试证据、原有 Windows/Linux 包及本轮替换前的 macOS 包均保留。最终包收据为 `work/v03-final/delivery-receipt.json`。
 
 OEM 私有水印、专有密钥 AI 检测器仍需真实样本或授权检测能力。复杂受保护媒体结构、签名和加密内容继续按报告阻断。真实 Microsoft Office 显示保真尚待应用端验收。
+
+
+### 多轮审计本机回归
+
+本轮产品源码 `c5c2be6` 完成本机锁定离线 workspace 测试，共 290 项通过、0 失败、8 项忽略、33 个测试目标。macOS ImageIO/AVAssetReader 手机媒体独立解码、Python ZIP/XML 与 python-docx 互操作的忽略测试已另行显式执行并通过。最后补充的搜索缓存原地变更、失败重扫后的当前计划及双语队列错误原因修正通过 53 项 GUI 定向回归。
+
+格式检查与 workspace 全目标 Clippy `-D warnings` 通过。6 项打包单测通过，11 份实际报告、2 份旧报告及批量封套通过 JSON Schema 检查。依赖审计沿用已记录的 RUSTSEC-2023-0071 限定例外，保留四项维护状态提示。
+
+本轮回归覆盖 MCP 大小写与 Home 祖先授权、FIFO 与文件身份替换、极端预算数值、媒体嵌套 XMP、Office 历史隐藏属性、大报告分页、失败重扫后的资格控制和实际 worker 队列检测。原件不变、已有副本与处理配方保留均由对应测试检查。详细复现、性能测量与剩余边界见 [审计记录](AUDIT_2026-11-12.md)。本机证据保存在 `work/v03-audit/`。
