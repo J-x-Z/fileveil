@@ -149,7 +149,12 @@ pub fn clean(
         output = robust_v2::clean(&output, key, limits)?.0;
         methods.push(robust_v2::METHOD_ID.to_string());
     }
-    if robust::detect(&output, limits)?.frame_valid {
+    let v1_detected = match robust::detect(&output, limits) {
+        Ok(report) => report.frame_valid,
+        Err(Error::Unsupported(_)) => false,
+        Err(error) => return Err(error),
+    };
+    if v1_detected {
         output = robust::clean(&output, limits)?.0;
         methods.push(robust::METHOD_ID.to_string());
     }

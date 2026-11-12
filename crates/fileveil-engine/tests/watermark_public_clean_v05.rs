@@ -132,6 +132,34 @@ fn synthetic_packet_removal_only_touches_its_declared_rgb_lsb_extent() {
     let original = image.clone();
     let (output, report) =
         watermark::clean_known_public(&image.into(), &Limits::default()).unwrap();
+    let (shared, evidence) = fileveil_engine::watermark_engine::clean(
+        &DynamicImage::ImageRgb8(original.clone()),
+        None,
+        &Limits::default(),
+    )
+    .unwrap();
+    assert_eq!(shared.as_bytes(), output.as_bytes());
+    assert_eq!(evidence["processed_methods"][0], "synthetic_lsb_v1");
+    let directory = tempfile::tempdir().unwrap();
+    let input = directory.path().join("small.png");
+    let cleaned = directory.path().join("small-clean.png");
+    original.save(&input).unwrap();
+    let before = std::fs::read(&input).unwrap();
+    let core_report = fileveil_engine::heritage::run(
+        &input,
+        Some(&cleaned),
+        &fileveil_engine::heritage::HeritageRequest {
+            action: fileveil_engine::heritage::HeritageAction::Clean,
+            clean_signal: true,
+            clean_metadata: true,
+            ..Default::default()
+        },
+        &Limits::default(),
+    )
+    .unwrap();
+    assert_eq!(core_report.integrity.original_unchanged, Some(true));
+    assert_eq!(std::fs::read(&input).unwrap(), before);
+    assert_eq!(image::open(cleaned).unwrap().to_rgb8(), output.to_rgb8());
     assert_eq!(report.processed_methods, ["synthetic_lsb_v1"]);
     assert_eq!(report.after[0].status, DetectionStatus::NotDetected);
     assert_eq!(
