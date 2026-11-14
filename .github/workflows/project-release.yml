@@ -132,11 +132,18 @@ jobs:
       - name: Build trusted FileVeil CLI and compiler pass
         shell: python {0}
         run: |
-          import pathlib, subprocess
+          import os, pathlib, subprocess, sys
           sdk = pathlib.Path('fileveil-llvm').resolve()
-          subprocess.run(['cargo', 'build', '--locked', '--release', '-p', 'fileveil-cli'], cwd='.fileveil-engine', check=True)
           subprocess.run(['cmake', '-S', '.fileveil-engine/tools/software-watermark', '-B', 'fileveil-pass', '-DLLVM_DIR=' + str(sdk / 'lib/cmake/llvm'), '-DCMAKE_BUILD_TYPE=Release'], check=True)
           subprocess.run(['cmake', '--build', 'fileveil-pass', '--config', 'Release', '--parallel', '2'], check=True)
+          suffix = '.dll' if os.name == 'nt' else '.dylib' if sys.platform == 'darwin' else '.so'
+          plugins = list(pathlib.Path('fileveil-pass').rglob('*FileVeilWatermark' + suffix))
+          assert len(plugins) == 1, 'Trusted compiler pass is unavailable'
+          probe = pathlib.Path('fileveil-pass-probe.ll')
+          probe.write_text('; trusted FileVeil compiler pass loading probe\n', encoding='ascii')
+          optimizer = sdk / 'bin' / ('opt.exe' if os.name == 'nt' else 'opt')
+          subprocess.run([str(optimizer), '--load-pass-plugin=' + str(plugins[0].resolve()), '-passes=verify', '-disable-output', str(probe)], check=True)
+          subprocess.run(['cargo', 'build', '--locked', '--release', '-p', 'fileveil-cli'], cwd='.fileveil-engine', check=True)
       - name: Sign and mark IR with the trusted pass
         env:
           FILEVEIL_SIGNING_KEY_BASE64: ${{ secrets.signing-key-base64 }}
@@ -311,4 +318,4 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-# FVPROV1 15376 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiJiNjc5Mzg0MWNhYWZkY2U4ODk1MGQyNTA0NjdkODY4ZTQ2Nzg4OGU5MTYwY2QwZmNkODdhYzQ5YjMxNjA1NzU5IiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlLy5naXRodWIvd29ya2Zsb3dzL3Byb2plY3QtcmVsZWFzZS55bWwifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiI0MTliMmNjYzYyZjk5YzExNmRkNTkwYmU5NDI4Yzg2MWMzZWZiYTlkZTFkYmMwMzE2NjA5OGUzMzllYzE1ZTQ1ZjljNTBlY2VjOWExOWU4YTI4NmQwYzE5NGZkYTk3YmJlNGE5MWVkYjdjMTk4NjU0ZTNjODk3OGVlNDI2MjcwZiJ9XX1d FVPROV1-END
+# FVPROV1 16038 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiJhZTUwMDc0OGQxMzM0NmI3Njc4Yjg1Y2JjNTkxMzgyMTNjMzEwNGIwYmEzMWZkMmQ2ZDg1OWNlNjZkMTM5ZDc4IiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlLy5naXRodWIvd29ya2Zsb3dzL3Byb2plY3QtcmVsZWFzZS55bWwifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiI5MTJlNGY2ZDA1MmIzZTUzZjQwZjBhZDk3YTkwY2FmNjgyM2Y5MjNlY2U2MGJmNmM4ODQ5MGM2NGE2M2Y4NGIzYmE0Mjg1ZTQ4OWVhNjNmZGUyYzkwODU4Y2Q5OTFkZDRiYmJkYjAwMThjOGY0MGQ1OGUyMGJiZGU0Y2RjMTEwZCJ9XX1d FVPROV1-END

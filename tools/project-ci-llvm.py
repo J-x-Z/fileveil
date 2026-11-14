@@ -4,9 +4,11 @@
 import argparse
 import hashlib
 import importlib.util
+import os
 from pathlib import Path
 import platform
 import sys
+import subprocess
 import tarfile
 import tempfile
 import urllib.request
@@ -65,16 +67,39 @@ def main():
     parser.add_argument("destination", type=Path)
     args = parser.parse_args()
     destination = args.destination.absolute()
+    if any(character in str(destination) for character in "\r\n\0"):
+        raise ValueError("LLVM SDK paths must fit one environment record")
     destination.parent.mkdir(parents=True, exist_ok=True)
     install(destination)
+    binary_directory = destination / "bin"
+    library_variable = "DYLD_LIBRARY_PATH" if sys.platform == "darwin" else "LD_LIBRARY_PATH"
+    os.environ["LLVM_PATH"] = str(destination)
+    os.environ["PATH"] = os.pathsep.join(value for value in (str(binary_directory), os.environ.get("PATH", "")) if value)
+    if os.name != "nt":
+        os.environ[library_variable] = os.pathsep.join(value for value in
+            (str(destination / "lib"), os.environ.get(library_variable, "")) if value)
+    if os.getenv("GITHUB_ENV"):
+        with Path(os.environ["GITHUB_ENV"]).open("a", encoding="utf-8") as stream:
+            stream.write("LLVM_PATH=" + str(destination) + "\n")
+            if os.name != "nt":
+                stream.write(library_variable + "=" + os.environ[library_variable] + "\n")
+    if os.getenv("GITHUB_PATH"):
+        with Path(os.environ["GITHUB_PATH"]).open("a", encoding="utf-8") as stream:
+            stream.write(str(binary_directory) + "\n")
+    suffix = ".exe" if os.name == "nt" else ""
+    optimizer = binary_directory / ("opt" + suffix)
+    if sys.platform == "linux":
+        subprocess.run(["ldd", str(optimizer)], check=False, timeout=30)
+    for name in ("opt", "clang"):
+        subprocess.run([str(binary_directory / (name + suffix)), "--version"], check=True, timeout=30)
     print("Installed LLVM " + VERSION)
 
 
 if __name__ == "__main__":
     try:
         main()
-    except (OSError, ValueError, KeyError, tarfile.TarError) as error:
+    except (OSError, ValueError, KeyError, tarfile.TarError, subprocess.SubprocessError) as error:
         print("FileVeil LLVM SDK setup failed (" + str(error) + ")", file=sys.stderr)
         sys.exit(1)
 
-# FVPROV1 3431 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiJlMWM1NjIyZjc3YTcyMjhlMDE3ZWVmODJkZTU0NTRmYWUzNDgwNWM4ZDhiZWI5NjI0ZWM4NzkyMWQzOGQyOTRlIiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL3Rvb2xzL3Byb2plY3QtY2ktbGx2bS5weSJ9LCJzaWduYXR1cmVzIjpbeyJrZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwicHVibGljX2tleV9oZXgiOiJhZGIzZTE3Y2QxMmY5NTZkMDA3MGUxNjYzZjUzMTUzN2ZjZWRmNzMwOGQwMTY1OGZlYTQ1NmZlZWE4ZjdmYmM1Iiwic2lnbmF0dXJlX2hleCI6ImM5YTZkMDBlMGRiMDQzN2E2ZDUzZjBjMGEyMGJlZTVhNzFlZmEwZTZhYzdmMTU3MTNlMzA5NTRhYjM3NDUzNjg4NGY5ZjhmMGIxMzRkNWQ4YTFiZjdkNGRjZGYzNjY1ZDhkNDU1N2NkNmZiOWQ2ZTE2MDQ4YWZkZDM4YzZmODBlIn1dfV0= FVPROV1-END
+# FVPROV1 4938 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiI2NjM1NDEwMmVmNmQ4M2ExMTRkNGY1ZWI0ZjdjYzU5NTcyNjA3ZGExYmNlOWNlNjU3ZWI4N2QwZTcxZmQyYjBmIiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL3Rvb2xzL3Byb2plY3QtY2ktbGx2bS5weSJ9LCJzaWduYXR1cmVzIjpbeyJrZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwicHVibGljX2tleV9oZXgiOiJhZGIzZTE3Y2QxMmY5NTZkMDA3MGUxNjYzZjUzMTUzN2ZjZWRmNzMwOGQwMTY1OGZlYTQ1NmZlZWE4ZjdmYmM1Iiwic2lnbmF0dXJlX2hleCI6IjMzMmJlMWRlMjVjMjg4MDZjMGVmMGQyZTczZjk3NzcxNTRiZjdiOTExOGRjMmQyYTYzNzVkN2M3OGRhNGEzNjI0NjViZmJiY2Q1MzgxODJjYjk1MjkwY2QzNzIyYzIwMzg3ZjgzMWVjYzMwMDEzOGRjMzgwNDBhMDA0Mzg3MTAxIn1dfV0= FVPROV1-END

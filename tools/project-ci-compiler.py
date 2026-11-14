@@ -49,9 +49,7 @@ def declaration(config):
 
 
 def sha(path, maximum=STAGE.MAX_FILE):
-    descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_BINARY", 0))
-    with os.fdopen(descriptor, "rb") as source:
-        before = os.fstat(source.fileno())
+    with STAGE.open_snapshot(path) as (source, before):
         if not stat.S_ISREG(before.st_mode) or before.st_size > maximum:
             raise ValueError("Compiler stage input exceeds its regular-file budget")
         result = hashlib.sha256()
@@ -61,10 +59,8 @@ def sha(path, maximum=STAGE.MAX_FILE):
             if count > maximum:
                 raise ValueError("Compiler stage input grew beyond its budget")
             result.update(chunk)
-        if count != before.st_size or STAGE.file_stamp(before) != STAGE.file_stamp(os.fstat(source.fileno())):
+        if count != before.st_size:
             raise ValueError("Compiler stage input changed during hashing")
-        if STAGE.file_stamp(path.lstat()) != STAGE.file_stamp(before):
-            raise ValueError("Compiler stage input was replaced during hashing")
     return result.hexdigest()
 
 
@@ -379,4 +375,4 @@ if __name__ == "__main__":
         print(f"FileVeil compiler stage failed ({error})", file=sys.stderr)
         sys.exit(1)
 
-# FVPROV1 20815 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiJkYTY0OWIxYWFhM2QxNTM4YTc3MzBmMDZlNjJhNWM1NDY2ZWNiOWQ1MDlkNzExZWFkZjM0MmQzNjQ4YzkyZTQ2IiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL3Rvb2xzL3Byb2plY3QtY2ktY29tcGlsZXIucHkifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiI0NmI5M2YxMDEzZDJhYTRhNjJiODMxMzcyMjRiYzM3ZTZmYzdlYzU2OTdkMjJmMmRmZWVhZGZiMjIwNDNiODNmNDAyZTFiYjkyNjBmMWIwYjg3YzMzNGU5ZWRmZWE0MTRmODVhODRjMGEzNjcyZDc5ZDFkMmMyMDk0Y2JiODcwNCJ9XX1d FVPROV1-END
+# FVPROV1 20449 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiIyYTVlNmIyZmJlOGFkYTUzYzA0YTZlN2NjZjEwOTUxY2ExYTA1ZWRlZGNlYTgyN2I3Nzg5ZmIwYmFmODI1MmU1IiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL3Rvb2xzL3Byb2plY3QtY2ktY29tcGlsZXIucHkifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiI0ZmE3MzVmYzU5NzM3MzM5YmRlZTNhMDBhNmMyNTQ2ODRkOWFjZjViMjUwODg4ZmRiODU1YjE4ZDljMTY4ZDc5OGE0OTdhMDUxM2QxYmNiZDM5ZDFkZDM4ZTE4ZTljODgxMTM2ZGNiNTdiMTE4ODRiZDg1N2JmMzVmNjdlYTAwNyJ9XX1d FVPROV1-END

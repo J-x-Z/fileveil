@@ -12,8 +12,8 @@ marked = false
 
 [[files]]
 path = ".github/check-workflows.py"
-sha256 = "7a18858b7935489bb299913f612c3304aa6d263d717c77dd37aa9ebab268f3d1"
-size_bytes = 5791
+sha256 = "fd41716bf8bc2c24b360a51ca7bbd9cdc579c26939a7288f0858f9a9af44eb15"
+size_bytes = 6185
 marked = true
 
 [[files]]
@@ -24,14 +24,14 @@ marked = true
 
 [[files]]
 path = ".github/workflows/ci.yml"
-sha256 = "cb4cf7157a3d00d3aac003bd1e6e27d007ccf2e247baf91fe9e8cf0b5e6f6f2b"
-size_bytes = 33664
+sha256 = "ff9f699871f4a75d4925ef699ad5c4d7f344da24771513227836cce70e863d43"
+size_bytes = 34790
 marked = true
 
 [[files]]
 path = ".github/workflows/project-release.yml"
-sha256 = "1500975817a0a13ce654679262a79ced6a679df331b98b8417c5964b7d7f4647"
-size_bytes = 16646
+sha256 = "daeb0c55f70f231f3654d2a9dbe8dd0189813d9ac01a4700ff5cded8207fb5aa"
+size_bytes = 17308
 marked = true
 
 [[files]]
@@ -7842,8 +7842,8 @@ marked = true
 
 [[files]]
 path = "crates/fileveil-engine/src/project/files.rs"
-sha256 = "e3109b407adb3bab7343084d93e7881c900ddf029be494a2297af95d26f20687"
-size_bytes = 33192
+sha256 = "c870f3ee77d03dcec9fd6cdc828e5ce98c81c5b1994c9321b62e85f39948547b"
+size_bytes = 34533
 marked = true
 
 [[files]]
@@ -8970,8 +8970,8 @@ marked = true
 
 [[files]]
 path = "tests/test_project_ci.py"
-sha256 = "89929c7614316e288dc8506a304f6247fadc8ec88e517cc27d37b20dbce04fa3"
-size_bytes = 11205
+sha256 = "64d05e13e4a2e12abe43ab79b2b9e8782f0fc69efea0e017163e550053b6d8a6"
+size_bytes = 11498
 marked = true
 
 [[files]]
@@ -8982,14 +8982,20 @@ marked = true
 
 [[files]]
 path = "tests/test_project_ci_llvm.py"
-sha256 = "9e1eb25e619fa759defbcf284c31dc0ba506ac9cde959f3680f053d3e8ff8c04"
-size_bytes = 8760
+sha256 = "39fba6bfb56b867d8d4bc9a9f93845e86711fdca0c75a65fbf21faeb03752cfb"
+size_bytes = 10559
 marked = true
 
 [[files]]
 path = "tests/test_project_ci_local.py"
 sha256 = "bf42d807ad987bc5d335b90e69aa0768b0be2c52fb893aea5c4337224f262b0e"
 size_bytes = 15118
+marked = true
+
+[[files]]
+path = "tests/test_project_ci_snapshot.py"
+sha256 = "d8028cb978615e89898b15b9f47c77765d71ad85a423115e23b5d6053b1cd56f"
+size_bytes = 8814
 marked = true
 
 [[files]]
@@ -9078,14 +9084,14 @@ marked = true
 
 [[files]]
 path = "tools/project-ci-compiler.py"
-sha256 = "9961d4b4109cf0b169c2650cbced936c6416e681615d72f2929d1a85bfdafc98"
-size_bytes = 22073
+sha256 = "a0812305697ba65d12960706f2901e40d52471cbeaf7f75c07e6ef9edd6c0c6e"
+size_bytes = 21707
 marked = true
 
 [[files]]
 path = "tools/project-ci-llvm.py"
-sha256 = "e4d99545a151b09fb88c742516850d5c77db4a2a4f2d05e51f1a2abeffe654e1"
-size_bytes = 4684
+sha256 = "417056f03152ce09b06016de6f83a1375bd98293d76298c34cd26e967738e77a"
+size_bytes = 6191
 marked = true
 
 [[files]]
@@ -9096,14 +9102,14 @@ marked = true
 
 [[files]]
 path = "tools/project-ci-stage.py"
-sha256 = "555ffaf4e6a7d3aadce4c4a414d16f0101b0ef9494bb8eea0967ccde76261c2b"
-size_bytes = 15195
+sha256 = "f2ba336c8a717a88f7e57e14a981c9a46e1a3aafe62a8182f13fc04c8532ae2d"
+size_bytes = 16407
 marked = true
 
 [[files]]
 path = "tools/project-postprocess.py"
-sha256 = "7d2066acab66932dc056d18e00132d78cb2c0a9048f9100e48df2246ab732584"
-size_bytes = 36051
+sha256 = "3b7d3e51c4a3502dc916125390e790e8dde68328a5b776286c1563df4a121857"
+size_bytes = 36042
 marked = true
 
 [[files]]
@@ -9114,8 +9120,8 @@ marked = true
 
 [[files]]
 path = "tools/software-watermark/CMakeLists.txt"
-sha256 = "27021da1c6c578bcaa5c877ad34c9d5d9133aaf24fa3c346fc6295230eaac2a3"
-size_bytes = 904
+sha256 = "87504613bcb11d2ebbb4b4173c1242165901f0019082774c718b04e9468a2a0f"
+size_bytes = 1229
 marked = false
 
 [[files]]
@@ -9172,4 +9178,4 @@ sha256 = "bd7a06d78c55d59f9e98c8746f6f974698dd0b28abe868dd8ff51303964910c3"
 size_bytes = 17304
 marked = true
 
-# FVPROV1 267951 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiI4NTQ2N2QzY2Q0Mjg5NDg1ZWY1NGVhYTg2YjJmYThiNGRkMTEwMjRlM2ZhNTlkM2UzZDExYjI5Yjc5OTQ1ZGU2IiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlLXRyZWUifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiI5OTk5ZTcwYTE3NDE1ZTg1NWQ0M2FmMjEyN2IxNGFkZWU0ZjhiNjFiMTA3ZTZiMzA4MjgwMDg2MzRiNThkZjIyMTFlZTc0ZjkwODhmOGM5MDdhMjdkNjg1Njg3OGZiZmJmMjIxMjE4Y2M3ZjYwMGY1MDU0OWNjZTA4ZmFlM2YwMiJ9XX1d FVPROV1-END
+# FVPROV1 268115 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiIxMzU5ZTU2ODkzZGE4MGU5NDg2MjQ1MWU4ODg3MDRmMDgxZDU4NjNhYzVkNDAxZjg2NzI1NDkxMjdjNGJjOTEyIiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlLXRyZWUifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiJmYjFiZmYzNTcwMzJjNzJkNzRmZDZjMmNkOTY0MjRjZWU5YWJhMjhjNDdlN2NiNzRiNDA4ODFjOGMwZWM4YWIwYTZjYjcyNzQxM2RkOTc3M2JhMDY4MGE1MjZjYTViMTgzNTAwOGU1YzZhNjNhNDQ5NDljNDA1NjRhOTBmYjEwMyJ9XX1d FVPROV1-END

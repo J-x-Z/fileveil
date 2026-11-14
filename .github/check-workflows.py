@@ -97,12 +97,16 @@ def main():
         "!startsWith(github.ref, 'refs/tags/')"
     )
     assert ci["jobs"]["check"]["if"] == (
-        "github.event_name == 'workflow_dispatch' || "
+        "(github.event_name == 'workflow_dispatch' && inputs.native-checks) || "
         "startsWith(github.ref, 'refs/tags/v')"
     )
-    assert ci["jobs"]["check"]["strategy"]["matrix"]["os"] == [
-        "ubuntu-latest", "macos-latest", "windows-latest"
-    ]
+    platforms = ["all", "ubuntu-latest", "macos-latest", "windows-latest"]
+    assert ci["on"]["workflow_dispatch"]["inputs"]["platform"]["options"] == platforms
+    for job in ("check", "project-copyright"):
+        matrix = ci["jobs"][job]["strategy"]["matrix"]["os"]
+        assert matrix.startswith("${{ fromJSON(inputs.platform ==")
+        assert all(platform in matrix for platform in platforms[1:])
+    assert ci["on"]["workflow_dispatch"]["inputs"]["native-checks"]["default"] == "true"
     security = workflows["security.yml"]
     assert set(security["on"]) == {"workflow_dispatch", "push", "schedule"}
     assert security["on"]["push"]["branches"] == ["main"]
@@ -113,4 +117,4 @@ def main():
 if __name__ == "__main__":
     main()
 
-# FVPROV1 4534 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiJkYmYwOTM0ZDU3NTljZmZhMWE5ODU4YWI2N2Q4NGVjODJhZDkwN2IzOGY1ZDBiMjMzNzM2ZGQ5MDljNTUxMmE5IiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlLy5naXRodWIvY2hlY2std29ya2Zsb3dzLnB5In0sInNpZ25hdHVyZXMiOlt7ImtleV9pZCI6Ijk5ZWE2M2VmY2NmZDBmZGJkNjhlMTZlZDhmMDNkMzM3ZjE1ZWMyZTRhNmEzZDY0ZTExZDcxNGVhMWU1NDI1MzMiLCJwdWJsaWNfa2V5X2hleCI6ImFkYjNlMTdjZDEyZjk1NmQwMDcwZTE2NjNmNTMxNTM3ZmNlZGY3MzA4ZDAxNjU4ZmVhNDU2ZmVlYThmN2ZiYzUiLCJzaWduYXR1cmVfaGV4IjoiNDQyYWJiOTg1MGUyNmFiNmQ3ZWQyYmE4NGVjYjQzODE1MTBjMTlhOGZlMjNmNzU2MzRlN2FiNjZlNTIxNmEwOWFkYmQ2Mjc0MTUwYTM3OGIwMDE1MzEwYjAxOTY1MjkyYWMyNjNlZjFkYzI0MTc0NmJhODMwNDI2ZTdjZDAxMDcifV19XQ== FVPROV1-END
+# FVPROV1 4928 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiJlNDNlNjFjNzVmZmZjMGQ2MzUxZWQ0ZTllNjdhZDMzYTYyZjYwMTA0MmNjYmY1ZTk5OTZhZjlkZDk5ODgxMjNkIiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlLy5naXRodWIvY2hlY2std29ya2Zsb3dzLnB5In0sInNpZ25hdHVyZXMiOlt7ImtleV9pZCI6Ijk5ZWE2M2VmY2NmZDBmZGJkNjhlMTZlZDhmMDNkMzM3ZjE1ZWMyZTRhNmEzZDY0ZTExZDcxNGVhMWU1NDI1MzMiLCJwdWJsaWNfa2V5X2hleCI6ImFkYjNlMTdjZDEyZjk1NmQwMDcwZTE2NjNmNTMxNTM3ZmNlZGY3MzA4ZDAxNjU4ZmVhNDU2ZmVlYThmN2ZiYzUiLCJzaWduYXR1cmVfaGV4IjoiNDA1ZjcwNzFjZWViNDFhNjU4YjgzZDlhY2UxZGEyY2NlZGU4MDI3ZGNhMTMzZTE5ZTk2NmJlMDAzM2U5OWU3YmZkN2JhZmUwZDMxYjBmYzkzNDUxMDhkODJmODg2YTc1ZDMyMDdmM2EwY2VmNWNkYmJlZDJmYjNiM2MyM2NmMGEifV19XQ== FVPROV1-END

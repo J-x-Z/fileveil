@@ -32,6 +32,32 @@ def sdk_archive():
 
 
 class ProjectCiLlvmTests(unittest.TestCase):
+    def test_main_exports_sdk_environment_and_checks_executables(self):
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            destination = root / "llvm"
+            environment_file = root / "environment"
+            path_file = root / "path"
+            windows = INSTALLER.os.name == "nt"
+            with patch.object(INSTALLER.sys, "argv", ["project-ci-llvm.py", str(destination)]), \
+                    patch.object(INSTALLER.sys, "platform", "win32" if windows else "linux"), \
+                    patch.dict(INSTALLER.os.environ, {"GITHUB_ENV": str(environment_file),
+                        "GITHUB_PATH": str(path_file), "PATH": "original", "LD_LIBRARY_PATH": "python-library"}), \
+                    patch.object(INSTALLER, "install") as install, \
+                    patch.object(INSTALLER.subprocess, "run") as run:
+                INSTALLER.main()
+                install.assert_called_once_with(destination)
+                expected_library = "python-library" if windows else str(destination / "lib") + INSTALLER.os.pathsep + "python-library"
+                self.assertEqual(INSTALLER.os.environ["LD_LIBRARY_PATH"], expected_library)
+            lines = environment_file.read_text().splitlines()
+            self.assertIn("LLVM_PATH=" + str(destination), lines)
+            self.assertEqual(path_file.read_text(), str(destination / "bin") + "\n")
+            commands = [call.args[0] for call in run.call_args_list]
+            suffix = ".exe" if windows else ""
+            expected_commands = [] if windows else [["ldd", str(destination / "bin/opt")]]
+            expected_commands.extend([[str(destination / "bin" / (name + suffix)), "--version"] for name in ("opt", "clang")])
+            self.assertEqual(commands, expected_commands)
+
     @classmethod
     def setUpClass(cls):
         cls.payload = sdk_archive()
@@ -143,4 +169,4 @@ class ProjectCiLlvmTests(unittest.TestCase):
 if __name__ == "__main__":
     unittest.main()
 
-# FVPROV1 7499 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiI0ZTMyZWU3YjU3ZGQ1MGRhMTM3Yzk5Y2I3ZjJhMGJlMTFmNTc3N2RkZmIyZmIwMWJhOTU1ZmUyZmU1MTI5OGIwIiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL3Rlc3RzL3Rlc3RfcHJvamVjdF9jaV9sbHZtLnB5In0sInNpZ25hdHVyZXMiOlt7ImtleV9pZCI6Ijk5ZWE2M2VmY2NmZDBmZGJkNjhlMTZlZDhmMDNkMzM3ZjE1ZWMyZTRhNmEzZDY0ZTExZDcxNGVhMWU1NDI1MzMiLCJwdWJsaWNfa2V5X2hleCI6ImFkYjNlMTdjZDEyZjk1NmQwMDcwZTE2NjNmNTMxNTM3ZmNlZGY3MzA4ZDAxNjU4ZmVhNDU2ZmVlYThmN2ZiYzUiLCJzaWduYXR1cmVfaGV4IjoiZTU1MjM0MjU1OGYwMmFmOWM1ZTE3NzdlOGE2NjcxZDdmMGI4ODBkZGQ3NDc4MjVlMWUxMDBkYTllYTFmMGI5YjIyYzU3NjVhMjAzNWUyYzk0MTYzZWRlZjhjZWM1MDU3MjNiOTM0NTBmMDY2MTY0ZjFkNGM0ZGYzZTM0MzYyMGQifV19XQ== FVPROV1-END
+# FVPROV1 9298 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiIyNjlkMzc2YzIyZDIzNzI3NmI1ZGE4ZmZhNWU0MWY0NGQ0N2JlNjQzYjQ3Zjc4ZGVhZWY0NmFlODBlMmYzNWZiIiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL3Rlc3RzL3Rlc3RfcHJvamVjdF9jaV9sbHZtLnB5In0sInNpZ25hdHVyZXMiOlt7ImtleV9pZCI6Ijk5ZWE2M2VmY2NmZDBmZGJkNjhlMTZlZDhmMDNkMzM3ZjE1ZWMyZTRhNmEzZDY0ZTExZDcxNGVhMWU1NDI1MzMiLCJwdWJsaWNfa2V5X2hleCI6ImFkYjNlMTdjZDEyZjk1NmQwMDcwZTE2NjNmNTMxNTM3ZmNlZGY3MzA4ZDAxNjU4ZmVhNDU2ZmVlYThmN2ZiYzUiLCJzaWduYXR1cmVfaGV4IjoiYWNiNmY3MWQwYjI3MTY2MDU4MjU0MDYwZGQwOTkyMTMwODE4NzM3ZjAxZmQ1ZmZhYjY5MmUxNWZlZDAwZWM5ZGRkZmQyYTc2YjIzNjVkMDM4NzYwYWQ3YWExNTRhYzYxZmFkYmM3ODgyYzMxNTg1YjZjMGY1N2QyOTg1Y2I0MGQifV19XQ== FVPROV1-END

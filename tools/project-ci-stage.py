@@ -19,6 +19,11 @@ import zipfile
 SPEC = importlib.util.spec_from_file_location("postprocess", Path(__file__).with_name("project-postprocess.py"))
 POST = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(POST)
+VERIFIER_SPEC = importlib.util.spec_from_file_location("fileveil_ci_snapshot_verifier", Path(__file__).with_name("verify-source-tree.py"))
+VERIFIER = importlib.util.module_from_spec(VERIFIER_SPEC)
+# Reuse the reviewed source's Windows-aware path/fd comparison directly. Excluded
+# bytecode caches must not supply a replacement for these identity checks.
+exec(compile(Path(VERIFIER_SPEC.origin).read_bytes(), VERIFIER_SPEC.origin, "exec"), VERIFIER.__dict__)
 MAX_FILES = 20000
 MAX_FILE = 1024 * 1024 * 1024
 MAX_TOTAL = 8 * MAX_FILE
@@ -37,15 +42,34 @@ def archive_new(output):
 
 
 def file_stamp(info):
-    return (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+    return VERIFIER.identity(info)
+
+
+@contextmanager
+def open_snapshot(path, expected=None):
+    before_path = path.lstat()
+    if not VERIFIER.no_link(before_path) or not stat.S_ISREG(before_path.st_mode):
+        raise ValueError("Transfer input must be a regular non-reparse file")
+    if expected is not None and file_stamp(before_path) != file_stamp(expected):
+        raise ValueError("Transfer input changed before it could be frozen")
+    descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+        | getattr(os, "O_BINARY", 0) | getattr(os, "O_NONBLOCK", 0))
+    with os.fdopen(descriptor, "rb") as source:
+        before_fd = os.fstat(source.fileno())
+        if not VERIFIER.matches_opened_file(before_fd, before_path):
+            raise ValueError("Transfer input was replaced before it could be frozen")
+        yield source, before_fd
+        after_fd = os.fstat(source.fileno())
+        after_path = path.lstat()
+        if (file_stamp(after_fd) != file_stamp(before_fd)
+                or not VERIFIER.no_link(after_path)
+                or file_stamp(after_path) != file_stamp(before_path)
+                or not VERIFIER.matches_opened_file(after_fd, after_path)):
+            raise ValueError("Transfer input changed during snapshot reading")
 
 
 def write_member(archive, path, name, expected):
-    descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_BINARY", 0))
-    with os.fdopen(descriptor, "rb") as source:
-        before = os.fstat(source.fileno())
-        if not stat.S_ISREG(before.st_mode) or file_stamp(before) != file_stamp(expected):
-            raise ValueError("Transfer input changed before it could be frozen")
+    with open_snapshot(path, expected) as (source, before):
         info = zipfile.ZipInfo(name)
         info.create_system = 3
         info.external_attr = (stat.S_IFREG | stat.S_IMODE(before.st_mode)) << 16
@@ -57,8 +81,7 @@ def write_member(archive, path, name, expected):
                 if written > before.st_size:
                     raise ValueError("Transfer input grew during export")
                 target.write(chunk)
-        if (written != before.st_size or file_stamp(os.fstat(source.fileno())) != file_stamp(before)
-                or file_stamp(path.lstat()) != file_stamp(before)):
+        if written != before.st_size:
             raise ValueError("Transfer input changed during export")
 
 
@@ -276,4 +299,4 @@ if __name__ == "__main__":
         print(f"FileVeil build transfer failed ({error})", file=sys.stderr)
         sys.exit(1)
 
-# FVPROV1 13941 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiIyYzg1N2YzZjJmNzM2YzMxNGJjOWMwYjhiOTJmNGY5YWVkNzZhMzEzMTgzOTE2M2NkNmM5MGVmMTIzNGJmMzNiIiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL3Rvb2xzL3Byb2plY3QtY2ktc3RhZ2UucHkifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiJmZDcwMzUzYTFlOWI0ZDYzZDE0MzVjOWVmODE4MWFkOGY3OTkxYzIxN2RlZTc4NGY0NDljMDRhNjYzNGQ2ZmE0ZmMxZTliOGI0YjEwYTU4MDNhOWVlMmU1N2M2YWQ5MWIyNTg3NjBlYjc3ODU3ODk5OGFmZjBiODAwODQ0NTMwOSJ9XX1d FVPROV1-END
+# FVPROV1 15153 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiJhMGU1OTAyNmYyZWFjYWY2MDRmMzgzMGU3ZjMxZmNmNGZkOWNkMGM0MTJhYTIyZGU4MjA0N2FhNTI5MDk4MTYwIiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL3Rvb2xzL3Byb2plY3QtY2ktc3RhZ2UucHkifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiI3MjFhYzRkNjQ2Yzg0NTE1OWJmNzExMmE4YjA3YWQzMTM3ZGFlOTlhZjVlZjFiNGQyZDU0N2VlYWJlZGUyY2Y1NmZmNWNhODllMmM2MTBhY2JmNzMwNzlmNWY5NmRkYzI2ZGRkMGMzZTgyOGVkMzE3Mzg4NmY5MjA5NDU2NmYwYyJ9XX1d FVPROV1-END

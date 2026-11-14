@@ -4,7 +4,13 @@ project(FileVeilSoftwareWatermark LANGUAGES C CXX)
 find_package(LLVM REQUIRED CONFIG)
 list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
 include(AddLLVM)
-add_llvm_pass_plugin(FileVeilWatermark FileVeilWatermark.cpp)
+add_llvm_pass_plugin(FileVeilWatermark FileVeilWatermark.cpp PLUGIN_TOOL opt)
+# Match LLVM's Darwin module lookup when the host statically owns LLVM symbols.
+# Shared-library SDKs retain AddLLVM's existing LLVM target linkage.
+if(APPLE AND NOT LLVM_LINK_LLVM_DYLIB)
+  target_link_options(FileVeilWatermark PRIVATE
+    "LINKER:-flat_namespace" "LINKER:-undefined,dynamic_lookup")
+endif()
 target_compile_features(FileVeilWatermark PRIVATE cxx_std_17)
 target_include_directories(FileVeilWatermark SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})
 target_compile_definitions(FileVeilWatermark PRIVATE ${LLVM_DEFINITIONS})

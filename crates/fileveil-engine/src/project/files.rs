@@ -229,6 +229,23 @@ pub(super) struct Access {
     scope: Option<ProjectScope>,
     roots: Vec<Directory>,
 }
+
+pub(super) struct TransactionLock {
+    _file: File,
+}
+
+impl Drop for TransactionLock {
+    fn drop(&mut self) {
+        #[cfg(unix)]
+        {
+            use std::os::fd::AsRawFd;
+            // A concurrent fork can retain this open description until exec,
+            // even with CLOEXEC. Release the owner's lock before closing it.
+            let _ = unsafe { libc::flock(self._file.as_raw_fd(), libc::LOCK_UN) };
+        }
+    }
+}
+
 impl Access {
     pub fn scoped(&self) -> bool {
         self.scope.is_some()
@@ -553,9 +570,11 @@ impl Access {
             .map_err(|_| blocked("Could not synchronize release copy"))?;
         parent.sync()
     }
-    pub fn lock(&self, state: &Path) -> Result<File> {
+    pub fn lock(&self, state: &Path) -> Result<TransactionLock> {
         let directory = self.directory(state, true, true)?;
-        platform::lock(&directory)
+        Ok(TransactionLock {
+            _file: platform::lock(&directory)?,
+        })
     }
     pub fn publish_directory(
         &self,
@@ -903,4 +922,27 @@ mod platform {
     }
 }
 
-// FVPROV1 31913 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiJiNDYxZjUzMjZhN2MzODYyMDhkODhhYTJjODVmODFjZWI2ZmM5ZGEzOTA0NDE2YTlhMzVjYjM1NjE3MDg1YzcyIiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL2NyYXRlcy9maWxldmVpbC1lbmdpbmUvc3JjL3Byb2plY3QvZmlsZXMucnMifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiIwNmIwYzBjOWFmODdhMjE0ZGFiNmUyZjYzZDViM2E4Nzg4MmE5Y2Y0NWMxYWVkMmZhZDk1ODYzNzA0ZjM4N2QwYTllYzdlODhjZDAzY2VjNmY5ZGY3MDM3ZWE5ZWI2ZDM5ZjU4NGZhYjA3NGRiNmU5NzI1ODRiOWViMTJlMGIwYyJ9XX1d FVPROV1-END
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn transaction_guard_unlocks_while_a_duplicate_description_survives() {
+        let temporary = tempfile::tempdir().unwrap();
+        let state = temporary.path().canonicalize().unwrap();
+        let access = Access::new(None).unwrap();
+        let owner = access.lock(&state).unwrap();
+        // dup and fork retain the same lock-bearing open description. A dup
+        // reproduces that lifetime without forking the multithreaded harness.
+        let inherited = owner._file.try_clone().unwrap();
+        assert!(access.lock(&state).is_err());
+        drop(owner);
+        let next = access.lock(&state).unwrap();
+        assert!(access.lock(&state).is_err());
+        drop(next);
+        drop(inherited);
+        assert!(access.lock(&state).is_ok());
+    }
+}
+
+// FVPROV1 33254 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiI2ZDNlYTUxNzNlYmQwMmIwNDI2Y2RmZWY1ZDVkODZjYmM2ZmNjMzViZDliZDU1MzBkODM1Y2ViNGRmNDljNGI2IiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL2NyYXRlcy9maWxldmVpbC1lbmdpbmUvc3JjL3Byb2plY3QvZmlsZXMucnMifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiJlYjZiMmJlNGM0NzAwYTVkMTIyYzg0OTkzNzcyY2E1NDA5ZjViZjQ1YTNiY2I2YmI3M2EzMzk1ZDU5ZDIwZmU1ZTc3Njg2YTY5NmM0ZTY2Mzk5ODgxNDhlMGI4NmMyNmIwZTI2M2ZjZWRmMTVlNzE5MzlkMjViMjQyNDBkOWMwYiJ9XX1d FVPROV1-END

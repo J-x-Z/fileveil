@@ -24,6 +24,20 @@ on:
       - .github/check-workflows.py
   workflow_dispatch:
     inputs:
+      native-checks:
+        description: Run native workspace and desktop acceptance
+        type: boolean
+        default: true
+      platform:
+        description: Native target platform
+        type: choice
+        options: [all, ubuntu-latest, macos-latest, windows-latest]
+        default: all
+      project-policy:
+        description: Reusable project policy acceptance
+        type: choice
+        options: [all, manifest_only, hybrid]
+        default: all
       project-ci:
         description: Exercise the reusable project copyright workflow
         type: boolean
@@ -31,7 +45,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.platform }}-${{ inputs.native-checks }}-${{ inputs.project-policy }}
   cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 env:
   PYTHONUTF8: '1'
@@ -48,8 +62,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        policy: [manifest_only, hybrid]
+        os: ${{ fromJSON(inputs.platform == 'ubuntu-latest' && '["ubuntu-latest"]' || inputs.platform == 'macos-latest' && '["macos-latest"]' || inputs.platform == 'windows-latest' && '["windows-latest"]' || '["ubuntu-latest","macos-latest","windows-latest"]') }}
+        policy: ${{ fromJSON(inputs.project-policy == 'manifest_only' && '["manifest_only"]' || inputs.project-policy == 'hybrid' && '["hybrid"]' || '["manifest_only","hybrid"]') }}
     uses: ./.github/workflows/project-release.yml
     with:
       config: ${{ matrix.policy == 'hybrid' && 'tests/fixtures/software-project/fileveil-ci-hybrid.json' || 'tests/fixtures/software-project/fileveil-ci.json' }}
@@ -97,11 +111,11 @@ jobs:
             ~/.cargo/git
           key: ${{ steps.cargo-cache.outputs.cache-primary-key }}
   check:
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
+    if: (github.event_name == 'workflow_dispatch' && inputs.native-checks) || startsWith(github.ref, 'refs/tags/v')
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: ${{ fromJSON(inputs.platform == 'ubuntu-latest' && '["ubuntu-latest"]' || inputs.platform == 'macos-latest' && '["macos-latest"]' || inputs.platform == 'windows-latest' && '["windows-latest"]' || '["ubuntu-latest","macos-latest","windows-latest"]') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     steps:
@@ -564,4 +578,4 @@ jobs:
             ~/.cargo/git
           key: ${{ steps.cargo-cache.outputs.cache-primary-key }}
 
-# FVPROV1 32410 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiIyZjAxZjgzMzM3MGRlYWE2ZjA4NGVkZGM3YWY4NmVjMTFkNWZjYzI1MGYzZWJiYzVjYzA5YzJjN2M1NTdlYzQ3IiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlLy5naXRodWIvd29ya2Zsb3dzL2NpLnltbCJ9LCJzaWduYXR1cmVzIjpbeyJrZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwicHVibGljX2tleV9oZXgiOiJhZGIzZTE3Y2QxMmY5NTZkMDA3MGUxNjYzZjUzMTUzN2ZjZWRmNzMwOGQwMTY1OGZlYTQ1NmZlZWE4ZjdmYmM1Iiwic2lnbmF0dXJlX2hleCI6IjhhODQ0MjdlMmY5NTA4ZWUwNGFhYmFlOTcyZDk3NzI5YWI2OTM0MjFiODA3Y2E1OGQ3ZDI5NWY2MzJiYWJhZjMwNDY3MDVhN2Q1MjI0Njk1NzMzZmFjNjgyYzJlZDFlMTk4OWFjOTVlNTNiNTVjMjBlZmRjZTFlMGYwM2FlZTBkIn1dfV0= FVPROV1-END
+# FVPROV1 33536 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiJmMDc0ZGY1ZWVkNzhmYmNlOTgxMTQzNGZiMzU5NDM1M2YxNTM3YTgxY2MyNzFhMjRiNTAzMjIxYThkNzUzODFmIiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlLy5naXRodWIvd29ya2Zsb3dzL2NpLnltbCJ9LCJzaWduYXR1cmVzIjpbeyJrZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwicHVibGljX2tleV9oZXgiOiJhZGIzZTE3Y2QxMmY5NTZkMDA3MGUxNjYzZjUzMTUzN2ZjZWRmNzMwOGQwMTY1OGZlYTQ1NmZlZWE4ZjdmYmM1Iiwic2lnbmF0dXJlX2hleCI6IjAzMjA3MDM1ZDdjMjJjN2Q3OGNhMDk0NjcyMGU2MGUxN2U0ZWMyN2QzZTdiNDgwMWZmMWM4YWI0MDY4NjIyYWE4M2M4NTY1OGE4YjVlZjRkZTVhYWYxNmE0OGI2NGU4NjUzNWZhYWJmNDZiOTQ0MDhkMTRmODNiNGU0ZjA2YjBiIn1dfV0= FVPROV1-END
