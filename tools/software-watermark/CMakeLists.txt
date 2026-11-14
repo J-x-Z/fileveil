@@ -1,6 +1,16 @@
 # SPDX-License-Identifier: MPL-2.0
 cmake_minimum_required(VERSION 3.20)
 project(FileVeilSoftwareWatermark LANGUAGES C CXX)
+if(WIN32)
+  # vcpkg exports a static zstd::libzstd without LLVM's MSVC suffix.
+  find_package(zstd CONFIG QUIET)
+  if(TARGET zstd::libzstd AND NOT TARGET zstd::libzstd_static)
+    get_target_property(fileveil_zstd_type zstd::libzstd TYPE)
+    if(fileveil_zstd_type STREQUAL "STATIC_LIBRARY")
+      add_library(zstd::libzstd_static ALIAS zstd::libzstd)
+    endif()
+  endif()
+endif()
 find_package(LLVM REQUIRED CONFIG)
 list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
 include(AddLLVM)
