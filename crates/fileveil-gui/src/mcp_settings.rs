@@ -28,12 +28,12 @@ impl McpSettings {
         );
         changed |= root_controls(ui, language, "Output folders", &mut self.access.write_roots);
         ui.add_space(10.0);
-        ui.label(if language == Language::Chinese {
-            "允许 MCP 使用的签名密钥"
-        } else {
-            "Explicit MCP signing keys"
-        });
-        ui.small(if language == Language::Chinese { "默认禁止签名。所选密钥还需位于可读目录中，连接期间绑定文件身份。" } else { "Signing is disabled by default. Selected keys must also be inside readable folders and remain identity-bound during the connection." });
+        ui.label(crate::i18n::text(
+            language,
+            "允许 MCP 使用的签名密钥",
+            "Explicit MCP signing keys",
+        ));
+        ui.small(crate::i18n::text(language, "默认禁止签名。所选密钥还需位于可读目录中，连接期间绑定文件身份。", "Signing is disabled by default. Selected keys must also be inside readable folders and remain identity-bound during the connection."));
         let mut remove_key = None;
         for (index, key) in self.access.signing_keys.iter().enumerate() {
             ui.horizontal(|ui| {
@@ -49,11 +49,11 @@ impl McpSettings {
             changed = true;
         }
         if ui
-            .button(if language == Language::Chinese {
-                "授权签名密钥"
-            } else {
-                "Authorize signing key"
-            })
+            .button(crate::i18n::text(
+                language,
+                "授权签名密钥",
+                "Authorize signing key",
+            ))
             .clicked()
             && let Some(key) = rfd::FileDialog::new().pick_file()
             && !self.access.signing_keys.contains(&key)
@@ -61,18 +61,18 @@ impl McpSettings {
             self.access.signing_keys.push(key);
             changed = true;
         }
-        ui.label(if language == Language::Chinese {
-            "授权系统密钥的公钥标识"
-        } else {
-            "Authorize a system key by public-key identifier"
-        });
+        ui.label(crate::i18n::text(
+            language,
+            "授权系统密钥的公钥标识",
+            "Authorize a system key by public-key identifier",
+        ));
         ui.text_edit_singleline(&mut self.key_ref_input);
         if ui
-            .button(if language == Language::Chinese {
-                "授权系统密钥"
-            } else {
-                "Authorize system key"
-            })
+            .button(crate::i18n::text(
+                language,
+                "授权系统密钥",
+                "Authorize system key",
+            ))
             .clicked()
         {
             let id = self.key_ref_input.trim().to_ascii_lowercase();
@@ -232,5 +232,3 @@ mod tests {
         assert!(settings.configuration().is_err());
     }
 }
-
-// FVPROV1 8296 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiIwY2Y3NTRmMTZjYmM5ZmMyYTZkNTYwMTUyNDNhN2M5MWJhYWYzMTdjZmIzOTkzNzdlNTYwMDhhNzY1OTMxMWU1IiwiY29weV9pZCI6InYwLjUuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC41LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL2NyYXRlcy9maWxldmVpbC1ndWkvc3JjL21jcF9zZXR0aW5ncy5ycyJ9LCJzaWduYXR1cmVzIjpbeyJrZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwicHVibGljX2tleV9oZXgiOiJhZGIzZTE3Y2QxMmY5NTZkMDA3MGUxNjYzZjUzMTUzN2ZjZWRmNzMwOGQwMTY1OGZlYTQ1NmZlZWE4ZjdmYmM1Iiwic2lnbmF0dXJlX2hleCI6ImMyNTZiOTQ4NWExZjEyN2ZmNzUzM2E3NDJhNTk3MTE5NTdlODA3M2Y2NDk3NzI1YjJiNDYyZWNmMGU5NWJkNjY1Y2Y0ODFkMDlmNTY2ZGMzMTdmNDc5NzUwNjUxNTY3MmY2NjEyNzE0MmM1M2Y4N2NkMzE4ZTE0MWVhNjU4MDBkIn1dfV0= FVPROV1-END

@@ -1,6 +1,8 @@
 <!-- SPDX-License-Identifier: MPL-2.0 -->
 # FileVeil
 
+[English](README.md) | [简体中文](README.zh-CN.md)
+
 **Clean metadata. Mark ownership. Verify provenance. Test watermarks.**
 
 [![CI](https://github.com/J-x-Z/fileveil/actions/workflows/ci.yml/badge.svg)](https://github.com/J-x-Z/fileveil/actions/workflows/ci.yml)
@@ -9,7 +11,11 @@
 
 FileVeil is an **offline-first, cross-platform file privacy and watermark toolkit** written in Rust. It helps you inspect hidden metadata, create verified sanitized copies, embed your own signed provenance records, and study how image watermarks survive editing or removal.
 
-**Windows · macOS · Linux | Native desktop GUI · CLI · local MCP | English · 简体中文**
+**Windows · macOS · Linux | Native desktop GUI · CLI · local MCP**
+
+**English · 简体中文 · 日本語 · 한국어 · Español · Français · Deutsch · Português · Русский**
+
+Select the interface language in Settings. Technical report values and unrecognized backend messages may be shown in English.
 
 > **Alpha notice:** FileVeil is experimental. Its verification results apply to explicitly reported checks, not to every possible hidden watermark or identifying feature. Keep your originals and review outputs before sharing important files.
 
@@ -37,7 +43,13 @@ Some formats support inspection but not every kind of cleanup. See the [format-b
 
 ## Download and run
 
-Download the [v0.5.0-alpha.1 Alpha packages](https://github.com/J-x-Z/fileveil/releases/tag/v0.5.0-alpha.1) for Windows, macOS, and Linux. The Windows and macOS packages are **not yet code-signed for public distribution**; on macOS, the current ad-hoc-signed build is not accepted by Gatekeeper. Building from source is also supported.
+Download the [v0.5.0-alpha.2 Alpha packages](https://github.com/J-x-Z/fileveil/releases/tag/v0.5.0-alpha.2) for Windows, macOS, and Linux.
+
+- **macOS Apple Silicon** — `.dmg` with drag-to-Applications installation, or `.zip`.
+- **Windows x64** — `.exe` installer or portable `.zip`.
+- **Linux x64** — `.deb` package or `.tar.gz`.
+
+The macOS build uses an ad-hoc signature and is rejected by Gatekeeper. Windows packages are unsigned and may show an unknown-publisher warning. Public-distribution signing certificates are currently unavailable. Building from source is also supported.
 
 **Build requirements:** Rust **1.96+** and Cargo. PDF rewriting uses **qpdf**; independent PDF visual/text checks use optional Poppler tools. Some HEIC/AVIF and media features depend on locally installed codecs or FFmpeg. FileVeil reports unavailable optional backends instead of silently claiming support.
 

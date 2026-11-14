@@ -1594,11 +1594,7 @@ fn options_for_format(saved: &SanitizeOptions, mime: &str) -> SanitizeOptions {
 }
 
 fn t<'a>(language: Language, zh: &'a str, en: &'a str) -> &'a str {
-    if language == Language::Chinese {
-        zh
-    } else {
-        en
-    }
+    crate::i18n::text(language, zh, en)
 }
 
 fn heritage_report_ui(ui: &mut egui::Ui, language: Language, details: &serde_json::Value) {
@@ -1631,24 +1627,23 @@ fn heritage_report_ui(ui: &mut egui::Ui, language: Language, details: &serde_jso
     }
     let label = |value: &serde_json::Value| -> String {
         let text = value.as_str().unwrap_or("not_assessed");
-        if language == Language::English {
-            return text.replace('_', " ");
-        }
-        match text {
-            "valid" => "有效",
-            "invalid" => "无效",
-            "untrusted" => "未受本地信任",
-            "detected" => "检测到",
-            "not_detected" => "未检测到",
-            "indeterminate" => "无法判断",
-            "unsupported" => "不支持",
-            "blocked" => "已阻止",
-            "verified_within_scope" => "范围内验证通过",
-            "partially_verified" => "部分验证",
-            "failed" => "验证失败",
-            _ => "未评估",
-        }
-        .into()
+        let english = match text {
+            "valid" => "Valid",
+            "invalid" => "Invalid",
+            "untrusted" => "Untrusted",
+            "trusted" => "Trusted",
+            "detected" => "Detected",
+            "not_detected" => "Not detected",
+            "indeterminate" => "Indeterminate",
+            "unsupported" => "Unsupported",
+            "blocked" => "Blocked",
+            "verified_within_scope" => "Verified within scope",
+            "partially_verified" => "Partially verified",
+            "failed" => "Verification failed",
+            "not_assessed" => "Not assessed",
+            _ => return text.replace('_', " "),
+        };
+        crate::i18n::tr(language, english).into()
     };
     if let Some(legacy) = details.get("legacy") {
         ui.label(format!(
@@ -1675,16 +1670,25 @@ fn heritage_report_ui(ui: &mut egui::Ui, language: Language, details: &serde_jso
                     ));
                 });
                 let evidence = location["evidence_status"].as_str().unwrap_or_default();
-                ui.small(if language == Language::Chinese {
-                    match evidence {
-                        "reference_sample_confirmed_format" => "真实参考样本确认的结构",
-                        "structure_confirmed" => "公开结构匹配，尚缺设备原样本",
-                        "candidate_unverified" => "尚未确认的结构候选",
-                        _ => evidence,
-                    }
-                } else {
-                    evidence
-                });
+                let evidence_label = match evidence {
+                    "reference_sample_confirmed_format" => t(
+                        language,
+                        "真实参考样本确认的结构",
+                        "Structure confirmed by a real reference sample",
+                    ),
+                    "structure_confirmed" => t(
+                        language,
+                        "公开结构匹配，尚缺设备原样本",
+                        "Published structure matched. Original device specimen unavailable",
+                    ),
+                    "candidate_unverified" => t(
+                        language,
+                        "尚未确认的结构候选",
+                        "Unverified structural candidate",
+                    ),
+                    _ => evidence,
+                };
+                ui.small(evidence_label);
                 ui.small(format!(
                     "{} · {}",
                     t(language, "历史密码学状态", "Legacy cryptographic state"),
@@ -2436,5 +2440,3 @@ mod tests {
         }
     }
 }
-
-// FVPROV1 109995 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiI2OTI2YWE2MTVmOGZlZWE3MTMwYzY2NTM3NzEzZDY5Yzg3MTQxZGQ1MmM2NTljOWY5YTA5YTg0ODljNzIzNGVjIiwiY29weV9pZCI6InYwLjUuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC41LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL2NyYXRlcy9maWxldmVpbC1ndWkvc3JjL3dvcmtzcGFjZXMucnMifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiJhOTQ3NzllZDg3YzAxNTBkMTFmOGExM2U2MDY2NDdkYzIzMjZhOGNiYmQ4N2IzOTFmNDkyYjk1MjFhMDFlY2E5ODQwMGUyNGFhZDcyMWQxN2EyYmVmOWUwMzE3NjVkMzRiOTkzZmQxZmE3OTkzYTQ3MTIwOWI0ZTNiYmIxZjAwZiJ9XX1d FVPROV1-END

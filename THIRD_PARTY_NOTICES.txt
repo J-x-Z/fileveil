@@ -4,7 +4,7 @@ This inventory covers registry packages in Cargo.lock across build and target co
 The accompanying assets/licenses directory preserves published license and attribution texts.
 Supplemental upstream texts record their exact retrieval source in assets/licenses/index.json.
 
-Cargo.lock SHA-256 314224a8aede8788cbfb81056b751ec6d23ff88c01f87b2c1a3f8457670a31ea
+Cargo.lock SHA-256 1a67b4bc7e215b3b0c4a557518c05d03c44507c6fbd1e28d370d4e6e9dd2ec63
 Registry package count 640
 
 Font notices

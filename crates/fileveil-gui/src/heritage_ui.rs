@@ -744,10 +744,7 @@ impl HeritagePanel {
 }
 
 fn t<'a>(language: Language, chinese: &'a str, english: &'a str) -> &'a str {
-    match language {
-        Language::Chinese => chinese,
-        Language::English => english,
-    }
+    crate::i18n::text(language, chinese, english)
 }
 
 fn field(ui: &mut egui::Ui, label: &str, value: &mut String) {
@@ -1027,5 +1024,3 @@ mod tests {
         assert!(verify.disclose_claims && verify.disclose_identifiers);
     }
 }
-
-// FVPROV1 43842 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiJhY2VmMDlhMWViOGMzMzg5ZTVkODUwMWExOTgyNTZmZGRiODY3ZTM2NTNmMjJhZTllMTNjNDUwZDVlOTg1ZDc1IiwiY29weV9pZCI6InYwLjUuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC41LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL2NyYXRlcy9maWxldmVpbC1ndWkvc3JjL2hlcml0YWdlX3VpLnJzIn0sInNpZ25hdHVyZXMiOlt7ImtleV9pZCI6Ijk5ZWE2M2VmY2NmZDBmZGJkNjhlMTZlZDhmMDNkMzM3ZjE1ZWMyZTRhNmEzZDY0ZTExZDcxNGVhMWU1NDI1MzMiLCJwdWJsaWNfa2V5X2hleCI6ImFkYjNlMTdjZDEyZjk1NmQwMDcwZTE2NjNmNTMxNTM3ZmNlZGY3MzA4ZDAxNjU4ZmVhNDU2ZmVlYThmN2ZiYzUiLCJzaWduYXR1cmVfaGV4IjoiMWVjYTY0Yzc3OTFmY2VmOWU1ZmQ5NzhkMDU0YmM1NzE3ZTRlOTVkMzUxMTA3OTA5NDY4ZGFjOWU1NTU0NGY0MDIyZThlYzJkZDc5NDkzZTEyNThkYTY5ZWE2NGI2M2NhYTkzNTg3NGUyMDkxOWQzOThkNzNmMGE0Njg1ODIzMGYifV19XQ== FVPROV1-END

@@ -11,7 +11,7 @@ cargo build --locked --release -p fileveil-gui -p fileveil-cli
 ./target/release/fileveil-gui
 ```
 
-Windows 使用 `target\release\fileveil-gui.exe`。Linux 需要桌面显示会话及系统图形库。程序内置中文与拉丁字体，字体许可文本随项目提供。
+Windows 使用 `target\release\fileveil-gui.exe`。Linux 需要桌面显示会话及系统图形库。程序内置拉丁、中日韩及西里尔字形，字体许可文本随项目提供。
 
 ## 使用流程
 
@@ -23,7 +23,7 @@ Windows 使用 `target\release\fileveil-gui.exe`。Linux 需要桌面显示会�
 
 文件队列适合依次处理多份文件。后台任务可以取消，资源设置可调整单文件大小、图像像素、归档与 Lab 聚合预算及任务超时。关闭窗口时会结束当前工作进程并清理该任务的临时文件。
 
-默认外观为中性黑灰，侧栏提供浅色与深色快捷切换，浅色采用中性灰白背景。设置窗口集中提供语言、三种外观及资源选项。界面支持中文与英文。搜索用于过滤发现信息，清空队列用于移除当前会话中的文件条目。界面中的本地文件选择信息与导出的脱敏报告采用各自展示范围。
+默认外观为中性黑灰，侧栏提供浅色与深色快捷切换，浅色采用中性灰白背景。设置窗口集中提供语言、三种外观及资源选项。界面支持中文、英文、日文、韩文、西班牙文、法文、德文、葡萄牙文和俄文，首次启动参考系统语言，选择后保存在本地。技术报告原始值及未知后端消息可能显示英文。搜索用于过滤发现信息，清空队列用于移除当前会话中的文件条目。界面中的本地文件选择信息与导出的脱敏报告采用各自展示范围。
 
 ## 报告与保真
 
@@ -166,6 +166,10 @@ Windows packages include official qpdf 12.4.2 binaries and upstream Apache-2.0 n
 macOS 包的 LSMinimumSystemVersion 按主程序实际 Mach-O 最低版本记录，可选 qpdf 后端另存 Resources/pdf-backend.json。本机 Homebrew 后端要求 macOS 27.0。较早系统可通过 FILEVEIL_QPDF 配置兼容后端，能力查询会实际探测后端能否执行。当前检测到 Apple Development 身份，Developer ID Application 身份数量为 0，正式签名和公证待提供相应凭据。
 
 完整发行包同时包含 GUI/MCP 与 CLI。macOS 的 CLI 位于 Contents/MacOS/fileveil，便携包中与 GUI 并列。使用 --skip-build 打包时，需要先构建同版本的 fileveil-gui 和 fileveil-cli。
+
+`tools/build-installers.py` 将同版本桌面包制作为 macOS DMG、Windows 当前用户安装器或 Linux amd64 DEB。原便携包继续提供。`tools/check-installers.py` 在临时目录或一次性 CI 主机验证安装、程序启动、升级与卸载。
+
+`tools/sign-desktop.py PATH --report NEW.json` 读取实际系统签名状态。显式传入 `--identity` 和本地证书的 40 位 SHA-1 指纹后执行正式签名。Windows 先签 `target/release` 中的 GUI 和 CLI，再运行打包器，使包清单记录已签名字节，最后签安装器。macOS 在打包后签 `.app`，然后生成 DMG。`--notary-profile` 使用已有 Keychain 配置向 Apple 提交公证，返回 Accepted 后装订并检查票据。正式签名依赖对应的本地私钥和证书。源码的 FileVeil Ed25519 溯源签名及系统应用签名分别验证。
 
 净化范围按已扫描格式启用。切换文件会保留各格式的选择，实际任务仅携带当前格式适用的参数，再次验证沿用创建副本时的范围。AI 来源工作区分别显示凭据签名、资产绑定、本地根信任与吊销验证状态。TXT/Markdown 的实验性来源包装限制见格式矩阵。
 

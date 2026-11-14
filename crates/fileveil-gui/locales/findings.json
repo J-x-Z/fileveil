@@ -1,0 +1,947 @@
+{
+  "Image processing applied": [
+    "画像処理を適用済み",
+    "이미지 처리 적용됨",
+    "Procesamiento de imagen aplicado",
+    "Traitement d’image appliqué",
+    "Bildverarbeitung angewendet",
+    "Processamento de imagem aplicado",
+    "Обработка изображения выполнена"
+  ],
+  "PDF document properties": [
+    "PDF文書のプロパティ",
+    "PDF 문서 속성",
+    "Propiedades del documento PDF",
+    "Propriétés du document PDF",
+    "PDF-Dokumenteigenschaften",
+    "Propriedades do documento PDF",
+    "Свойства документа PDF"
+  ],
+  "PDF shared metadata content references": [
+    "PDF共有メタデータの内容参照",
+    "PDF 공유 메타데이터 콘텐츠 참조",
+    "Referencias de contenido de metadatos compartidos del PDF",
+    "Références de contenu des métadonnées partagées du PDF",
+    "PDF-Inhaltsverweise auf gemeinsame Metadaten",
+    "Referências de conteúdo de metadados partilhados do PDF",
+    "Ссылки на содержимое общих метаданных PDF"
+  ],
+  "PDF XMP metadata": [
+    "PDFのXMPメタデータ",
+    "PDF XMP 메타데이터",
+    "Metadatos XMP del PDF",
+    "Métadonnées XMP du PDF",
+    "PDF-XMP-Metadaten",
+    "Metadados XMP do PDF",
+    "Метаданные XMP в PDF"
+  ],
+  "PDF attachments": [
+    "PDFの添付ファイル",
+    "PDF 첨부 파일",
+    "Archivos adjuntos del PDF",
+    "Pièces jointes du PDF",
+    "PDF-Anhänge",
+    "Anexos do PDF",
+    "Вложения PDF"
+  ],
+  "PDF annotations": [
+    "PDFの注釈",
+    "PDF 주석",
+    "Anotaciones del PDF",
+    "Annotations du PDF",
+    "PDF-Anmerkungen",
+    "Anotações do PDF",
+    "Аннотации PDF"
+  ],
+  "PDF active content": [
+    "PDFのアクティブコンテンツ",
+    "PDF 활성 콘텐츠",
+    "Contenido activo del PDF",
+    "Contenu actif du PDF",
+    "Aktive PDF-Inhalte",
+    "Conteúdo ativo do PDF",
+    "Активное содержимое PDF"
+  ],
+  "PDF digital signature": [
+    "PDFのデジタル署名",
+    "PDF 디지털 서명",
+    "Firma digital del PDF",
+    "Signature numérique du PDF",
+    "Digitale PDF-Signatur",
+    "Assinatura digital do PDF",
+    "Цифровая подпись PDF"
+  ],
+  "PDF external actions": [
+    "PDFの外部アクション",
+    "PDF 외부 동작",
+    "Acciones externas del PDF",
+    "Actions externes du PDF",
+    "Externe PDF-Aktionen",
+    "Ações externas do PDF",
+    "Внешние действия PDF"
+  ],
+  "PDF incremental history": [
+    "PDFの増分保存履歴",
+    "PDF 증분 저장 기록",
+    "Historial incremental del PDF",
+    "Historique incrémental du PDF",
+    "Inkrementeller PDF-Verlauf",
+    "Histórico incremental do PDF",
+    "История инкрементальных сохранений PDF"
+  ],
+  "PDF hidden content clues": [
+    "PDFの非表示内容の手掛かり",
+    "PDF 숨겨진 콘텐츠 단서",
+    "Indicios de contenido oculto del PDF",
+    "Indices de contenu masqué du PDF",
+    "Hinweise auf verborgene PDF-Inhalte",
+    "Indícios de conteúdo oculto do PDF",
+    "Признаки скрытого содержимого PDF"
+  ],
+  "PDF opaque or private structures": [
+    "PDFの不透明または独自構造",
+    "PDF 불투명 또는 비공개 구조",
+    "Estructuras opacas o privadas del PDF",
+    "Structures opaques ou privées du PDF",
+    "Undurchsichtige oder private PDF-Strukturen",
+    "Estruturas opacas ou privadas do PDF",
+    "Непрозрачные или частные структуры PDF"
+  ],
+  "Hidden worksheets": [
+    "非表示のワークシート",
+    "숨겨진 워크시트",
+    "Hojas de cálculo ocultas",
+    "Feuilles de calcul masquées",
+    "Ausgeblendete Arbeitsblätter",
+    "Folhas de cálculo ocultas",
+    "Скрытые листы"
+  ],
+  "WAV information tags": [
+    "WAV情報タグ",
+    "WAV 정보 태그",
+    "Etiquetas de información WAV",
+    "Balises d’information WAV",
+    "WAV-Informationstags",
+    "Etiquetas de informação WAV",
+    "Информационные теги WAV"
+  ],
+  "Broadcast audio metadata": [
+    "放送音声メタデータ",
+    "방송 오디오 메타데이터",
+    "Metadatos de audio de difusión",
+    "Métadonnées audio de diffusion",
+    "Rundfunk-Audiometadaten",
+    "Metadados de áudio de radiodifusão",
+    "Метаданные вещательного аудио"
+  ],
+  "WAV iXML metadata": [
+    "WAVのiXMLメタデータ",
+    "WAV iXML 메타데이터",
+    "Metadatos iXML de WAV",
+    "Métadonnées iXML WAV",
+    "WAV-iXML-Metadaten",
+    "Metadados iXML de WAV",
+    "Метаданные iXML в WAV"
+  ],
+  "WAV playback structures": [
+    "WAVの再生構造",
+    "WAV 재생 구조",
+    "Estructuras de reproducción WAV",
+    "Structures de lecture WAV",
+    "WAV-Wiedergabestrukturen",
+    "Estruturas de reprodução WAV",
+    "Структуры воспроизведения WAV"
+  ],
+  "Retained WAV chunk": [
+    "保持されたWAVチャンク",
+    "보존된 WAV 청크",
+    "Bloque WAV conservado",
+    "Bloc WAV conservé",
+    "Erhaltener WAV-Block",
+    "Bloco WAV preservado",
+    "Сохранённый блок WAV"
+  ],
+  "FLAC text tags": [
+    "FLACテキストタグ",
+    "FLAC 텍스트 태그",
+    "Etiquetas de texto FLAC",
+    "Balises de texte FLAC",
+    "FLAC-Texttags",
+    "Etiquetas de texto FLAC",
+    "Текстовые теги FLAC"
+  ],
+  "Audio playback fields": [
+    "音声再生フィールド",
+    "오디오 재생 필드",
+    "Campos de reproducción de audio",
+    "Champs de lecture audio",
+    "Audiowiedergabefelder",
+    "Campos de reprodução de áudio",
+    "Поля воспроизведения аудио"
+  ],
+  "FLAC application data": [
+    "FLACアプリケーションデータ",
+    "FLAC 애플리케이션 데이터",
+    "Datos de aplicación FLAC",
+    "Données d’application FLAC",
+    "FLAC-Anwendungsdaten",
+    "Dados de aplicação FLAC",
+    "Данные приложения FLAC"
+  ],
+  "Private audio credential candidate": [
+    "独自音声資格情報の候補",
+    "비공개 오디오 자격 증명 후보",
+    "Posible credencial de audio privada",
+    "Justificatif audio privé potentiel",
+    "Kandidat für privaten Audionachweis",
+    "Possível credencial de áudio privada",
+    "Возможные частные данные происхождения аудио"
+  ],
+  "Retained FLAC structures": [
+    "保持されたFLAC構造",
+    "보존된 FLAC 구조",
+    "Estructuras FLAC conservadas",
+    "Structures FLAC conservées",
+    "Erhaltene FLAC-Strukturen",
+    "Estruturas FLAC preservadas",
+    "Сохранённые структуры FLAC"
+  ],
+  "Audio signal watermark coverage": [
+    "音声信号水印の検証範囲",
+    "오디오 신호 워터마크 평가 범위",
+    "Cobertura de marcas de agua de señal de audio",
+    "Périmètre des filigranes de signal audio",
+    "Prüfumfang für Audiosignal-Wasserzeichen",
+    "Âmbito de marcas de água de sinal de áudio",
+    "Область оценки водяных знаков аудиосигнала"
+  ],
+  "MP3 frame verification coverage": [
+    "MP3フレームの検証範囲",
+    "MP3 프레임 검증 범위",
+    "Alcance de verificación de tramas MP3",
+    "Périmètre de vérification des trames MP3",
+    "Prüfumfang für MP3-Frames",
+    "Âmbito de verificação de frames MP3",
+    "Область проверки кадров MP3"
+  ],
+  "Media EXIF metadata": [
+    "メディアのEXIFメタデータ",
+    "미디어 EXIF 메타데이터",
+    "Metadatos EXIF de medios",
+    "Métadonnées EXIF du média",
+    "Medien-EXIF-Metadaten",
+    "Metadados EXIF de multimédia",
+    "Метаданные EXIF медиафайла"
+  ],
+  "Media author fields": [
+    "メディアの作者フィールド",
+    "미디어 작성자 필드",
+    "Campos de autor de medios",
+    "Champs d’auteur du média",
+    "Medien-Autorenfelder",
+    "Campos de autor de multimédia",
+    "Поля автора медиафайла"
+  ],
+  "Media time fields": [
+    "メディアの日時フィールド",
+    "미디어 시간 필드",
+    "Campos de fecha de medios",
+    "Champs de date du média",
+    "Medien-Zeitfelder",
+    "Campos de data de multimédia",
+    "Поля времени медиафайла"
+  ],
+  "Media device fields": [
+    "メディアのデバイスフィールド",
+    "미디어 기기 필드",
+    "Campos de dispositivo de medios",
+    "Champs d’appareil du média",
+    "Medien-Gerätefelder",
+    "Campos de dispositivo de multimédia",
+    "Поля устройства медиафайла"
+  ],
+  "Media location fields": [
+    "メディアの位置フィールド",
+    "미디어 위치 필드",
+    "Campos de ubicación de medios",
+    "Champs de localisation du média",
+    "Medien-Standortfelder",
+    "Campos de localização de multimédia",
+    "Поля местоположения медиафайла"
+  ],
+  "Media software fields": [
+    "メディアのソフトウェアフィールド",
+    "미디어 소프트웨어 필드",
+    "Campos de software de medios",
+    "Champs de logiciel du média",
+    "Medien-Softwarefelder",
+    "Campos de software de multimédia",
+    "Поля программного обеспечения медиафайла"
+  ],
+  "Media software and display names": [
+    "メディアのソフトウェア名と表示名",
+    "미디어 소프트웨어 및 표시 이름",
+    "Software y nombres visibles de medios",
+    "Logiciels et noms affichés du média",
+    "Medien-Software und Anzeigenamen",
+    "Software e nomes de apresentação de multimédia",
+    "ПО и отображаемые имена медиафайла"
+  ],
+  "Retained linked-media identifiers": [
+    "保持された関連メディア識別子",
+    "보존된 연결 미디어 식별자",
+    "Identificadores de medios vinculados conservados",
+    "Identifiants de médias liés conservés",
+    "Erhaltene Kennungen verknüpfter Medien",
+    "Identificadores de multimédia associado preservados",
+    "Сохранённые идентификаторы связанных медиафайлов"
+  ],
+  "Media identifier fields": [
+    "メディアの識別子フィールド",
+    "미디어 식별자 필드",
+    "Campos de identificador de medios",
+    "Champs d’identifiant du média",
+    "Medien-Kennungsfelder",
+    "Campos de identificador de multimédia",
+    "Поля идентификаторов медиафайла"
+  ],
+  "Media XMP metadata": [
+    "メディアのXMPメタデータ",
+    "미디어 XMP 메타데이터",
+    "Metadatos XMP de medios",
+    "Métadonnées XMP du média",
+    "Medien-XMP-Metadaten",
+    "Metadados XMP de multimédia",
+    "Метаданные XMP медиафайла"
+  ],
+  "Media container audit scope": [
+    "メディアコンテナの監査範囲",
+    "미디어 컨테이너 감사 범위",
+    "Alcance de auditoría del contenedor multimedia",
+    "Périmètre d’audit du conteneur multimédia",
+    "Prüfumfang des Mediencontainers",
+    "Âmbito de auditoria do contentor multimédia",
+    "Область аудита медиаконтейнера"
+  ],
+  "Media metadata structures": [
+    "メディアのメタデータ構造",
+    "미디어 메타데이터 구조",
+    "Estructuras de metadatos de medios",
+    "Structures de métadonnées du média",
+    "Medien-Metadatenstrukturen",
+    "Estruturas de metadados de multimédia",
+    "Структуры метаданных медиафайла"
+  ],
+  "Media private structure clues": [
+    "メディアの独自構造の手掛かり",
+    "미디어 비공개 구조 단서",
+    "Indicios de estructuras privadas de medios",
+    "Indices de structures privées du média",
+    "Hinweise auf private Medienstrukturen",
+    "Indícios de estruturas privadas de multimédia",
+    "Признаки частных структур медиафайла"
+  ],
+  "EXIF metadata": [
+    "EXIFメタデータ",
+    "EXIF 메타데이터",
+    "Metadatos EXIF",
+    "Métadonnées EXIF",
+    "EXIF-Metadaten",
+    "Metadados EXIF",
+    "Метаданные EXIF"
+  ],
+  "GPS location fields": [
+    "GPS位置フィールド",
+    "GPS 위치 필드",
+    "Campos de ubicación GPS",
+    "Champs de localisation GPS",
+    "GPS-Standortfelder",
+    "Campos de localização GPS",
+    "Поля местоположения GPS"
+  ],
+  "Device and identity fields": [
+    "デバイスと識別情報のフィールド",
+    "기기 및 신원 필드",
+    "Campos de dispositivo e identidad",
+    "Champs d’appareil et d’identité",
+    "Geräte- und Identitätsfelder",
+    "Campos de dispositivo e identidade",
+    "Поля устройства и идентификации"
+  ],
+  "XMP metadata": [
+    "XMPメタデータ",
+    "XMP 메타데이터",
+    "Metadatos XMP",
+    "Métadonnées XMP",
+    "XMP-Metadaten",
+    "Metadados XMP",
+    "Метаданные XMP"
+  ],
+  "IPTC metadata": [
+    "IPTCメタデータ",
+    "IPTC 메타데이터",
+    "Metadatos IPTC",
+    "Métadonnées IPTC",
+    "IPTC-Metadaten",
+    "Metadados IPTC",
+    "Метаданные IPTC"
+  ],
+  "JPEG comment": [
+    "JPEGコメント",
+    "JPEG 주석",
+    "Comentario JPEG",
+    "Commentaire JPEG",
+    "JPEG-Kommentar",
+    "Comentário JPEG",
+    "Комментарий JPEG"
+  ],
+  "ICC color profile": [
+    "ICCカラープロファイル",
+    "ICC 색상 프로필",
+    "Perfil de color ICC",
+    "Profil colorimétrique ICC",
+    "ICC-Farbprofil",
+    "Perfil de cor ICC",
+    "Цветовой профиль ICC"
+  ],
+  "Photoshop resources": [
+    "Photoshopリソース",
+    "Photoshop 리소스",
+    "Recursos de Photoshop",
+    "Ressources Photoshop",
+    "Photoshop-Ressourcen",
+    "Recursos do Photoshop",
+    "Ресурсы Photoshop"
+  ],
+  "JPEG thumbnail": [
+    "JPEGサムネイル",
+    "JPEG 썸네일",
+    "Miniatura JPEG",
+    "Miniature JPEG",
+    "JPEG-Vorschaubild",
+    "Miniatura JPEG",
+    "Миниатюра JPEG"
+  ],
+  "Unknown JPEG application segment": [
+    "未知のJPEGアプリケーションセグメント",
+    "알 수 없는 JPEG 애플리케이션 세그먼트",
+    "Segmento de aplicación JPEG desconocido",
+    "Segment d’application JPEG inconnu",
+    "Unbekanntes JPEG-Anwendungssegment",
+    "Segmento de aplicação JPEG desconhecido",
+    "Неизвестный сегмент приложения JPEG"
+  ],
+  "Trailing data": [
+    "末尾の追加データ",
+    "파일 끝의 추가 데이터",
+    "Datos finales adicionales",
+    "Données ajoutées en fin de fichier",
+    "Angehängte Daten",
+    "Dados adicionais no final",
+    "Добавленные данные в конце файла"
+  ],
+  "Provenance container": [
+    "来歴情報コンテナ",
+    "출처 정보 컨테이너",
+    "Contenedor de procedencia",
+    "Conteneur de provenance",
+    "Herkunftscontainer",
+    "Contentor de proveniência",
+    "Контейнер данных происхождения"
+  ],
+  "PNG text metadata": [
+    "PNGテキストメタデータ",
+    "PNG 텍스트 메타데이터",
+    "Metadatos de texto PNG",
+    "Métadonnées textuelles PNG",
+    "PNG-Textmetadaten",
+    "Metadados de texto PNG",
+    "Текстовые метаданные PNG"
+  ],
+  "PNG compressed text": [
+    "PNG圧縮テキスト",
+    "PNG 압축 텍스트",
+    "Texto comprimido PNG",
+    "Texte compressé PNG",
+    "Komprimierter PNG-Text",
+    "Texto comprimido PNG",
+    "Сжатый текст PNG"
+  ],
+  "PNG international text": [
+    "PNG国際化テキスト",
+    "PNG 국제화 텍스트",
+    "Texto internacional PNG",
+    "Texte international PNG",
+    "Internationaler PNG-Text",
+    "Texto internacional PNG",
+    "Международный текст PNG"
+  ],
+  "PNG modification time": [
+    "PNG変更日時",
+    "PNG 수정 시간",
+    "Fecha de modificación PNG",
+    "Date de modification PNG",
+    "PNG-Änderungszeit",
+    "Data de modificação PNG",
+    "Время изменения PNG"
+  ],
+  "APNG animation": [
+    "APNGアニメーション",
+    "APNG 애니메이션",
+    "Animación APNG",
+    "Animation APNG",
+    "APNG-Animation",
+    "Animação APNG",
+    "Анимация APNG"
+  ],
+  "Unknown PNG ancillary chunk": [
+    "未知のPNG補助チャンク",
+    "알 수 없는 PNG 보조 청크",
+    "Bloque auxiliar PNG desconocido",
+    "Bloc auxiliaire PNG inconnu",
+    "Unbekannter PNG-Zusatzblock",
+    "Bloco auxiliar PNG desconhecido",
+    "Неизвестный вспомогательный блок PNG"
+  ],
+  "ZIP timestamps and metadata": [
+    "ZIPタイムスタンプとメタデータ",
+    "ZIP 타임스탬프 및 메타데이터",
+    "Fechas y metadatos ZIP",
+    "Horodatages et métadonnées ZIP",
+    "ZIP-Zeitstempel und Metadaten",
+    "Datas e metadados ZIP",
+    "Временные отметки и метаданные ZIP"
+  ],
+  "Office signature or macro": [
+    "Office署名またはマクロ",
+    "Office 서명 또는 매크로",
+    "Firma o macro de Office",
+    "Signature ou macro Office",
+    "Office-Signatur oder -Makro",
+    "Assinatura ou macro do Office",
+    "Подпись или макрос Office"
+  ],
+  "External links and relationships": [
+    "外部リンクとリレーションシップ",
+    "외부 링크 및 관계",
+    "Enlaces y relaciones externos",
+    "Liens et relations externes",
+    "Externe Links und Beziehungen",
+    "Ligações e relações externas",
+    "Внешние ссылки и связи"
+  ],
+  "Office comments": [
+    "Officeコメント",
+    "Office 메모",
+    "Comentarios de Office",
+    "Commentaires Office",
+    "Office-Kommentare",
+    "Comentários do Office",
+    "Комментарии Office"
+  ],
+  "Tracked revisions": [
+    "変更履歴",
+    "수정 기록",
+    "Revisiones registradas",
+    "Révisions suivies",
+    "Nachverfolgte Änderungen",
+    "Revisões registadas",
+    "Отслеживаемые исправления"
+  ],
+  "Hidden document content": [
+    "文書の非表示内容",
+    "숨겨진 문서 내용",
+    "Contenido oculto del documento",
+    "Contenu masqué du document",
+    "Verborgene Dokumentinhalte",
+    "Conteúdo oculto do documento",
+    "Скрытое содержимое документа"
+  ],
+  "Embedded objects": [
+    "埋め込みオブジェクト",
+    "포함된 개체",
+    "Objetos incrustados",
+    "Objets incorporés",
+    "Eingebettete Objekte",
+    "Objetos incorporados",
+    "Встроенные объекты"
+  ],
+  "Embedded media and thumbnails": [
+    "埋め込みメディアとサムネイル",
+    "포함된 미디어 및 썸네일",
+    "Medios y miniaturas incrustados",
+    "Médias et miniatures incorporés",
+    "Eingebettete Medien und Vorschaubilder",
+    "Multimédia e miniaturas incorporados",
+    "Встроенные медиафайлы и миниатюры"
+  ],
+  "Custom XML parts": [
+    "カスタムXMLパーツ",
+    "사용자 지정 XML 구성 요소",
+    "Partes XML personalizadas",
+    "Parties XML personnalisées",
+    "Benutzerdefinierte XML-Teile",
+    "Partes XML personalizadas",
+    "Пользовательские компоненты XML"
+  ],
+  "Unrecognized property content": [
+    "未認識のプロパティ内容",
+    "인식되지 않은 속성 내용",
+    "Contenido de propiedad no reconocido",
+    "Contenu de propriété non reconnu",
+    "Nicht erkannter Eigenschaftsinhalt",
+    "Conteúdo de propriedade não reconhecido",
+    "Нераспознанное содержимое свойства"
+  ],
+  "Unknown Office package part": [
+    "未知のOfficeパッケージパーツ",
+    "알 수 없는 Office 패키지 구성 요소",
+    "Parte desconocida del paquete Office",
+    "Partie inconnue du paquet Office",
+    "Unbekannter Office-Paketteil",
+    "Parte desconhecida do pacote Office",
+    "Неизвестный компонент пакета Office"
+  ],
+  "Office custom properties": [
+    "Officeカスタムプロパティ",
+    "Office 사용자 지정 속성",
+    "Propiedades personalizadas de Office",
+    "Propriétés personnalisées Office",
+    "Benutzerdefinierte Office-Eigenschaften",
+    "Propriedades personalizadas do Office",
+    "Пользовательские свойства Office"
+  ],
+  "macOS resource fork": [
+    "macOSリソースフォーク",
+    "macOS 리소스 포크",
+    "Bifurcación de recursos de macOS",
+    "Fourche de ressources macOS",
+    "macOS-Resource-Fork",
+    "Resource fork do macOS",
+    "Ресурсная ветвь macOS"
+  ],
+  "macOS quarantine marker": [
+    "macOS隔離マーカー",
+    "macOS 격리 표시",
+    "Marcador de cuarentena de macOS",
+    "Marqueur de quarantaine macOS",
+    "macOS-Quarantänemarkierung",
+    "Marcador de quarentena do macOS",
+    "Метка карантина macOS"
+  ],
+  "Windows Mark-of-the-Web": [
+    "Windows Mark-of-the-Web",
+    "Windows Mark-of-the-Web",
+    "Mark-of-the-Web de Windows",
+    "Mark-of-the-Web Windows",
+    "Windows-Mark-of-the-Web",
+    "Mark-of-the-Web do Windows",
+    "Windows Mark-of-the-Web"
+  ],
+  "Download-origin attribute": [
+    "ダウンロード元の属性",
+    "다운로드 출처 속성",
+    "Atributo de origen de descarga",
+    "Attribut d’origine du téléchargement",
+    "Download-Herkunftsattribut",
+    "Atributo de origem da transferência",
+    "Атрибут источника загрузки"
+  ],
+  "Download-date attribute": [
+    "ダウンロード日時の属性",
+    "다운로드 날짜 속성",
+    "Atributo de fecha de descarga",
+    "Attribut de date du téléchargement",
+    "Download-Datumsattribut",
+    "Atributo de data da transferência",
+    "Атрибут даты загрузки"
+  ],
+  "Last-use timestamp attribute": [
+    "最終使用日時の属性",
+    "마지막 사용 시간 속성",
+    "Atributo de fecha de último uso",
+    "Attribut de date de dernière utilisation",
+    "Attribut der letzten Nutzungszeit",
+    "Atributo de data da última utilização",
+    "Атрибут времени последнего использования"
+  ],
+  "Platform extended attribute": [
+    "プラットフォームの拡張属性",
+    "플랫폼 확장 속성",
+    "Atributo extendido de plataforma",
+    "Attribut étendu de la plateforme",
+    "Erweitertes Plattformattribut",
+    "Atributo alargado da plataforma",
+    "Расширенный атрибут платформы"
+  ],
+  "Text byte-order mark": [
+    "テキストのバイト順マーク",
+    "텍스트 바이트 순서 표시",
+    "Marca de orden de bytes del texto",
+    "Marque d’ordre des octets du texte",
+    "Byte-Reihenfolgemarkierung im Text",
+    "Marca de ordem dos bytes do texto",
+    "Метка порядка байтов текста"
+  ],
+  "Invisible Unicode character": [
+    "不可視Unicode文字",
+    "보이지 않는 Unicode 문자",
+    "Carácter Unicode invisible",
+    "Caractère Unicode invisible",
+    "Unsichtbares Unicode-Zeichen",
+    "Caráter Unicode invisível",
+    "Невидимый символ Unicode"
+  ],
+  "Control character": [
+    "制御文字",
+    "제어 문자",
+    "Carácter de control",
+    "Caractère de contrôle",
+    "Steuerzeichen",
+    "Caráter de controlo",
+    "Управляющий символ"
+  ],
+  "HTML comment marker": [
+    "HTMLコメントの手掛かり",
+    "HTML 주석 표시",
+    "Marcador de comentario HTML",
+    "Marqueur de commentaire HTML",
+    "HTML-Kommentarmarkierung",
+    "Marcador de comentário HTML",
+    "Маркер комментария HTML"
+  ],
+  "HTML metadata tag candidate": [
+    "HTMLメタデータタグの候補",
+    "HTML 메타데이터 태그 후보",
+    "Posible etiqueta de metadatos HTML",
+    "Balise de métadonnées HTML potentielle",
+    "Kandidat für HTML-Metadaten-Tag",
+    "Possível etiqueta de metadados HTML",
+    "Возможный тег метаданных HTML"
+  ],
+  "Statistical watermark coverage": [
+    "統計的水印の検証範囲",
+    "통계적 워터마크 평가 범위",
+    "Cobertura de marcas de agua estadísticas",
+    "Périmètre des filigranes statistiques",
+    "Prüfumfang für statistische Wasserzeichen",
+    "Âmbito de marcas de água estatísticas",
+    "Область оценки статистических водяных знаков"
+  ],
+  "Unknown content watermark coverage": [
+    "未知の内容水印の検証範囲",
+    "알 수 없는 콘텐츠 워터마크 평가 범위",
+    "Cobertura de marcas de agua de contenido desconocidas",
+    "Périmètre des filigranes de contenu inconnus",
+    "Prüfumfang für unbekannte Inhaltswasserzeichen",
+    "Âmbito de marcas de água de conteúdo desconhecidas",
+    "Область оценки неизвестных водяных знаков содержимого"
+  ],
+  "Media signal watermark coverage": [
+    "メディア信号水印の検証範囲",
+    "미디어 신호 워터마크 평가 범위",
+    "Cobertura de marcas de agua de señal multimedia",
+    "Périmètre des filigranes de signal multimédia",
+    "Prüfumfang für Mediensignal-Wasserzeichen",
+    "Âmbito de marcas de água de sinal multimédia",
+    "Область оценки водяных знаков медиасигнала"
+  ],
+  "Format support limitation": [
+    "形式サポートの制限",
+    "형식 지원 제한",
+    "Limitación de soporte del formato",
+    "Limite de prise en charge du format",
+    "Einschränkung der Formatunterstützung",
+    "Limitação de suporte do formato",
+    "Ограничение поддержки формата"
+  ],
+  "creator": [
+    "作者",
+    "작성자",
+    "Autor",
+    "Auteur",
+    "Autor",
+    "Autor",
+    "Автор"
+  ],
+  "lastModifiedBy": [
+    "最終変更者",
+    "마지막 수정자",
+    "Última modificación por",
+    "Dernière modification par",
+    "Zuletzt geändert von",
+    "Última modificação por",
+    "Последний редактор"
+  ],
+  "created": [
+    "作成日時",
+    "생성 시간",
+    "Fecha de creación",
+    "Date de création",
+    "Erstellungszeit",
+    "Data de criação",
+    "Время создания"
+  ],
+  "modified": [
+    "変更日時",
+    "수정 시간",
+    "Fecha de modificación",
+    "Date de modification",
+    "Änderungszeit",
+    "Data de modificação",
+    "Время изменения"
+  ],
+  "title": [
+    "タイトル",
+    "제목",
+    "Título",
+    "Titre",
+    "Titel",
+    "Título",
+    "Название"
+  ],
+  "subject": [
+    "件名",
+    "주제",
+    "Asunto",
+    "Sujet",
+    "Betreff",
+    "Assunto",
+    "Тема"
+  ],
+  "description": [
+    "説明",
+    "설명",
+    "Descripción",
+    "Description",
+    "Beschreibung",
+    "Descrição",
+    "Описание"
+  ],
+  "keywords": [
+    "キーワード",
+    "키워드",
+    "Palabras clave",
+    "Mots-clés",
+    "Schlüsselwörter",
+    "Palavras-chave",
+    "Ключевые слова"
+  ],
+  "category": [
+    "分類",
+    "분류",
+    "Categoría",
+    "Catégorie",
+    "Kategorie",
+    "Categoria",
+    "Категория"
+  ],
+  "contentStatus": [
+    "内容の状態",
+    "콘텐츠 상태",
+    "Estado del contenido",
+    "État du contenu",
+    "Inhaltsstatus",
+    "Estado do conteúdo",
+    "Состояние содержимого"
+  ],
+  "identifier": [
+    "識別子",
+    "식별자",
+    "Identificador",
+    "Identifiant",
+    "Kennung",
+    "Identificador",
+    "Идентификатор"
+  ],
+  "lastPrinted": [
+    "最終印刷日時",
+    "마지막 인쇄 시간",
+    "Fecha de última impresión",
+    "Date de dernière impression",
+    "Letzte Druckzeit",
+    "Data da última impressão",
+    "Время последней печати"
+  ],
+  "revision": [
+    "リビジョン番号",
+    "수정 번호",
+    "Número de revisión",
+    "Numéro de révision",
+    "Revisionsnummer",
+    "Número de revisão",
+    "Номер редакции"
+  ],
+  "language": [
+    "言語",
+    "언어",
+    "Idioma",
+    "Langue",
+    "Sprache",
+    "Idioma",
+    "Язык"
+  ],
+  "version": [
+    "バージョン",
+    "버전",
+    "Versión",
+    "Version",
+    "Version",
+    "Versão",
+    "Версия"
+  ],
+  "Application": [
+    "編集ソフトウェア",
+    "편집 소프트웨어",
+    "Software de edición",
+    "Logiciel d’édition",
+    "Bearbeitungssoftware",
+    "Software de edição",
+    "Программа редактирования"
+  ],
+  "AppVersion": [
+    "ソフトウェアバージョン",
+    "소프트웨어 버전",
+    "Versión del software",
+    "Version du logiciel",
+    "Softwareversion",
+    "Versão do software",
+    "Версия программы"
+  ],
+  "Company": [
+    "会社",
+    "회사",
+    "Empresa",
+    "Société",
+    "Unternehmen",
+    "Empresa",
+    "Компания"
+  ],
+  "Manager": [
+    "管理者",
+    "관리자",
+    "Responsable",
+    "Responsable",
+    "Verantwortlicher",
+    "Responsável",
+    "Руководитель"
+  ],
+  "Template": [
+    "テンプレート",
+    "서식 파일",
+    "Plantilla",
+    "Modèle",
+    "Vorlage",
+    "Modelo",
+    "Шаблон"
+  ],
+  "TotalTime": [
+    "編集時間",
+    "편집 시간",
+    "Tiempo de edición",
+    "Durée d’édition",
+    "Bearbeitungsdauer",
+    "Tempo de edição",
+    "Время редактирования"
+  ]
+}

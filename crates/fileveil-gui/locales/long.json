@@ -1,0 +1,623 @@
+{
+  "A public fixed-message match establishes the named signal pattern. Copied messages can also match. Cropping, scaling and re-encoding can cause missed detections. Model and personal identity remain unverified.": [
+    "公開された固定メッセージとの一致は、指定された信号パターンを示します。コピーされたメッセージも一致する場合があります。切り抜き、拡大縮小、再エンコードにより検出を逃す場合があります。モデルと個人の同一性は未検証です。",
+    "공개된 고정 메시지와의 일치는 해당 신호 패턴을 나타냅니다. 복사된 메시지도 일치할 수 있습니다. 자르기, 크기 조정, 재인코딩으로 인해 검출을 놓칠 수 있습니다. 모델 및 개인 신원은 검증되지 않았습니다.",
+    "La coincidencia con un mensaje fijo público confirma el patrón de señal indicado. Los mensajes copiados también pueden coincidir. El recorte, el escalado y la recodificación pueden impedir la detección. El modelo y la identidad personal siguen sin verificarse.",
+    "Une correspondance avec un message fixe public confirme le motif de signal indiqué. Les messages copiés peuvent aussi correspondre. Le recadrage, le redimensionnement et le réencodage peuvent empêcher la détection. Le modèle et l’identité personnelle restent non vérifiés.",
+    "Eine Übereinstimmung mit einer öffentlich bekannten festen Nachricht bestätigt das benannte Signalmuster. Auch kopierte Nachrichten können übereinstimmen. Zuschneiden, Skalieren und erneutes Kodieren können die Erkennung verhindern. Modell und persönliche Identität bleiben ungeprüft.",
+    "A correspondência com uma mensagem fixa pública confirma o padrão de sinal indicado. Mensagens copiadas também podem corresponder. Recorte, redimensionamento e recodificação podem impedir a deteção. O modelo e a identidade pessoal continuam por verificar.",
+    "Совпадение с общедоступным фиксированным сообщением подтверждает указанный шаблон сигнала. Скопированные сообщения также могут совпадать. Обрезка, масштабирование и перекодирование могут привести к пропуску водяного знака. Модель и личность человека остаются непроверенными."
+  ],
+  "Analyze pixel differences, RGB low bits, entropy, original-resolution DCT/Haar features and reference-group residuals. Statistics provide research leads. OEM attribution requires independent validation.": [
+    "画素差、RGB下位ビット、エントロピー、元の解像度でのDCT/Haar特徴、参照グループの残差を分析します。統計は研究の手掛かりです。OEMへの帰属には独立した検証が必要です。",
+    "픽셀 차이, RGB 하위 비트, 엔트로피, 원본 해상도의 DCT/Haar 특징 및 참조 그룹 잔차를 분석합니다. 통계는 연구 단서를 제공합니다. OEM 귀속 판단에는 독립적인 검증이 필요합니다.",
+    "Analiza diferencias de píxeles, bits bajos RGB, entropía, características DCT/Haar a resolución original y residuos del grupo de referencia. Las estadísticas aportan indicios para investigar. La atribución a un OEM requiere validación independiente.",
+    "Analyse les différences de pixels, les bits faibles RGB, l’entropie, les caractéristiques DCT/Haar à la résolution d’origine et les résidus du groupe de référence. Les statistiques fournissent des pistes de recherche. L’attribution à un OEM nécessite une validation indépendante.",
+    "Analysiert Pixelunterschiede, niedrige RGB-Bits, Entropie, DCT/Haar-Merkmale in Originalauflösung und Residuen der Referenzgruppe. Die Statistik liefert Forschungsansätze. Eine OEM-Zuordnung erfordert eine unabhängige Validierung.",
+    "Analisa diferenças de píxeis, bits inferiores RGB, entropia, características DCT/Haar na resolução original e resíduos do grupo de referência. As estatísticas fornecem pistas de investigação. A atribuição a um OEM exige validação independente.",
+    "Анализ различий пикселей, младших битов RGB, энтропии, признаков DCT/Haar в исходном разрешении и остатков относительно контрольной группы. Статистика даёт направления для исследования. Для установления производителя OEM нужна независимая проверка."
+  ],
+  "Check signatures, the provenance chain and current content binding offline, with separate trust results.": [
+    "署名、来歴チェーン、現在の内容との結び付きをオフラインで確認し、信頼性は別途報告します。",
+    "서명, 출처 기록 체인 및 현재 콘텐츠와의 연결을 오프라인으로 확인하고 신뢰 결과를 별도로 보고합니다.",
+    "Comprueba sin conexión las firmas, la cadena de procedencia y la vinculación con el contenido actual, con resultados de confianza separados.",
+    "Vérifie hors ligne les signatures, la chaîne de provenance et le lien avec le contenu actuel, avec des résultats de confiance distincts.",
+    "Prüft Signaturen, Herkunftskette und die Bindung an den aktuellen Inhalt offline. Vertrauen wird gesondert bewertet.",
+    "Verifica offline as assinaturas, a cadeia de proveniência e a ligação ao conteúdo atual, com resultados de confiança separados.",
+    "Офлайн-проверка подписей, цепочки происхождения и привязки к текущему содержимому с отдельной оценкой доверия."
+  ],
+  "Choose 2 to 8 samples with clean, encoding and sensor-noise controls. Compare same-device, same-scene and before/after experiments.": [
+    "クリーンな画像、エンコード差、センサーノイズの対照を含む2～8個のサンプルを選択します。同じデバイス、同じ場面、処理前後の実験を比較します。",
+    "깨끗한 이미지, 인코딩 및 센서 노이즈 대조군을 포함한 샘플 2~8개를 선택하세요. 동일 기기, 동일 장면 및 처리 전후 실험을 비교합니다.",
+    "Elige entre 2 y 8 muestras con controles limpios, de codificación y de ruido del sensor. Compara experimentos del mismo dispositivo, de la misma escena y de antes y después.",
+    "Choisissez 2 à 8 échantillons avec des témoins propres, d’encodage et de bruit du capteur. Comparez des expériences sur le même appareil, la même scène et avant/après traitement.",
+    "Wählen Sie 2 bis 8 Proben mit sauberen Kontrollen sowie Kodierungs- und Sensorrauschkontrollen. Vergleichen Sie Versuche mit demselben Gerät, derselben Szene und vor/nach der Verarbeitung.",
+    "Escolha entre 2 e 8 amostras com controlos limpos, de codificação e de ruído do sensor. Compare experiências do mesmo dispositivo, da mesma cena e de antes e depois.",
+    "Выберите от 2 до 8 образцов с чистыми контрольными изображениями, контролями кодирования и шума сенсора. Сравните эксперименты с одним устройством, одной сценой и до/после обработки."
+  ],
+  "Choose the cleanup scope explicitly. Deep can remove document content and history. Each output is checked against the selected scope.": [
+    "クリーンアップの範囲を明示的に選択します。Deepは文書内容や履歴を削除する場合があります。各出力を選択範囲に対して検証します。",
+    "정리 범위를 명시적으로 선택하세요. Deep은 문서 내용과 기록을 삭제할 수 있습니다. 각 출력은 선택한 범위에 따라 검증됩니다.",
+    "Elige explícitamente el alcance de la limpieza. Deep puede eliminar contenido e historial del documento. Cada salida se comprueba según el alcance seleccionado.",
+    "Choisissez explicitement le périmètre du nettoyage. Deep peut supprimer du contenu et l’historique du document. Chaque sortie est vérifiée selon le périmètre choisi.",
+    "Wählen Sie den Bereinigungsumfang ausdrücklich aus. Deep kann Dokumentinhalte und Verlauf entfernen. Jede Ausgabe wird anhand des gewählten Umfangs geprüft.",
+    "Escolha explicitamente o âmbito da limpeza. Deep pode remover conteúdo e histórico do documento. Cada saída é verificada de acordo com o âmbito selecionado.",
+    "Явно выберите область очистки. Deep может удалить содержимое и историю документа. Каждый результат проверяется в выбранных пределах."
+  ],
+  "Clean standard privacy metadata and recognized structural watermarks, then verify retained content. Protected signature structures require an explicit selection.": [
+    "標準的なプライバシーメタデータと認識済みの構造水印を削除し、保持した内容を検証します。保護された署名構造の処理には明示的な選択が必要です。",
+    "표준 개인정보 메타데이터와 인식된 구조적 워터마크를 정리한 뒤 보존된 내용을 검증합니다. 보호된 서명 구조를 처리하려면 명시적으로 선택해야 합니다.",
+    "Limpia los metadatos de privacidad estándar y las marcas de agua estructurales reconocidas, y verifica el contenido conservado. Las estructuras de firma protegidas requieren una selección explícita.",
+    "Nettoie les métadonnées de confidentialité standard et les filigranes structurels reconnus, puis vérifie le contenu conservé. Les structures de signature protégées nécessitent une sélection explicite.",
+    "Bereinigt übliche private Metadaten und erkannte strukturelle Wasserzeichen und prüft anschließend den erhaltenen Inhalt. Geschützte Signaturstrukturen erfordern eine ausdrückliche Auswahl.",
+    "Limpa metadados de privacidade padrão e marcas de água estruturais reconhecidas e verifica o conteúdo preservado. As estruturas de assinatura protegidas exigem uma seleção explícita.",
+    "Очистка стандартных конфиденциальных метаданных и распознанных структурных водяных знаков с проверкой сохранённого содержимого. Для обработки защищённых структур подписи нужен явный выбор."
+  ],
+  "Clear the selected number of least-significant bits in each RGB channel while retaining alpha transparency. Output is PNG.": [
+    "各RGBチャンネルの指定数の最下位ビットをゼロにし、アルファ透明度を保持します。出力形式はPNGです。",
+    "알파 투명도를 유지하면서 각 RGB 채널에서 선택한 수만큼의 최하위 비트를 0으로 지웁니다. 출력 형식은 PNG입니다.",
+    "Pone a cero el número seleccionado de bits menos significativos de cada canal RGB y conserva la transparencia alfa. La salida es PNG.",
+    "Met à zéro le nombre choisi de bits de poids faible dans chaque canal RGB tout en conservant la transparence alpha. La sortie est au format PNG.",
+    "Setzt die gewählte Anzahl niederwertigster Bits jedes RGB-Kanals auf null und erhält die Alpha-Transparenz. Die Ausgabe ist PNG.",
+    "Coloca a zero o número selecionado de bits menos significativos de cada canal RGB e preserva a transparência alfa. A saída é PNG.",
+    "Обнуление выбранного числа младших битов в каждом канале RGB с сохранением альфа-прозрачности. Формат результата — PNG."
+  ],
+  "Create standard Content Credentials with your local certificate and private key. Verification reports certificate trust and revocation separately.": [
+    "ローカルの証明書と秘密鍵で標準のContent Credentialsを作成します。検証では証明書の信頼性と失効状態を別々に報告します。",
+    "로컬 인증서와 개인 키로 표준 Content Credentials를 생성합니다. 검증 시 인증서 신뢰와 폐기 상태를 별도로 보고합니다.",
+    "Crea Content Credentials estándar con tu certificado y clave privada locales. La verificación informa por separado de la confianza del certificado y de su revocación.",
+    "Crée des Content Credentials standard avec votre certificat et votre clé privée locaux. La vérification indique séparément la confiance du certificat et son état de révocation.",
+    "Erstellt standardkonforme Content Credentials mit Ihrem lokalen Zertifikat und privaten Schlüssel. Die Prüfung meldet Zertifikatsvertrauen und Sperrstatus gesondert.",
+    "Cria Content Credentials padrão com o seu certificado e chave privada locais. A verificação comunica separadamente a confiança do certificado e o estado de revogação.",
+    "Создание стандартных Content Credentials с локальным сертификатом и закрытым ключом. При проверке доверие к сертификату и статус отзыва указываются отдельно."
+  ],
+  "Detect public Stable Diffusion / SDXL image watermarks and the FileVeil synthetic LSB protocol offline. Each method has its own result and retest scope.": [
+    "公開されたStable Diffusion / SDXL画像水印とFileVeilの合成LSBプロトコルをオフラインで検出します。各手法の結果と再検査範囲は個別に示されます。",
+    "공개된 Stable Diffusion / SDXL 이미지 워터마크와 FileVeil 합성 LSB 프로토콜을 오프라인으로 검출합니다. 각 방법에는 개별 결과와 재검사 범위가 있습니다.",
+    "Detecta sin conexión marcas de agua de imagen públicas de Stable Diffusion / SDXL y el protocolo LSB sintético de FileVeil. Cada método tiene su propio resultado y alcance de repetición.",
+    "Détecte hors ligne les filigranes d’image publics de Stable Diffusion / SDXL et le protocole LSB synthétique de FileVeil. Chaque méthode a son résultat et son périmètre de contre-vérification.",
+    "Erkennt öffentliche Stable-Diffusion-/SDXL-Bildwasserzeichen und das synthetische LSB-Protokoll von FileVeil offline. Jede Methode hat ein eigenes Ergebnis und einen eigenen Nachprüfungsumfang.",
+    "Deteta offline marcas de água de imagem públicas de Stable Diffusion / SDXL e o protocolo LSB sintético do FileVeil. Cada método tem o seu resultado e âmbito de repetição da deteção.",
+    "Офлайн-обнаружение общедоступных водяных знаков изображений Stable Diffusion / SDXL и синтетического протокола LSB FileVeil. Для каждого метода отдельно указаны результат и область повторной проверки."
+  ],
+  "Detection covers the named protocol. A negative result leaves other watermarks unknown. Message digests do not authenticate an author or device.": [
+    "検出対象は指定されたプロトコルです。陰性結果でも他の水印の有無は不明です。メッセージダイジェストは作者やデバイスの認証にはなりません。",
+    "검출은 명시된 프로토콜을 대상으로 합니다. 음성 결과여도 다른 워터마크의 존재 여부는 알 수 없습니다. 메시지 다이제스트는 작성자나 기기를 인증하지 않습니다.",
+    "La detección cubre el protocolo indicado. Un resultado negativo deja sin determinar otras marcas de agua. Los resúmenes de mensajes no autentican al autor ni al dispositivo.",
+    "La détection couvre le protocole indiqué. Un résultat négatif laisse la présence d’autres filigranes indéterminée. Les empreintes de messages n’authentifient ni un auteur ni un appareil.",
+    "Die Erkennung umfasst das benannte Protokoll. Bei einem negativen Ergebnis bleiben andere Wasserzeichen ungeklärt. Nachrichtenprüfsummen authentifizieren weder Autoren noch Geräte.",
+    "A deteção abrange o protocolo indicado. Um resultado negativo deixa outras marcas de água por determinar. Os resumos de mensagens não autenticam autores ou dispositivos.",
+    "Обнаружение охватывает указанный протокол. Отрицательный результат оставляет наличие других водяных знаков неизвестным. Хеши сообщений не удостоверяют автора или устройство."
+  ],
+  "Engine 2 uses keyed carriers and error correction. Its default pixel key is derived from the custodian key. Explicitly select the same key when verifying.": [
+    "Engine 2は鍵で決定する埋め込み位置と誤り訂正を使用します。既定の画素キーは管理者キーから導出します。検証時には同じキーを明示的に選択してください。",
+    "Engine 2는 키 기반 반송파와 오류 정정을 사용합니다. 기본 픽셀 키는 보관 책임자 키에서 파생됩니다. 검증할 때 동일한 키를 명시적으로 선택하세요.",
+    "Engine 2 utiliza portadoras determinadas por clave y corrección de errores. Su clave de píxeles predeterminada se deriva de la clave del custodio. Selecciona explícitamente la misma clave al verificar.",
+    "Engine 2 utilise des porteuses déterminées par clé et une correction d’erreurs. Sa clé de pixels par défaut est dérivée de la clé du dépositaire. Sélectionnez explicitement la même clé lors de la vérification.",
+    "Engine 2 verwendet schlüsselabhängige Träger und Fehlerkorrektur. Der standardmäßige Pixelschlüssel wird vom Schlüssel des Verwahrers abgeleitet. Wählen Sie bei der Prüfung ausdrücklich denselben Schlüssel aus.",
+    "Engine 2 utiliza portadoras determinadas por chave e correção de erros. A chave de píxeis predefinida deriva da chave do custodiante. Selecione explicitamente a mesma chave ao verificar.",
+    "Engine 2 использует носители, определяемые ключом, и коррекцию ошибок. Ключ пиксельного водяного знака по умолчанию выводится из ключа хранителя. При проверке явно выберите тот же ключ."
+  ],
+  "Inspect signed creation, modification, issue and transfer records. A reference file can match the pixel marker to a work identifier.": [
+    "署名付きの作成、変更、発行、引き渡し記録を確認します。参照ファイルを使って画素マーカーを作品IDと照合できます。",
+    "서명된 생성, 수정, 발행 및 인계 기록을 확인합니다. 참조 파일을 사용해 픽셀 마커를 작품 식별자와 대조할 수 있습니다.",
+    "Inspecciona registros firmados de creación, modificación, emisión y transferencia. Un archivo de referencia permite relacionar el marcador de píxeles con un identificador de obra.",
+    "Consulte les enregistrements signés de création, modification, émission et transfert. Un fichier de référence permet de relier le marqueur de pixels à un identifiant d’œuvre.",
+    "Untersucht signierte Erstellungs-, Änderungs-, Ausgabe- und Übergabeprotokolle. Eine Referenzdatei kann den Pixelmarker einer Werkkennung zuordnen.",
+    "Inspeciona registos assinados de criação, modificação, emissão e transferência. Um ficheiro de referência permite associar o marcador de píxeis a um identificador de obra.",
+    "Просмотр подписанных записей о создании, изменении, выпуске и передаче. Эталонный файл позволяет сопоставить пиксельный маркер с идентификатором произведения."
+  ],
+  "Low-bit clearing, resizing, smoothing and re-encoding change pixels. Reports retain parameters, measured differences and method-specific detector retests.": [
+    "下位ビットの消去、拡大縮小、平滑化、再エンコードは画素を変更します。レポートにはパラメーター、測定した差、手法別の検出器再検査を記録します。",
+    "하위 비트 지우기, 크기 조정, 평활화 및 재인코딩은 픽셀을 변경합니다. 보고서에는 매개변수, 측정된 차이 및 방법별 검출기 재검사 결과가 기록됩니다.",
+    "El borrado de bits bajos, el cambio de tamaño, el suavizado y la recodificación modifican los píxeles. Los informes conservan parámetros, diferencias medidas y nuevas pruebas de los detectores de cada método.",
+    "L’effacement des bits faibles, le redimensionnement, le lissage et le réencodage modifient les pixels. Les rapports conservent les paramètres, les différences mesurées et les contre-vérifications propres à chaque détecteur.",
+    "Das Löschen niedriger Bits, Skalieren, Glätten und erneutes Kodieren verändert Pixel. Berichte enthalten Parameter, gemessene Unterschiede und methodenspezifische Detektornachprüfungen.",
+    "A limpeza dos bits inferiores, o redimensionamento, a suavização e a recodificação alteram os píxeis. Os relatórios conservam parâmetros, diferenças medidas e novas verificações dos detetores de cada método.",
+    "Обнуление младших битов, масштабирование, сглаживание и перекодирование изменяют пиксели. Отчёты сохраняют параметры, измеренные различия и результаты повторных проверок соответствующими детекторами."
+  ],
+  "Measure marker detection after in-memory re-encoding and resizing, and compare selected negative controls.": [
+    "メモリ内での再エンコードと拡大縮小後のマーカー検出を測定し、選択した陰性対照と比較します。",
+    "메모리 내 재인코딩 및 크기 조정 후 마커 검출을 측정하고 선택한 음성 대조군과 비교합니다.",
+    "Mide la detección del marcador tras recodificar y cambiar el tamaño en memoria, y compara los controles negativos seleccionados.",
+    "Mesure la détection du marqueur après réencodage et redimensionnement en mémoire, puis compare les témoins négatifs sélectionnés.",
+    "Misst die Markererkennung nach erneutem Kodieren und Skalieren im Arbeitsspeicher und vergleicht ausgewählte Negativkontrollen.",
+    "Mede a deteção do marcador após recodificação e redimensionamento em memória e compara os controlos negativos selecionados.",
+    "Оценка обнаружения маркера после перекодирования и масштабирования в памяти со сравнением выбранных отрицательных контрольных образцов."
+  ],
+  "NATI uses a threshold policy over the selected issuer keys. The verifier's local policy establishes trust.": [
+    "NATIは選択した発行者キーに対するしきい値ポリシーを使用します。信頼性は検証者のローカルポリシーによって決まります。",
+    "NATI는 선택한 발행자 키에 임계값 정책을 적용합니다. 신뢰는 검증자의 로컬 정책에 따라 결정됩니다.",
+    "NATI aplica una política de umbral a las claves de emisor seleccionadas. La política local del verificador establece la confianza.",
+    "NATI applique une politique de seuil aux clés d’émetteur sélectionnées. La politique locale du vérificateur établit la confiance.",
+    "NATI verwendet eine Schwellenwertrichtlinie für die gewählten Herausgeberschlüssel. Die lokale Richtlinie des Prüfers bestimmt das Vertrauen.",
+    "NATI aplica uma política de limiar às chaves de emissor selecionadas. A política local do verificador estabelece a confiança.",
+    "NATI применяет пороговую политику к выбранным ключам издателей. Доверие определяется локальной политикой проверяющего."
+  ],
+  "Output verification found no corresponding credentials or source references. Their signatures were discarded with the selected credentials.": [
+    "出力の検証では対応する資格情報や出所参照は見つかりませんでした。選択した資格情報とともに、それらの署名も削除されました。",
+    "출력 검증에서 해당 자격 증명이나 출처 참조를 찾지 못했습니다. 선택한 자격 증명과 함께 해당 서명도 삭제되었습니다.",
+    "La verificación de la salida no encontró las credenciales ni las referencias de origen correspondientes. Sus firmas se descartaron junto con las credenciales seleccionadas.",
+    "La vérification de la sortie n’a trouvé ni les justificatifs ni les références de provenance correspondants. Leurs signatures ont été supprimées avec les justificatifs sélectionnés.",
+    "Die Ausgabeprüfung fand keine entsprechenden Herkunftsnachweise oder Quellverweise. Ihre Signaturen wurden mit den ausgewählten Nachweisen entfernt.",
+    "A verificação da saída não encontrou as credenciais ou referências de origem correspondentes. As respetivas assinaturas foram removidas com as credenciais selecionadas.",
+    "При проверке результата соответствующие учётные данные происхождения и ссылки на источник не найдены. Их подписи удалены вместе с выбранными данными происхождения."
+  ],
+  "Pixel and archive budgets constrain decoded images and archive/Lab inputs. They are separate from total process memory.": [
+    "画素数とアーカイブの予算は、デコード画像とアーカイブ/Lab入力を制限します。プロセス全体のメモリとは別の制限です。",
+    "픽셀 및 압축 파일 예산은 디코딩된 이미지와 압축 파일/Lab 입력을 제한합니다. 전체 프로세스 메모리와는 별도의 제한입니다.",
+    "Los límites de píxeles y archivos comprimidos restringen las imágenes decodificadas y las entradas de archivos/Lab. Se gestionan por separado de la memoria total del proceso.",
+    "Les budgets de pixels et d’archives limitent les images décodées et les entrées d’archives/Lab. Ils sont distincts de la mémoire totale du processus.",
+    "Pixel- und Archivbudgets begrenzen dekodierte Bilder und Archiv-/Lab-Eingaben. Sie werden getrennt vom gesamten Prozessspeicher betrachtet.",
+    "Os limites de píxeis e arquivos comprimidos restringem imagens descodificadas e entradas de arquivos/Lab. São independentes da memória total do processo.",
+    "Ограничения пикселей и архивов применяются к декодированным изображениям и входным данным архивов/Lab. Общая память процесса учитывается отдельно."
+  ],
+  "Pixel marking changes the image signal and re-encodes JPEG. Detection and verification run after saving.": [
+    "画素マーカーの埋め込みは画像信号を変更し、JPEGを再エンコードします。保存後に検出と検証を実行します。",
+    "픽셀 마킹은 이미지 신호를 변경하고 JPEG를 재인코딩합니다. 저장 후 검출과 검증을 실행합니다.",
+    "El marcado de píxeles modifica la señal de la imagen y recodifica JPEG. La detección y la verificación se ejecutan después de guardar.",
+    "Le marquage des pixels modifie le signal de l’image et réencode le JPEG. La détection et la vérification sont exécutées après l’enregistrement.",
+    "Pixelmarkierung verändert das Bildsignal und kodiert JPEG erneut. Erkennung und Prüfung erfolgen nach dem Speichern.",
+    "A marcação de píxeis altera o sinal da imagem e recodifica JPEG. A deteção e a verificação são executadas após guardar.",
+    "Встраивание пиксельного маркера изменяет сигнал изображения и перекодирует JPEG. Обнаружение и проверка выполняются после сохранения."
+  ],
+  "Platform decoding was not performed in this run. Unknown vendor fields and signal watermarks retain their reported scope.": [
+    "この実行ではプラットフォームのデコードを行っていません。未知のベンダーフィールドと信号水印には、報告済みの検証範囲が適用されます。",
+    "이번 실행에서는 플랫폼 디코딩을 수행하지 않았습니다. 알 수 없는 공급업체 필드와 신호 워터마크에는 보고된 평가 범위가 적용됩니다.",
+    "No se realizó decodificación de plataforma en esta ejecución. Los campos de fabricante desconocidos y las marcas de agua de señal mantienen el alcance informado.",
+    "Le décodage par la plateforme n’a pas été effectué lors de cette exécution. Les champs fabricant inconnus et les filigranes de signal conservent le périmètre indiqué.",
+    "In diesem Durchlauf wurde keine Plattformdekodierung ausgeführt. Für unbekannte Herstellerfelder und Signalwasserzeichen gilt der angegebene Prüfungsumfang.",
+    "A descodificação da plataforma não foi executada nesta operação. Os campos de fabricante desconhecidos e as marcas de água de sinal mantêm o âmbito comunicado.",
+    "В этом запуске платформенное декодирование не выполнялось. Для неизвестных полей производителя и сигнальных водяных знаков сохраняются указанные пределы оценки."
+  ],
+  "Proprietary text-watermark detection interfaces are unconfigured. Network uploads are disabled by default.": [
+    "専有テキスト水印の検出インターフェースは未設定です。ネットワークへのアップロードは既定で無効です。",
+    "독점 텍스트 워터마크 검출 인터페이스가 설정되지 않았습니다. 네트워크 업로드는 기본적으로 비활성화되어 있습니다.",
+    "Las interfaces de detección de marcas de agua de texto propietarias no están configuradas. Las cargas de datos por red están desactivadas de forma predeterminada.",
+    "Les interfaces de détection des filigranes de texte propriétaires ne sont pas configurées. Les envois de données sur le réseau sont désactivés par défaut.",
+    "Schnittstellen zur Erkennung proprietärer Textwasserzeichen sind nicht konfiguriert. Netzwerk-Uploads sind standardmäßig deaktiviert.",
+    "As interfaces de deteção de marcas de água de texto proprietárias não estão configuradas. Os envios pela rede estão desativados por predefinição.",
+    "Интерфейсы обнаружения проприетарных текстовых водяных знаков не настроены. Передача данных по сети по умолчанию отключена."
+  ],
+  "Queries and responses are exchanged as files. Timestamp validation is offline. Exported copyright evidence includes author and work claims.": [
+    "要求と応答はファイルで交換します。タイムスタンプの検証はオフラインです。書き出す著作権証拠には作者と作品の申告内容が含まれます。",
+    "요청과 응답은 파일로 교환됩니다. 타임스탬프 검증은 오프라인으로 수행됩니다. 내보낸 저작권 증거에는 작성자 및 작품에 대한 주장이 포함됩니다.",
+    "Las consultas y respuestas se intercambian como archivos. La validación de sellos de tiempo es sin conexión. La evidencia de derechos de autor exportada incluye las declaraciones de autor y obra.",
+    "Les requêtes et réponses sont échangées sous forme de fichiers. La validation des horodatages se fait hors ligne. Les preuves de droit d’auteur exportées incluent les déclarations sur l’auteur et l’œuvre.",
+    "Anfragen und Antworten werden als Dateien ausgetauscht. Zeitstempel werden offline geprüft. Exportierte Urheberrechtsnachweise enthalten Angaben zu Autor und Werk.",
+    "As consultas e respostas são trocadas como ficheiros. A validação de carimbos temporais é offline. As provas de direitos de autor exportadas incluem declarações de autor e obra.",
+    "Запросы и ответы передаются в виде файлов. Метки времени проверяются офлайн. Экспортируемые доказательства авторских прав содержат заявления об авторе и произведении."
+  ],
+  "Removing credentials breaks their signed provenance association. Results retain a scoped verification report.": [
+    "資格情報を削除すると、その署名付き来歴との関連が失われます。結果には範囲を限定した検証レポートが残ります。",
+    "자격 증명을 제거하면 서명된 출처 연결이 끊어집니다. 결과에는 범위가 명시된 검증 보고서가 유지됩니다.",
+    "Eliminar las credenciales rompe su asociación de procedencia firmada. Los resultados conservan un informe de verificación con alcance definido.",
+    "La suppression des justificatifs rompt leur lien de provenance signé. Les résultats conservent un rapport de vérification au périmètre défini.",
+    "Das Entfernen von Herkunftsnachweisen löst deren signierte Herkunftszuordnung auf. Die Ergebnisse enthalten einen Prüfbericht mit festgelegtem Umfang.",
+    "A remoção das credenciais quebra a sua associação de proveniência assinada. Os resultados conservam um relatório de verificação com âmbito definido.",
+    "Удаление данных происхождения нарушает их подписанную связь с источником. Результаты сохраняют отчёт с указанными пределами проверки."
+  ],
+  "Resize to 95% and restore the original dimensions, apply Gaussian smoothing with sigma 0.5, then encode and decode JPEG at quality 88. Final output is PNG.": [
+    "95%に縮小して元の寸法に戻し、sigma 0.5のガウシアン平滑化を適用してから、品質88でJPEGのエンコードとデコードを行います。最終出力はPNGです。",
+    "95%로 축소한 뒤 원본 크기로 복원하고 sigma 0.5의 가우시안 평활화를 적용한 다음 품질 88로 JPEG 인코딩 및 디코딩을 수행합니다. 최종 출력은 PNG입니다.",
+    "Reduce al 95% y restaura las dimensiones originales, aplica suavizado gaussiano con sigma 0.5 y luego codifica y decodifica JPEG con calidad 88. La salida final es PNG.",
+    "Réduit à 95 % puis rétablit les dimensions d’origine, applique un lissage gaussien avec sigma 0.5, puis encode et décode en JPEG avec une qualité de 88. La sortie finale est en PNG.",
+    "Skaliert auf 95 % und stellt die Originalabmessungen wieder her, wendet Gauß-Glättung mit Sigma 0.5 an und kodiert und dekodiert anschließend JPEG mit Qualität 88. Die endgültige Ausgabe ist PNG.",
+    "Reduz para 95% e restaura as dimensões originais, aplica suavização gaussiana com sigma 0.5 e depois codifica e descodifica JPEG com qualidade 88. A saída final é PNG.",
+    "Уменьшение до 95% с восстановлением исходных размеров, сглаживание по Гауссу с sigma 0.5, затем кодирование и декодирование JPEG с качеством 88. Итоговый формат — PNG."
+  ],
+  "Results cover these samples and parameters. Device attribution and unknown watermark families require independent evidence.": [
+    "結果はこれらのサンプルとパラメーターに適用されます。デバイスへの帰属や未知の水印群には独立した証拠が必要です。",
+    "결과는 해당 샘플과 매개변수에 적용됩니다. 기기 귀속 판단과 알 수 없는 워터마크 계열에는 독립적인 증거가 필요합니다.",
+    "Los resultados se aplican a estas muestras y parámetros. La atribución a un dispositivo y las familias de marcas de agua desconocidas requieren evidencia independiente.",
+    "Les résultats couvrent ces échantillons et paramètres. L’attribution à un appareil et les familles de filigranes inconnues nécessitent des preuves indépendantes.",
+    "Die Ergebnisse gelten für diese Proben und Parameter. Gerätezuordnung und unbekannte Wasserzeichenfamilien erfordern unabhängige Belege.",
+    "Os resultados abrangem estas amostras e parâmetros. A atribuição a dispositivos e as famílias de marcas de água desconhecidas exigem provas independentes.",
+    "Результаты относятся к этим образцам и параметрам. Для установления устройства и оценки неизвестных семейств водяных знаков нужны независимые доказательства."
+  ],
+  "Selected times are normalized to 2000-01-01 UTC on the new copy. Filesystem journals, snapshots and backups have separate scope.": [
+    "選択した日時は新しいコピーで2000-01-01 UTCに統一されます。ファイルシステムのジャーナル、スナップショット、バックアップは別の範囲です。",
+    "선택한 시간은 새 사본에서 2000-01-01 UTC로 정규화됩니다. 파일 시스템 저널, 스냅샷 및 백업은 별도의 범위에 속합니다.",
+    "Las fechas seleccionadas se normalizan a 2000-01-01 UTC en la nueva copia. Los diarios del sistema de archivos, las instantáneas y las copias de seguridad tienen un alcance separado.",
+    "Les dates sélectionnées sont normalisées au 2000-01-01 UTC sur la nouvelle copie. Les journaux du système de fichiers, instantanés et sauvegardes relèvent d’un périmètre distinct.",
+    "Die gewählten Zeitangaben werden in der neuen Kopie auf 2000-01-01 UTC vereinheitlicht. Dateisystemjournale, Snapshots und Sicherungen haben einen eigenen Geltungsbereich.",
+    "As datas selecionadas são normalizadas para 2000-01-01 UTC na nova cópia. Os diários do sistema de ficheiros, instantâneos e cópias de segurança têm um âmbito separado.",
+    "Выбранные временные отметки в новой копии приводятся к 2000-01-01 UTC. Журналы файловой системы, снимки и резервные копии относятся к отдельной области."
+  ],
+  "Statistics provide research leads. Encoding, sensor noise and ordinary image processing affect these metrics. OEM or device attribution requires independent controls.": [
+    "統計は研究の手掛かりです。エンコード、センサーノイズ、通常の画像処理がこれらの指標に影響します。OEMやデバイスへの帰属には独立した対照が必要です。",
+    "통계는 연구 단서를 제공합니다. 인코딩, 센서 노이즈 및 일반적인 이미지 처리가 이 지표에 영향을 줍니다. OEM 또는 기기 귀속 판단에는 독립적인 대조군이 필요합니다.",
+    "Las estadísticas aportan indicios para investigar. La codificación, el ruido del sensor y el procesamiento habitual de imágenes afectan a estas métricas. La atribución a un OEM o dispositivo requiere controles independientes.",
+    "Les statistiques fournissent des pistes de recherche. L’encodage, le bruit du capteur et les traitements d’image courants influencent ces mesures. L’attribution à un OEM ou à un appareil nécessite des témoins indépendants.",
+    "Die Statistik liefert Forschungsansätze. Kodierung, Sensorrauschen und übliche Bildverarbeitung beeinflussen diese Messwerte. Eine OEM- oder Gerätezuordnung erfordert unabhängige Kontrollen.",
+    "As estatísticas fornecem pistas de investigação. A codificação, o ruído do sensor e o processamento habitual de imagens afetam estas métricas. A atribuição a um OEM ou dispositivo exige controlos independentes.",
+    "Статистика даёт направления для исследования. На показатели влияют кодирование, шум сенсора и обычная обработка изображений. Для установления производителя OEM или устройства нужны независимые контрольные образцы."
+  ],
+  "The copy will lose these source signatures. Other source associations require their corresponding detectors.": [
+    "コピーではこれらの出所署名が失われます。他の出所との関連には、それぞれ対応する検出器が必要です。",
+    "사본에서 이 출처 서명은 사라집니다. 다른 출처 연결을 확인하려면 각각에 해당하는 검출기가 필요합니다.",
+    "La copia perderá estas firmas de origen. Otras asociaciones de origen requieren sus detectores correspondientes.",
+    "La copie perdra ces signatures de provenance. Les autres liens de provenance nécessitent leurs détecteurs respectifs.",
+    "Die Kopie verliert diese Herkunftssignaturen. Weitere Herkunftszuordnungen erfordern die jeweils passenden Detektoren.",
+    "A cópia perderá estas assinaturas de origem. Outras associações de origem exigem os respetivos detetores.",
+    "Копия утратит эти подписи происхождения. Для других связей с источником нужны соответствующие детекторы."
+  ],
+  "The pixel mark and C2PA share work and copy identifiers. A separately authorized Ed25519 watermark key is required.": [
+    "画素マーカーとC2PAは作品IDとコピーIDを共有します。別途使用を許可したEd25519水印キーが必要です。",
+    "픽셀 마커와 C2PA는 작품 및 사본 식별자를 공유합니다. 별도로 사용을 승인한 Ed25519 워터마크 키가 필요합니다.",
+    "El marcador de píxeles y C2PA comparten los identificadores de obra y copia. Se requiere una clave de marca de agua Ed25519 autorizada por separado.",
+    "Le marqueur de pixels et C2PA partagent les identifiants d’œuvre et de copie. Une clé de filigrane Ed25519 autorisée séparément est nécessaire.",
+    "Pixelmarker und C2PA teilen sich Werk- und Kopiekennungen. Ein gesondert autorisierter Ed25519-Wasserzeichenschlüssel ist erforderlich.",
+    "O marcador de píxeis e C2PA partilham os identificadores de obra e cópia. É necessária uma chave de marca de água Ed25519 autorizada separadamente.",
+    "Пиксельный маркер и C2PA используют общие идентификаторы произведения и копии. Требуется отдельно разрешённый ключ водяного знака Ed25519."
+  ],
+  "This run uses local offline detectors. Proprietary text and SynthID detection require applicable keys or service access and were not executed.": [
+    "この実行はローカルのオフライン検出器を使用します。専有テキスト水印とSynthIDの検出には適切なキーまたはサービスへのアクセスが必要なため、実行していません。",
+    "이번 실행은 로컬 오프라인 검출기를 사용합니다. 독점 텍스트 워터마크 및 SynthID 검출에는 해당 키 또는 서비스 접근 권한이 필요하며 이번에는 실행되지 않았습니다.",
+    "Esta ejecución utiliza detectores locales sin conexión. La detección de texto propietario y SynthID requiere las claves o el acceso al servicio aplicables y no se ejecutó.",
+    "Cette exécution utilise des détecteurs locaux hors ligne. La détection des filigranes de texte propriétaires et de SynthID nécessite les clés ou l’accès au service appropriés et n’a pas été exécutée.",
+    "Dieser Durchlauf verwendet lokale Offline-Detektoren. Die Erkennung proprietärer Textwasserzeichen und von SynthID erfordert passende Schlüssel oder Dienstzugriff und wurde nicht ausgeführt.",
+    "Esta operação utiliza detetores locais offline. A deteção de texto proprietário e de SynthID exige as chaves ou o acesso ao serviço aplicáveis e não foi executada.",
+    "Этот запуск использует локальные офлайн-детекторы. Обнаружение проприетарных текстовых водяных знаков и SynthID требует соответствующих ключей или доступа к сервису и не выполнялось."
+  ],
+  "Unknown keyed-watermark detection remains unassessed. Reports cover the selected processing and executable verification.": [
+    "未知の鍵付き水印の検出は未評価です。レポートは選択した処理と実行可能な検証を対象とします。",
+    "알 수 없는 키 기반 워터마크 검출은 평가되지 않았습니다. 보고서는 선택한 처리와 실행 가능한 검증을 다룹니다.",
+    "La detección de marcas de agua desconocidas con clave sigue sin evaluarse. Los informes cubren el procesamiento seleccionado y la verificación que se puede ejecutar.",
+    "La détection des filigranes inconnus à clé reste non évaluée. Les rapports couvrent le traitement sélectionné et les vérifications exécutables.",
+    "Die Erkennung unbekannter schlüsselbasierter Wasserzeichen bleibt ungeprüft. Berichte umfassen die gewählte Verarbeitung und ausführbare Prüfungen.",
+    "A deteção de marcas de água desconhecidas com chave continua por avaliar. Os relatórios abrangem o processamento selecionado e a verificação executável.",
+    "Обнаружение неизвестных водяных знаков с ключом остаётся неоценённым. Отчёты охватывают выбранную обработку и выполнимые проверки."
+  ],
+  "Use a shared group name for same-device or encoding controls, with at least two images per group. Leave empty for sample comparisons.": [
+    "同じデバイスやエンコードの対照には共通のグループ名を使い、各グループに2枚以上の画像を含めます。個別サンプル比較では空欄にします。",
+    "동일 기기 또는 인코딩 대조군에는 공통 그룹 이름을 사용하고 그룹마다 이미지를 2개 이상 포함하세요. 개별 샘플 비교 시에는 비워 두세요.",
+    "Usa un nombre de grupo compartido para controles del mismo dispositivo o de codificación, con al menos dos imágenes por grupo. Déjalo vacío para comparar muestras.",
+    "Utilisez un nom de groupe commun pour les témoins du même appareil ou d’encodage, avec au moins deux images par groupe. Laissez vide pour comparer les échantillons.",
+    "Verwenden Sie einen gemeinsamen Gruppennamen für Kontrollen desselben Geräts oder der Kodierung mit mindestens zwei Bildern je Gruppe. Für Probenvergleiche leer lassen.",
+    "Use um nome de grupo comum para controlos do mesmo dispositivo ou de codificação, com pelo menos duas imagens por grupo. Deixe vazio para comparar amostras.",
+    "Используйте общее имя группы для контролей одного устройства или кодирования, не менее двух изображений в группе. Оставьте пустым для сравнения отдельных образцов."
+  ],
+  "Validate C2PA signatures, asset binding and public image watermarks offline. Choose optional local PEM trust roots. Detection evidence and personal identity links have separate results.": [
+    "C2PA署名、アセットとの結び付き、公開画像水印をオフラインで検証します。必要に応じてローカルのPEMトラストルートを選択します。検出証拠と個人との関連は別々に評価します。",
+    "C2PA 서명, 자산 연결 및 공개 이미지 워터마크를 오프라인으로 검증합니다. 필요에 따라 로컬 PEM 신뢰 루트를 선택하세요. 검출 증거와 개인 신원 연결은 별도로 평가합니다.",
+    "Valida sin conexión firmas C2PA, vinculación del archivo y marcas de agua públicas de imagen. Elige raíces de confianza PEM locales opcionales. La evidencia de detección y los vínculos con la identidad personal tienen resultados separados.",
+    "Valide hors ligne les signatures C2PA, le lien avec le fichier et les filigranes d’image publics. Choisissez éventuellement des racines de confiance PEM locales. Les preuves de détection et les liens avec l’identité personnelle ont des résultats distincts.",
+    "Prüft C2PA-Signaturen, Asset-Bindung und öffentliche Bildwasserzeichen offline. Wählen Sie optional lokale PEM-Vertrauensanker aus. Erkennungsbelege und Verbindungen zur persönlichen Identität werden getrennt bewertet.",
+    "Valida offline assinaturas C2PA, ligação ao ficheiro e marcas de água públicas de imagem. Escolha raízes de confiança PEM locais opcionais. As provas de deteção e as ligações à identidade pessoal têm resultados separados.",
+    "Офлайн-проверка подписей C2PA, привязки к файлу и общедоступных водяных знаков изображений. При необходимости выберите локальные корневые сертификаты доверия PEM. Доказательства обнаружения и связь с личностью оцениваются отдельно."
+  ],
+  "Within-group samples use leave-one-out references. Other samples use the whole reference group. NCC scores are uncalibrated for identity or OEM attribution.": [
+    "グループ内サンプルは、そのサンプルを除外した参照を使用します。他のサンプルは参照グループ全体を使用します。NCC値は個人やOEMへの帰属判定用には校正されていません。",
+    "그룹 내 샘플은 해당 샘플을 제외한 참조를 사용합니다. 다른 샘플은 전체 참조 그룹을 사용합니다. NCC 점수는 신원 또는 OEM 귀속 판단용으로 보정되지 않았습니다.",
+    "Las muestras del grupo usan referencias excluyendo la propia muestra. Las demás usan todo el grupo de referencia. Las puntuaciones NCC no están calibradas para atribuir identidad u OEM.",
+    "Les échantillons du groupe utilisent des références excluant l’échantillon lui-même. Les autres utilisent tout le groupe de référence. Les scores NCC ne sont pas étalonnés pour l’attribution d’identité ou d’OEM.",
+    "Gruppeninterne Proben verwenden Referenzen unter Ausschluss der jeweiligen Probe. Andere Proben verwenden die gesamte Referenzgruppe. NCC-Werte sind für Identitäts- oder OEM-Zuordnungen nicht kalibriert.",
+    "As amostras do grupo usam referências excluindo a própria amostra. As restantes usam todo o grupo de referência. As pontuações NCC não estão calibradas para atribuir identidade ou OEM.",
+    "Для образцов внутри группы эталон строится без самого образца. Для остальных используется вся контрольная группа. Оценки NCC не откалиброваны для установления личности или производителя OEM."
+  ],
+  "ZWJ, ZWNJ and legitimate bidirectional text are preserved. Unsupported complex HTML structures fail safely.": [
+    "ZWJ、ZWNJ、正当な双方向テキストを保持します。未対応の複雑なHTML構造は安全に処理を中止します。",
+    "ZWJ, ZWNJ 및 정상적인 양방향 텍스트를 보존합니다. 지원되지 않는 복잡한 HTML 구조는 안전하게 실패 처리됩니다.",
+    "Se conservan ZWJ, ZWNJ y el texto bidireccional legítimo. Las estructuras HTML complejas no compatibles fallan de forma segura.",
+    "ZWJ, ZWNJ et le texte bidirectionnel légitime sont conservés. Les structures HTML complexes non prises en charge provoquent un arrêt sûr.",
+    "ZWJ, ZWNJ und legitimer bidirektionaler Text bleiben erhalten. Nicht unterstützte komplexe HTML-Strukturen führen zu einem sicheren Abbruch.",
+    "ZWJ, ZWNJ e texto bidirecional legítimo são preservados. Estruturas HTML complexas não suportadas falham de forma segura.",
+    "ZWJ, ZWNJ и корректный двунаправленный текст сохраняются. Неподдерживаемые сложные структуры HTML приводят к безопасному отказу."
+  ],
+  "Add a local Ed25519-signed work record, with an optional image pixel marker.": [
+    "ローカルのEd25519署名付き作品記録を追加します。画像の画素マーカーは任意です。",
+    "로컬 Ed25519 서명 작품 기록을 추가합니다. 이미지 픽셀 마커는 선택 사항입니다.",
+    "Añade un registro de obra firmado localmente con Ed25519 y un marcador de píxeles opcional.",
+    "Ajoute un enregistrement d’œuvre signé localement avec Ed25519 et un marqueur de pixels facultatif.",
+    "Fügt einen lokalen Ed25519-signierten Werkeintrag mit optionalem Bildpixelmarker hinzu.",
+    "Adiciona um registo de obra assinado localmente com Ed25519 e um marcador de píxeis opcional.",
+    "Добавление локальной записи о произведении с подписью Ed25519 и необязательным пиксельным маркером."
+  ],
+  "Assessment covers selected frames. Temporal watermarks and other frames remain unassessed.": [
+    "評価対象は選択したフレームです。時間方向の水印と他のフレームは未評価です。",
+    "선택한 프레임을 평가합니다. 시간축 워터마크와 다른 프레임은 평가되지 않았습니다.",
+    "La evaluación cubre los fotogramas seleccionados. Las marcas de agua temporales y los demás fotogramas siguen sin evaluarse.",
+    "L’évaluation couvre les images sélectionnées. Les filigranes temporels et les autres images restent non évalués.",
+    "Die Bewertung umfasst die ausgewählten Frames. Zeitliche Wasserzeichen und andere Frames bleiben ungeprüft.",
+    "A avaliação abrange os fotogramas selecionados. As marcas de água temporais e os restantes fotogramas continuam por avaliar.",
+    "Оценка охватывает выбранные кадры. Временные водяные знаки и остальные кадры не оценивались."
+  ],
+  "Blind keyed work and copy references with BCH correction and a 96-bit MAC.": [
+    "BCH誤り訂正と96ビットMACを備えた、原画像不要の鍵付き作品・コピー参照です。",
+    "BCH 오류 정정과 96비트 MAC을 사용하는 원본 불필요 키 기반 작품 및 사본 참조입니다.",
+    "Referencias ciegas de obra y copia con clave, corrección BCH y MAC de 96 bits.",
+    "Références d’œuvre et de copie à clé, détectables sans original, avec correction BCH et MAC de 96 bits.",
+    "Blinde schlüsselbasierte Werk- und Kopiereferenzen mit BCH-Korrektur und 96-Bit-MAC.",
+    "Referências cegas de obra e cópia com chave, correção BCH e MAC de 96 bits.",
+    "Слепые ссылки на произведение и копию с ключом, коррекцией BCH и 96-битным MAC."
+  ],
+  "Choose an explicitly authorized watermark key to detect the Engine 2 payload.": [
+    "Engine 2ペイロードの検出に使用を明示的に許可した水印キーを選択します。",
+    "Engine 2 페이로드를 검출할 수 있도록 명시적으로 사용을 승인한 워터마크 키를 선택하세요.",
+    "Elige una clave de marca de agua autorizada explícitamente para detectar la carga de Engine 2.",
+    "Choisissez une clé de filigrane explicitement autorisée pour détecter la charge utile d’Engine 2.",
+    "Wählen Sie einen ausdrücklich autorisierten Wasserzeichenschlüssel zur Erkennung der Engine-2-Nutzdaten.",
+    "Escolha uma chave de marca de água explicitamente autorizada para detetar os dados do Engine 2.",
+    "Выберите явно разрешённый ключ водяного знака для обнаружения данных Engine 2."
+  ],
+  "Cleaning is unavailable for this format or backend. The Files scan records its capability status.": [
+    "この形式またはバックエンドではクリーンアップを利用できません。ファイルのスキャン結果に対応状況を記録します。",
+    "이 형식 또는 백엔드에서는 정리를 사용할 수 없습니다. 파일 스캔에 해당 기능 상태가 기록됩니다.",
+    "La limpieza no está disponible para este formato o backend. El análisis de Archivos registra su estado de capacidad.",
+    "Le nettoyage est indisponible pour ce format ou ce moteur. L’analyse de Fichiers indique son état de prise en charge.",
+    "Bereinigung ist für dieses Format oder Backend nicht verfügbar. Der Scan im Bereich Dateien erfasst den Funktionsstatus.",
+    "A limpeza está indisponível para este formato ou backend. A análise de Ficheiros regista o estado da funcionalidade.",
+    "Очистка недоступна для этого формата или обработчика. Сканирование в разделе «Файлы» указывает статус поддержки."
+  ],
+  "Exported evidence includes the signed author, work and copy claims in full.": [
+    "書き出す証拠には、署名された作者・作品・コピーの申告内容がすべて含まれます。",
+    "내보낸 증거에는 서명된 작성자, 작품 및 사본 주장의 전체 내용이 포함됩니다.",
+    "La evidencia exportada incluye íntegramente las declaraciones firmadas de autor, obra y copia.",
+    "Les preuves exportées incluent l’intégralité des déclarations signées sur l’auteur, l’œuvre et la copie.",
+    "Exportierte Nachweise enthalten die signierten Angaben zu Autor, Werk und Kopie vollständig.",
+    "As provas exportadas incluem integralmente as declarações assinadas de autor, obra e cópia.",
+    "Экспортируемые доказательства полностью содержат подписанные заявления об авторе, произведении и копии."
+  ],
+  "Formula, shared-string, chart and complex revision dependencies report explicit blockers.": [
+    "数式、共有文字列、グラフ、複雑な変更履歴の依存関係による制限を明示的に報告します。",
+    "수식, 공유 문자열, 차트 및 복잡한 수정 기록의 의존성으로 인한 차단 사유를 명확히 보고합니다.",
+    "Las dependencias de fórmulas, cadenas compartidas, gráficos y revisiones complejas indican bloqueos explícitos.",
+    "Les dépendances de formules, chaînes partagées, graphiques et révisions complexes signalent des blocages explicites.",
+    "Abhängigkeiten von Formeln, gemeinsamen Zeichenfolgen, Diagrammen und komplexen Änderungen melden konkrete Sperrgründe.",
+    "As dependências de fórmulas, cadeias partilhadas, gráficos e revisões complexas indicam bloqueios explícitos.",
+    "Для зависимостей формул, общих строк, диаграмм и сложных исправлений явно указываются причины блокировки."
+  ],
+  "Measurements cover these inputs, operations and user-declared negative controls.": [
+    "測定対象はこれらの入力、操作、ユーザーが指定した陰性対照です。",
+    "측정은 해당 입력, 작업 및 사용자가 지정한 음성 대조군을 대상으로 합니다.",
+    "Las mediciones cubren estas entradas, operaciones y controles negativos declarados por el usuario.",
+    "Les mesures couvrent ces entrées, opérations et témoins négatifs déclarés par l’utilisateur.",
+    "Die Messungen umfassen diese Eingaben, Operationen und vom Benutzer angegebenen Negativkontrollen.",
+    "As medições abrangem estas entradas, operações e controlos negativos declarados pelo utilizador.",
+    "Измерения охватывают эти входные данные, операции и указанные пользователем отрицательные контрольные образцы."
+  ],
+  "Offline time is a user assertion. Trusted timestamp authority validation remains unassessed.": [
+    "オフライン日時はユーザーによる申告です。信頼できる時刻認証局による検証は未評価です。",
+    "오프라인 시간은 사용자 주장입니다. 신뢰할 수 있는 타임스탬프 기관의 검증은 평가되지 않았습니다.",
+    "La hora sin conexión es una declaración del usuario. La validación por una autoridad de sellado de tiempo de confianza sigue sin evaluarse.",
+    "L’heure hors ligne est une déclaration de l’utilisateur. La validation par une autorité d’horodatage de confiance reste non évaluée.",
+    "Die Offline-Zeit ist eine Benutzerangabe. Die Prüfung durch eine vertrauenswürdige Zeitstempelstelle bleibt ungeprüft.",
+    "A hora offline é uma declaração do utilizador. A validação por uma autoridade de carimbo temporal de confiança continua por avaliar.",
+    "Офлайн-время является заявлением пользователя. Проверка доверенной службой меток времени не оценивалась."
+  ],
+  "Original Unicode bytes are preserved. Asset binding for non-NFC text cannot be fully verified.": [
+    "元のUnicodeバイト列を保持します。NFC以外のテキストではアセットとの結び付きを完全には検証できません。",
+    "원본 Unicode 바이트를 보존합니다. NFC가 아닌 텍스트는 자산 연결을 완전히 검증할 수 없습니다.",
+    "Se conservan los bytes Unicode originales. La vinculación del archivo para texto no NFC no puede verificarse por completo.",
+    "Les octets Unicode d’origine sont conservés. Le lien avec le fichier pour un texte non NFC ne peut pas être entièrement vérifié.",
+    "Die ursprünglichen Unicode-Bytes bleiben erhalten. Die Asset-Bindung für Nicht-NFC-Text kann nicht vollständig geprüft werden.",
+    "Os bytes Unicode originais são preservados. A ligação ao ficheiro para texto não NFC não pode ser totalmente verificada.",
+    "Исходные байты Unicode сохраняются. Привязку к файлу для текста не в форме NFC нельзя полностью проверить."
+  ],
+  "Public work-reference signal with identity assessed separately.": [
+    "公開の作品参照信号です。同一性は別途評価します。",
+    "공개 작품 참조 신호입니다. 신원은 별도로 평가합니다.",
+    "Señal pública de referencia de obra, con la identidad evaluada por separado.",
+    "Signal public de référence d’œuvre, avec une évaluation distincte de l’identité.",
+    "Öffentliches Werkreferenzsignal mit gesonderter Identitätsbewertung.",
+    "Sinal público de referência de obra, com a identidade avaliada separadamente.",
+    "Общедоступный сигнал ссылки на произведение с отдельной оценкой личности."
+  ],
+  "Public-key SHA-256 identifiers, space-separated for co-signing": [
+    "公開鍵のSHA-256識別子。共同署名の場合はスペースで区切ります",
+    "공개 키 SHA-256 식별자. 공동 서명 시 공백으로 구분하세요",
+    "Identificadores SHA-256 de claves públicas, separados por espacios para cofirmar",
+    "Identifiants SHA-256 de clés publiques, séparés par des espaces pour la cosignature",
+    "SHA-256-Kennungen öffentlicher Schlüssel, für Mitsignaturen durch Leerzeichen getrennt",
+    "Identificadores SHA-256 de chaves públicas, separados por espaços para coassinar",
+    "Идентификаторы SHA-256 открытых ключей, через пробел для совместной подписи"
+  ],
+  "Quarantine, Mark-of-the-Web and protected attributes are preserved. Resource forks block rewriting.": [
+    "Quarantine、Mark-of-the-Web、保護された属性を保持します。リソースフォークがある場合は書き換えを禁止します。",
+    "Quarantine, Mark-of-the-Web 및 보호된 속성을 보존합니다. 리소스 포크가 있으면 재작성이 차단됩니다.",
+    "Se conservan Quarantine, Mark-of-the-Web y los atributos protegidos. Las bifurcaciones de recursos bloquean la reescritura.",
+    "Quarantine, Mark-of-the-Web et les attributs protégés sont conservés. Les fourches de ressources bloquent la réécriture.",
+    "Quarantine, Mark-of-the-Web und geschützte Attribute bleiben erhalten. Resource Forks verhindern das Neuschreiben.",
+    "Quarantine, Mark-of-the-Web e os atributos protegidos são preservados. Os resource forks bloqueiam a reescrita.",
+    "Quarantine, Mark-of-the-Web и защищённые атрибуты сохраняются. Наличие ресурсных ветвей блокирует перезапись."
+  ],
+  "Recognized basic metadata, including author and timestamps, is cleaned during processing.": [
+    "認識された作者情報やタイムスタンプなどの基本メタデータは処理中に削除します。",
+    "작성자와 타임스탬프를 포함한 인식된 기본 메타데이터는 처리 중에 정리됩니다.",
+    "Los metadatos básicos reconocidos, incluidos autor y fechas, se limpian durante el procesamiento.",
+    "Les métadonnées de base reconnues, dont l’auteur et les horodatages, sont nettoyées pendant le traitement.",
+    "Erkannte grundlegende Metadaten wie Autor und Zeitstempel werden bei der Verarbeitung bereinigt.",
+    "Os metadados básicos reconhecidos, incluindo autor e datas, são limpos durante o processamento.",
+    "Распознанные базовые метаданные, включая автора и временные отметки, очищаются при обработке."
+  ],
+  "Recovered work reference does not match the selected reference": [
+    "復元した作品参照が選択した参照と一致しません",
+    "복원된 작품 참조가 선택한 참조와 일치하지 않습니다",
+    "La referencia de obra recuperada no coincide con la referencia seleccionada",
+    "La référence d’œuvre récupérée ne correspond pas à la référence sélectionnée",
+    "Wiederhergestellte Werkreferenz stimmt nicht mit der gewählten Referenz überein",
+    "A referência de obra recuperada não corresponde à referência selecionada",
+    "Восстановленная ссылка на произведение не совпадает с выбранной"
+  ],
+  "Reference recovery and current asset binding are assessed separately.": [
+    "参照の復元と現在のアセットとの結び付きは別々に評価します。",
+    "참조 복원과 현재 자산 연결은 별도로 평가합니다.",
+    "La recuperación de referencias y la vinculación con el archivo actual se evalúan por separado.",
+    "La récupération de référence et le lien avec le fichier actuel sont évalués séparément.",
+    "Referenzwiederherstellung und aktuelle Asset-Bindung werden getrennt bewertet.",
+    "A recuperação de referências e a ligação ao ficheiro atual são avaliadas separadamente.",
+    "Восстановление ссылки и привязка к текущему файлу оцениваются отдельно."
+  ],
+  "Resizing, smoothing and JPEG conversion affect image detail and color.": [
+    "拡大縮小、平滑化、JPEG変換は画像の細部と色に影響します。",
+    "크기 조정, 평활화 및 JPEG 변환은 이미지의 세부 묘사와 색상에 영향을 줍니다.",
+    "El cambio de tamaño, el suavizado y la conversión JPEG afectan a los detalles y colores de la imagen.",
+    "Le redimensionnement, le lissage et la conversion JPEG affectent les détails et les couleurs de l’image.",
+    "Skalieren, Glätten und JPEG-Konvertierung beeinflussen Bilddetails und Farben.",
+    "O redimensionamento, a suavização e a conversão JPEG afetam os detalhes e a cor da imagem.",
+    "Масштабирование, сглаживание и преобразование JPEG влияют на детализацию и цвет изображения."
+  ],
+  "Rotation requires signatures from the current and successor keys.": [
+    "鍵のローテーションには現在のキーと後継キーの署名が必要です。",
+    "키 교체에는 현재 키와 후속 키의 서명이 필요합니다.",
+    "La rotación requiere firmas de las claves actual y sucesora.",
+    "La rotation nécessite les signatures des clés actuelle et suivante.",
+    "Die Rotation erfordert Signaturen des aktuellen und des nachfolgenden Schlüssels.",
+    "A rotação exige assinaturas das chaves atual e sucessora.",
+    "Для ротации нужны подписи текущего и нового ключей."
+  ],
+  "Signed, encrypted and protected form structures report explicit blockers.": [
+    "署名済み、暗号化済み、保護されたフォーム構造について、制限の理由を明示的に報告します。",
+    "서명, 암호화 및 보호된 양식 구조에 대한 차단 사유를 명확히 보고합니다.",
+    "Las estructuras de formularios firmadas, cifradas y protegidas indican bloqueos explícitos.",
+    "Les structures de formulaire signées, chiffrées et protégées signalent des blocages explicites.",
+    "Signierte, verschlüsselte und geschützte Formularstrukturen melden konkrete Sperrgründe.",
+    "As estruturas de formulário assinadas, encriptadas e protegidas indicam bloqueios explícitos.",
+    "Для подписанных, зашифрованных и защищённых структур форм явно указываются причины блокировки."
+  ],
+  "The Files workspace retains each copy’s second-pass verification, original hash and report export.": [
+    "ファイルワークスペースには各コピーの再検証結果、元のハッシュ、レポート書き出し機能が残ります。",
+    "파일 작업 공간은 각 사본의 2차 검증, 원본 해시 및 보고서 내보내기 기능을 유지합니다.",
+    "El espacio Archivos conserva la segunda verificación de cada copia, el hash original y la exportación del informe.",
+    "L’espace Fichiers conserve la seconde vérification de chaque copie, l’empreinte d’origine et l’export du rapport.",
+    "Der Bereich Dateien behält die zweite Prüfung jeder Kopie, den Originalhash und den Berichtsexport bei.",
+    "O espaço Ficheiros conserva a segunda verificação de cada cópia, o hash original e a exportação do relatório.",
+    "В разделе «Файлы» сохраняются повторная проверка каждой копии, хеш оригинала и экспорт отчёта."
+  ],
+  "The first key identifies this record's custodian. Additional keys provide co-signatures.": [
+    "最初のキーがこの記録の管理者を示します。追加のキーは共同署名に使用します。",
+    "첫 번째 키는 이 기록의 보관 책임자를 식별합니다. 추가 키는 공동 서명에 사용됩니다.",
+    "La primera clave identifica al custodio de este registro. Las claves adicionales aportan cofirmas.",
+    "La première clé identifie le dépositaire de cet enregistrement. Les clés supplémentaires fournissent des cosignatures.",
+    "Der erste Schlüssel kennzeichnet den Verwahrer dieses Eintrags. Weitere Schlüssel liefern Mitsignaturen.",
+    "A primeira chave identifica o custodiante deste registo. As chaves adicionais fornecem coassinaturas.",
+    "Первый ключ определяет хранителя этой записи. Дополнительные ключи используются для совместных подписей."
+  ],
+  "The selected processing operates on image pixels and creates a new PNG copy.": [
+    "選択した処理は画像の画素に作用し、新しいPNGコピーを作成します。",
+    "선택한 처리는 이미지 픽셀에 적용되며 새 PNG 사본을 생성합니다.",
+    "El procesamiento seleccionado actúa sobre los píxeles y crea una nueva copia PNG.",
+    "Le traitement sélectionné agit sur les pixels de l’image et crée une nouvelle copie PNG.",
+    "Die gewählte Verarbeitung wirkt auf Bildpixel und erstellt eine neue PNG-Kopie.",
+    "O processamento selecionado atua nos píxeis da imagem e cria uma nova cópia PNG.",
+    "Выбранная обработка изменяет пиксели изображения и создаёт новую копию PNG."
+  ],
+  "The sender prepares a proposal. The receiver co-signs on their own device.": [
+    "送信者が提案を準備します。受信者は自分のデバイスで共同署名します。",
+    "보내는 사람이 제안서를 준비합니다. 받는 사람은 자신의 기기에서 공동 서명합니다.",
+    "El remitente prepara una propuesta. El receptor cofirma en su propio dispositivo.",
+    "L’expéditeur prépare une proposition. Le destinataire la cosigne sur son propre appareil.",
+    "Der Sender erstellt einen Vorschlag. Der Empfänger signiert auf seinem eigenen Gerät mit.",
+    "O remetente prepara uma proposta. O destinatário coassina no seu próprio dispositivo.",
+    "Отправитель готовит предложение. Получатель добавляет подпись на своём устройстве."
+  ],
+  "The system time precedes the Unix epoch. Check the system clock.": [
+    "システム時刻がUnixエポックより前です。システム時計を確認してください。",
+    "시스템 시간이 Unix 기준 시각보다 이전입니다. 시스템 시계를 확인하세요.",
+    "La hora del sistema es anterior a la época Unix. Comprueba el reloj del sistema.",
+    "L’heure système précède l’époque Unix. Vérifiez l’horloge du système.",
+    "Die Systemzeit liegt vor der Unix-Epoche. Prüfen Sie die Systemuhr.",
+    "A hora do sistema é anterior à época Unix. Verifique o relógio do sistema.",
+    "Системное время предшествует эпохе Unix. Проверьте системные часы."
+  ],
+  "This changes pixels and encoding. Results include a post-process detector check.": [
+    "画素とエンコードを変更します。結果には処理後の検出器チェックを含みます。",
+    "픽셀과 인코딩을 변경합니다. 결과에는 처리 후 검출기 검사가 포함됩니다.",
+    "Esto modifica los píxeles y la codificación. Los resultados incluyen una comprobación del detector tras el proceso.",
+    "Cette opération modifie les pixels et l’encodage. Les résultats incluent une vérification du détecteur après traitement.",
+    "Dies verändert Pixel und Kodierung. Die Ergebnisse enthalten eine Detektorprüfung nach der Verarbeitung.",
+    "Esta operação altera os píxeis e a codificação. Os resultados incluem uma verificação do detetor após o processamento.",
+    "Пиксели и кодирование изменяются. Результаты включают проверку детектором после обработки."
+  ],
+  "This run obtained no readable C2PA credentials. Unknown AI watermarks remain unassessed.": [
+    "この実行では読み取れるC2PA資格情報を取得できませんでした。未知のAI水印は未評価です。",
+    "이번 실행에서 읽을 수 있는 C2PA 자격 증명을 얻지 못했습니다. 알 수 없는 AI 워터마크는 평가되지 않았습니다.",
+    "Esta ejecución no obtuvo credenciales C2PA legibles. Las marcas de agua de IA desconocidas siguen sin evaluarse.",
+    "Cette exécution n’a obtenu aucun justificatif C2PA lisible. Les filigranes d’IA inconnus restent non évalués.",
+    "Dieser Durchlauf fand keine lesbaren C2PA-Nachweise. Unbekannte KI-Wasserzeichen bleiben ungeprüft.",
+    "Esta operação não obteve credenciais C2PA legíveis. As marcas de água de IA desconhecidas continuam por avaliar.",
+    "В этом запуске не получены читаемые данные C2PA. Неизвестные водяные знаки ИИ не оценивались."
+  ],
+  "This sample was converted to RGB8. Low-bit statistics use the converted samples.": [
+    "このサンプルはRGB8に変換されました。下位ビットの統計には変換後のサンプルを使用します。",
+    "이 샘플은 RGB8로 변환되었습니다. 하위 비트 통계는 변환된 샘플을 사용합니다.",
+    "Esta muestra se convirtió a RGB8. Las estadísticas de bits bajos usan las muestras convertidas.",
+    "Cet échantillon a été converti en RGB8. Les statistiques des bits faibles utilisent les échantillons convertis.",
+    "Diese Probe wurde in RGB8 konvertiert. Die Statistik niedriger Bits verwendet die konvertierten Proben.",
+    "Esta amostra foi convertida para RGB8. As estatísticas de bits inferiores usam as amostras convertidas.",
+    "Этот образец преобразован в RGB8. Статистика младших битов использует преобразованные данные."
+  ],
+  "Update the client configuration and reconnect to apply permission changes": [
+    "権限の変更を適用するにはクライアント設定を更新して再接続してください",
+    "권한 변경 사항을 적용하려면 클라이언트 설정을 업데이트한 뒤 다시 연결하세요",
+    "Actualiza la configuración del cliente y vuelve a conectar para aplicar los cambios de permisos",
+    "Mettez à jour la configuration du client et reconnectez-vous pour appliquer les changements d’autorisations",
+    "Aktualisieren Sie die Clientkonfiguration und verbinden Sie sich erneut, um Berechtigungsänderungen anzuwenden",
+    "Atualize a configuração do cliente e volte a ligar para aplicar as alterações de permissões",
+    "Обновите настройки клиента и подключитесь заново, чтобы применить изменения разрешений"
+  ],
+  "Verification covers zeroed RGB low bits and output-file integrity.": [
+    "検証対象はRGB下位ビットのゼロ化と出力ファイルの整合性です。",
+    "검증은 RGB 하위 비트의 0 처리와 출력 파일 무결성을 대상으로 합니다.",
+    "La verificación cubre los bits bajos RGB puestos a cero y la integridad del archivo de salida.",
+    "La vérification couvre la mise à zéro des bits faibles RGB et l’intégrité du fichier de sortie.",
+    "Die Prüfung umfasst auf null gesetzte niedrige RGB-Bits und die Integrität der Ausgabedatei.",
+    "A verificação abrange os bits inferiores RGB colocados a zero e a integridade do ficheiro de saída.",
+    "Проверка охватывает обнуление младших битов RGB и целостность выходного файла."
+  ],
+  "Watermark payload MAC verified. Authorship and current asset binding are checked separately.": [
+    "水印ペイロードのMACを検証しました。作者と現在のアセットとの結び付きは別途確認します。",
+    "워터마크 페이로드의 MAC을 검증했습니다. 작성자 및 현재 자산 연결은 별도로 확인합니다.",
+    "MAC de la carga de la marca de agua verificado. La autoría y la vinculación con el archivo actual se comprueban por separado.",
+    "MAC de la charge utile du filigrane vérifié. La paternité et le lien avec le fichier actuel sont vérifiés séparément.",
+    "MAC der Wasserzeichen-Nutzdaten geprüft. Urheberschaft und aktuelle Asset-Bindung werden gesondert geprüft.",
+    "MAC dos dados da marca de água verificado. A autoria e a ligação ao ficheiro atual são verificadas separadamente.",
+    "MAC данных водяного знака проверен. Авторство и привязка к текущему файлу проверяются отдельно."
+  ],
+  "Work identifier, version, asserted time and signing keys are required.": [
+    "作品ID、バージョン、申告日時、署名キーが必要です。",
+    "작품 식별자, 버전, 주장된 시간 및 서명 키가 필요합니다.",
+    "Se requieren identificador de obra, versión, fecha declarada y claves de firma.",
+    "L’identifiant d’œuvre, la version, l’heure déclarée et les clés de signature sont nécessaires.",
+    "Werkkennung, Version, angegebene Zeit und Signaturschlüssel sind erforderlich.",
+    "São necessários o identificador de obra, a versão, a hora declarada e as chaves de assinatura.",
+    "Нужны идентификатор произведения, версия, заявленное время и ключи подписи."
+  ],
+  "Work identifier, version, certificate chain and certificate private key are required.": [
+    "作品ID、バージョン、証明書チェーン、証明書の秘密鍵が必要です。",
+    "작품 식별자, 버전, 인증서 체인 및 인증서 개인 키가 필요합니다.",
+    "Se requieren identificador de obra, versión, cadena de certificados y clave privada del certificado.",
+    "L’identifiant d’œuvre, la version, la chaîne de certificats et la clé privée du certificat sont nécessaires.",
+    "Werkkennung, Version, Zertifikatskette und privater Zertifikatsschlüssel sind erforderlich.",
+    "São necessários o identificador de obra, a versão, a cadeia de certificados e a chave privada do certificado.",
+    "Нужны идентификатор произведения, версия, цепочка сертификатов и закрытый ключ сертификата."
+  ],
+  "Technical report values and unrecognized backend messages are shown in English.": [
+    "技術レポートの値と未対応のバックエンドメッセージは英語で表示されます。",
+    "기술 보고서 값과 인식되지 않은 백엔드 메시지는 영어로 표시됩니다.",
+    "Los valores de los informes técnicos y los mensajes del backend no reconocidos se muestran en inglés.",
+    "Les valeurs des rapports techniques et les messages du moteur non reconnus sont affichés en anglais.",
+    "Technische Berichtswerte und nicht erkannte Backend-Meldungen werden auf Englisch angezeigt.",
+    "Os valores dos relatórios técnicos e as mensagens de backend não reconhecidas são apresentados em inglês.",
+    "Значения технических отчётов и нераспознанные сообщения обработчика отображаются на английском."
+  ],
+  "Signing is disabled by default. Selected keys must also be inside readable folders and remain identity-bound during the connection.": [
+    "署名は既定で無効です。選択したキーは読み取りを許可されたフォルダー内に置き、接続中は検証済みの同一性との結び付きを維持する必要があります。",
+    "서명은 기본적으로 비활성화되어 있습니다. 선택한 키도 읽기가 허용된 폴더 안에 있어야 하며 연결 중에는 검증된 동일성과의 바인딩이 유지되어야 합니다.",
+    "La firma está desactivada de forma predeterminada. Las claves seleccionadas también deben estar en carpetas legibles y mantener la vinculación con su identidad verificada durante la conexión.",
+    "La signature est désactivée par défaut. Les clés sélectionnées doivent aussi se trouver dans des dossiers autorisés en lecture et rester liées à leur identité vérifiée pendant la connexion.",
+    "Signieren ist standardmäßig deaktiviert. Ausgewählte Schlüssel müssen ebenfalls in lesbaren Ordnern liegen und während der Verbindung an ihre geprüfte Identität gebunden bleiben.",
+    "A assinatura está desativada por predefinição. As chaves selecionadas também devem estar em pastas com leitura autorizada e manter a ligação à sua identidade verificada durante a ligação.",
+    "Подписание по умолчанию отключено. Выбранные ключи также должны находиться в доступных для чтения папках и сохранять привязку к проверенной идентичности на протяжении соединения."
+  ],
+  "Published structure matched. Original device specimen unavailable": [
+    "公開された構造と一致。実機由来の原本サンプルは未入手",
+    "공개된 구조와 일치. 실제 기기에서 얻은 원본 표본 없음",
+    "Coincide con la estructura publicada. Muestra original del dispositivo no disponible",
+    "Structure publiée reconnue. Échantillon original de l’appareil indisponible",
+    "Veröffentlichte Struktur stimmt überein. Originalprobe vom Gerät nicht verfügbar",
+    "Corresponde à estrutura publicada. Amostra original do dispositivo indisponível",
+    "Совпадение с опубликованной структурой. Исходный образец с устройства недоступен"
+  ]
+}

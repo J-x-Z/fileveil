@@ -1,0 +1,4673 @@
+{
+  "Add files": [
+    "ファイルを追加",
+    "파일 추가",
+    "Añadir archivos",
+    "Ajouter des fichiers",
+    "Dateien hinzufügen",
+    "Adicionar arquivos",
+    "Добавить файлы"
+  ],
+  "Add files to get started": [
+    "ファイルを追加して開始",
+    "파일을 추가하여 시작",
+    "Añade archivos para comenzar",
+    "Ajoutez des fichiers pour commencer",
+    "Zum Start Dateien hinzufügen",
+    "Adicione arquivos para começar",
+    "Добавьте файлы для начала"
+  ],
+  "Add folder": [
+    "フォルダーを追加",
+    "폴더 추가",
+    "Añadir carpeta",
+    "Ajouter un dossier",
+    "Ordner hinzufügen",
+    "Adicionar pasta",
+    "Добавить папку"
+  ],
+  "All categories": [
+    "すべてのカテゴリ",
+    "모든 범주",
+    "Todas las categorías",
+    "Toutes les catégories",
+    "Alle Kategorien",
+    "Todas as categorias",
+    "Все категории"
+  ],
+  "Analyze differences": [
+    "差分を解析",
+    "차이 분석",
+    "Analizar diferencias",
+    "Analyser les différences",
+    "Unterschiede analysieren",
+    "Analisar diferenças",
+    "Анализ различий"
+  ],
+  "Appearance": [
+    "外観",
+    "모양",
+    "Apariencia",
+    "Apparence",
+    "Darstellung",
+    "Aparência",
+    "Оформление"
+  ],
+  "Archive and Lab budget (MiB)": [
+    "アーカイブ・Lab上限（MiB）",
+    "압축 파일 및 Lab 한도(MiB)",
+    "Límite de archivos y Lab (MiB)",
+    "Budget archives et Lab (Mio)",
+    "Archiv- und Lab-Limit (MiB)",
+    "Limite de arquivos e Lab (MiB)",
+    "Лимит архивов и Lab (МиБ)"
+  ],
+  "Author claim": [
+    "作者の申告",
+    "저자 주장",
+    "Autor declarado",
+    "Auteur déclaré",
+    "Urheberangabe",
+    "Autor declarado",
+    "Заявленный автор"
+  ],
+  "Available": [
+    "利用可能",
+    "사용 가능",
+    "Disponible",
+    "Disponible",
+    "Verfügbar",
+    "Disponível",
+    "Доступно"
+  ],
+  "Cancel": [
+    "キャンセル",
+    "취소",
+    "Cancelar",
+    "Annuler",
+    "Abbrechen",
+    "Cancelar",
+    "Отмена"
+  ],
+  "Cancelled": [
+    "キャンセル済み",
+    "취소됨",
+    "Cancelado",
+    "Annulé",
+    "Abgebrochen",
+    "Cancelado",
+    "Отменено"
+  ],
+  "Choose a copy to verify": [
+    "検証するコピーを選択",
+    "검증할 사본 선택",
+    "Elegir copia para verificar",
+    "Choisir une copie à vérifier",
+    "Kopie zur Prüfung wählen",
+    "Escolher cópia para verificar",
+    "Выбрать копию для проверки"
+  ],
+  "Choose control samples": [
+    "対照サンプルを選択",
+    "대조 샘플 선택",
+    "Elegir muestras de control",
+    "Choisir des témoins",
+    "Kontrollproben wählen",
+    "Escolher amostras de controle",
+    "Выбрать контрольные образцы"
+  ],
+  "Choose files to inspect their metadata": [
+    "メタデータを調べるファイルを選択",
+    "메타데이터를 검사할 파일 선택",
+    "Elige archivos para examinar sus metadatos",
+    "Choisissez les fichiers à examiner",
+    "Dateien zur Metadatenprüfung wählen",
+    "Escolha arquivos para examinar os metadados",
+    "Выберите файлы для анализа метаданных"
+  ],
+  "Choose local trust roots": [
+    "ローカル信頼ルートを選択",
+    "로컬 신뢰 루트 선택",
+    "Elegir raíces de confianza locales",
+    "Choisir les racines de confiance locales",
+    "Lokale Vertrauensanker wählen",
+    "Escolher raízes de confiança locais",
+    "Выбрать локальные корни доверия"
+  ],
+  "Choose output folder": [
+    "出力フォルダーを選択",
+    "출력 폴더 선택",
+    "Elegir carpeta de salida",
+    "Choisir le dossier de sortie",
+    "Ausgabeordner wählen",
+    "Escolher pasta de saída",
+    "Выбрать папку вывода"
+  ],
+  "Choose readable folders and folders for new output copies": [
+    "読み取り用と新規コピー出力用のフォルダーを選択",
+    "읽기 폴더와 새 사본 출력 폴더 선택",
+    "Elige carpetas de lectura y de nuevas copias",
+    "Choisissez les dossiers de lecture et de sortie",
+    "Leseordner und Ordner für neue Kopien wählen",
+    "Escolha pastas de leitura e de novas cópias",
+    "Выберите папки чтения и новых копий"
+  ],
+  "Clean batch": [
+    "Clean 一括",
+    "Clean 일괄 처리",
+    "Clean por lotes",
+    "Clean par lots",
+    "Clean Stapel",
+    "Clean em lote",
+    "Clean пакетно"
+  ],
+  "Clean files": [
+    "Clean ファイル",
+    "Clean 파일",
+    "Clean archivos",
+    "Clean fichiers",
+    "Clean Dateien",
+    "Clean arquivos",
+    "Clean файлы"
+  ],
+  "Cleaning plan": [
+    "クリーニング計画",
+    "정리 계획",
+    "Plan de limpieza",
+    "Plan de nettoyage",
+    "Bereinigungsplan",
+    "Plano de limpeza",
+    "План очистки"
+  ],
+  "Clear completed": [
+    "完了項目を消去",
+    "완료 항목 비우기",
+    "Quitar completados",
+    "Effacer les tâches terminées",
+    "Abgeschlossene entfernen",
+    "Limpar concluídos",
+    "Убрать завершённые"
+  ],
+  "Clear low bits": [
+    "下位ビットをクリア",
+    "하위 비트 지우기",
+    "Borrar bits inferiores",
+    "Effacer les bits faibles",
+    "Niederwertige Bits löschen",
+    "Limpar bits inferiores",
+    "Обнулить младшие биты"
+  ],
+  "Clear queue": [
+    "キューを消去",
+    "대기열 비우기",
+    "Vaciar cola",
+    "Vider la file",
+    "Warteschlange leeren",
+    "Limpar fila",
+    "Очистить очередь"
+  ],
+  "Clear selection": [
+    "選択を解除",
+    "선택 해제",
+    "Quitar selección",
+    "Effacer la sélection",
+    "Auswahl aufheben",
+    "Limpar seleção",
+    "Снять выделение"
+  ],
+  "Compare original and copy": [
+    "原本とコピーを比較",
+    "원본과 사본 비교",
+    "Comparar original y copia",
+    "Comparer l’original et la copie",
+    "Original und Kopie vergleichen",
+    "Comparar original e cópia",
+    "Сравнить оригинал и копию"
+  ],
+  "Component": [
+    "構成要素",
+    "구성 요소",
+    "Componente",
+    "Composant",
+    "Komponente",
+    "Componente",
+    "Компонент"
+  ],
+  "Configure image signal processing": [
+    "画像信号処理を設定",
+    "이미지 신호 처리 설정",
+    "Configurar procesamiento de imagen",
+    "Configurer le traitement du signal",
+    "Bildsignalverarbeitung einstellen",
+    "Configurar processamento de imagem",
+    "Настроить обработку изображения"
+  ],
+  "Content watermark": [
+    "コンテンツ透かし",
+    "콘텐츠 워터마크",
+    "Marca de agua de contenido",
+    "Filigrane de contenu",
+    "Inhaltswasserzeichen",
+    "Marca d’água de conteúdo",
+    "Контентный водяной знак"
+  ],
+  "Copy JSON": [
+    "JSONをコピー",
+    "JSON 복사",
+    "Copiar JSON",
+    "Copier le JSON",
+    "JSON kopieren",
+    "Copiar JSON",
+    "Копировать JSON"
+  ],
+  "Copy MCP configuration": [
+    "MCP設定をコピー",
+    "MCP 설정 복사",
+    "Copiar configuración MCP",
+    "Copier la configuration MCP",
+    "MCP-Konfiguration kopieren",
+    "Copiar configuração MCP",
+    "Копировать настройки MCP"
+  ],
+  "Copy identifier": [
+    "識別子をコピー",
+    "식별자 복사",
+    "Copiar identificador",
+    "Copier l’identifiant",
+    "Kennung kopieren",
+    "Copiar identificador",
+    "Копировать идентификатор"
+  ],
+  "Copy public-key trust policy": [
+    "公開鍵信頼ポリシーをコピー",
+    "공개 키 신뢰 정책 복사",
+    "Copiar política de confianza de claves",
+    "Copier la politique de confiance des clés",
+    "Vertrauensrichtlinie für Schlüssel kopieren",
+    "Copiar política de confiança de chaves",
+    "Копировать политику доверия ключам"
+  ],
+  "Copyright evidence result": [
+    "著作権証拠の結果",
+    "저작권 증거 결과",
+    "Resultado de pruebas de autoría",
+    "Résultat des preuves d’auteur",
+    "Ergebnis der Urheberrechtsnachweise",
+    "Resultado das provas de autoria",
+    "Результат проверки авторских доказательств"
+  ],
+  "Create": [
+    "作成",
+    "만들기",
+    "Crear",
+    "Créer",
+    "Erstellen",
+    "Criar",
+    "Создать"
+  ],
+  "Created-at claim": [
+    "申告作成日時",
+    "주장된 생성 시각",
+    "Fecha de creación declarada",
+    "Date de création déclarée",
+    "Angegebenes Erstellungsdatum",
+    "Data de criação declarada",
+    "Заявленное время создания"
+  ],
+  "Current asset binding": [
+    "現在のファイルとの結合",
+    "현재 파일 바인딩",
+    "Vinculación al archivo actual",
+    "Liaison au fichier actuel",
+    "Bindung an aktuelle Datei",
+    "Vínculo com o arquivo atual",
+    "Привязка к текущему файлу"
+  ],
+  "Dark": [
+    "ダーク",
+    "어둡게",
+    "Oscuro",
+    "Sombre",
+    "Dunkel",
+    "Escuro",
+    "Тёмная"
+  ],
+  "Detect queued images": [
+    "キューの画像を検出",
+    "대기 이미지 검사",
+    "Detectar en imágenes de la cola",
+    "Détecter dans les images en attente",
+    "Bilder in Warteschlange prüfen",
+    "Detectar nas imagens da fila",
+    "Проверить изображения в очереди"
+  ],
+  "Detect watermarks in output": [
+    "出力内の透かしを検出",
+    "출력의 워터마크 검사",
+    "Detectar marcas en la salida",
+    "Détecter les filigranes en sortie",
+    "Ausgabe auf Wasserzeichen prüfen",
+    "Detectar marcas na saída",
+    "Найти водяные знаки в результате"
+  ],
+  "Detected": [
+    "検出あり",
+    "검출됨",
+    "Detectado",
+    "Détecté",
+    "Erkannt",
+    "Detectado",
+    "Обнаружено"
+  ],
+  "Detected variants": [
+    "検出された変換版",
+    "검출된 변형",
+    "Variantes detectadas",
+    "Variantes détectées",
+    "Erkannte Varianten",
+    "Variantes detectadas",
+    "Обнаруженные варианты"
+  ],
+  "Detection evidence and scope": [
+    "検出証拠と範囲",
+    "검출 증거 및 범위",
+    "Evidencia y alcance de detección",
+    "Preuves et portée de détection",
+    "Nachweise und Prüfumfang",
+    "Evidências e escopo da detecção",
+    "Доказательства и область обнаружения"
+  ],
+  "Detector availability": [
+    "検出器の利用状況",
+    "검출기 사용 가능 여부",
+    "Disponibilidad del detector",
+    "Disponibilité du détecteur",
+    "Verfügbarkeit der Detektoren",
+    "Disponibilidade do detector",
+    "Доступность детектора"
+  ],
+  "Detector no longer detects": [
+    "対応する検出器で再検出なし",
+    "해당 검출기에서 재검출 안 됨",
+    "El detector ya no lo detecta",
+    "Le détecteur ne détecte plus",
+    "Detektor erkennt kein Signal mehr",
+    "O detector já não detecta",
+    "Детектор больше не обнаруживает"
+  ],
+  "Detector still detects": [
+    "対応する検出器で再検出あり",
+    "해당 검출기에서 여전히 검출됨",
+    "El detector aún lo detecta",
+    "Le détecteur détecte encore",
+    "Detektor erkennt Signal weiterhin",
+    "O detector ainda detecta",
+    "Детектор по-прежнему обнаруживает"
+  ],
+  "Detector unavailable": [
+    "検出器が利用不可",
+    "검출기 사용 불가",
+    "Detector no disponible",
+    "Détecteur indisponible",
+    "Detektor nicht verfügbar",
+    "Detector indisponível",
+    "Детектор недоступен"
+  ],
+  "Different dimensions. Pixel comparison was not performed": [
+    "寸法が異なるためピクセル比較は未実施",
+    "크기가 달라 픽셀 비교를 수행하지 않음",
+    "Dimensiones distintas. Sin comparación de píxeles",
+    "Dimensions différentes. Pixels non comparés",
+    "Andere Abmessungen. Kein Pixelvergleich",
+    "Dimensões diferentes. Pixels não comparados",
+    "Размеры различаются. Пиксели не сравнивались"
+  ],
+  "Distributions and frequency bands": [
+    "分布と周波数帯域",
+    "분포 및 주파수 대역",
+    "Distribuciones y bandas de frecuencia",
+    "Distributions et bandes de fréquence",
+    "Verteilungen und Frequenzbänder",
+    "Distribuições e faixas de frequência",
+    "Распределения и частотные полосы"
+  ],
+  "Drop files here": [
+    "ここにファイルをドロップ",
+    "여기에 파일 놓기",
+    "Suelta archivos aquí",
+    "Déposez les fichiers ici",
+    "Dateien hier ablegen",
+    "Solte arquivos aqui",
+    "Перетащите файлы сюда"
+  ],
+  "Each reference group needs at least two samples.": [
+    "各参照グループには2個以上のサンプルが必要です。",
+    "각 참조 그룹에는 샘플이 2개 이상 필요합니다.",
+    "Cada grupo requiere al menos dos muestras.",
+    "Chaque groupe requiert au moins deux échantillons.",
+    "Jede Referenzgruppe benötigt mindestens zwei Proben.",
+    "Cada grupo precisa de ao menos duas amostras.",
+    "В каждой группе нужно минимум два образца."
+  ],
+  "Edition": [
+    "版",
+    "에디션",
+    "Edición",
+    "Édition",
+    "Ausgabe",
+    "Edição",
+    "Издание"
+  ],
+  "Embed image pixel marker": [
+    "画像ピクセル透かしを埋め込む",
+    "이미지 픽셀 표식 삽입",
+    "Incrustar marca en píxeles",
+    "Insérer un filigrane dans les pixels",
+    "Pixelwasserzeichen einbetten",
+    "Inserir marca nos pixels",
+    "Встроить пиксельный знак"
+  ],
+  "Evidence file": [
+    "証拠ファイル",
+    "증거 파일",
+    "Archivo de evidencia",
+    "Fichier de preuve",
+    "Nachweisdatei",
+    "Arquivo de evidência",
+    "Файл доказательств"
+  ],
+  "Experimental Signal Processing": [
+    "実験的信号処理",
+    "실험적 신호 처리",
+    "Procesamiento experimental de señales",
+    "Traitement expérimental du signal",
+    "Experimentelle Signalverarbeitung",
+    "Processamento experimental de sinais",
+    "Экспериментальная обработка сигнала"
+  ],
+  "Export RFC 3161 query": [
+    "RFC 3161照会を出力",
+    "RFC 3161 요청 내보내기",
+    "Exportar consulta RFC 3161",
+    "Exporter la requête RFC 3161",
+    "RFC-3161-Anfrage exportieren",
+    "Exportar solicitação RFC 3161",
+    "Экспортировать запрос RFC 3161"
+  ],
+  "Export all reports": [
+    "すべてのレポートを出力",
+    "모든 보고서 내보내기",
+    "Exportar todos los informes",
+    "Exporter tous les rapports",
+    "Alle Berichte exportieren",
+    "Exportar todos os relatórios",
+    "Экспортировать все отчёты"
+  ],
+  "Export copyright evidence": [
+    "著作権証拠を出力",
+    "저작권 증거 내보내기",
+    "Exportar pruebas de autoría",
+    "Exporter les preuves d’auteur",
+    "Urheberrechtsnachweis exportieren",
+    "Exportar provas de autoria",
+    "Экспортировать авторские доказательства"
+  ],
+  "Export report": [
+    "レポートを出力",
+    "보고서 내보내기",
+    "Exportar informe",
+    "Exporter le rapport",
+    "Bericht exportieren",
+    "Exportar relatório",
+    "Экспортировать отчёт"
+  ],
+  "Export signed checkpoint": [
+    "署名付きチェックポイントを出力",
+    "서명된 체크포인트 내보내기",
+    "Exportar punto de control firmado",
+    "Exporter le point de contrôle signé",
+    "Signierten Prüfpunkt exportieren",
+    "Exportar ponto de controle assinado",
+    "Экспортировать подписанную контрольную точку"
+  ],
+  "External checkpoint and timestamp results": [
+    "外部チェックポイントと時刻認証の結果",
+    "외부 체크포인트 및 타임스탬프 결과",
+    "Resultados de control externo y sellos de tiempo",
+    "Résultats des points de contrôle et horodatages externes",
+    "Ergebnisse externer Prüfpunkte und Zeitstempel",
+    "Resultados de pontos externos e carimbos de tempo",
+    "Результаты внешних контрольных точек и меток времени"
+  ],
+  "File privacy, before you share": [
+    "共有する前にファイルのプライバシーを確認",
+    "공유 전에 파일 개인정보 보호",
+    "Privacidad de archivos antes de compartir",
+    "Protégez vos fichiers avant de les partager",
+    "Dateidatenschutz vor dem Teilen",
+    "Privacidade dos arquivos antes de compartilhar",
+    "Конфиденциальность файлов перед отправкой"
+  ],
+  "File queue": [
+    "ファイルキュー",
+    "파일 대기열",
+    "Cola de archivos",
+    "File de fichiers",
+    "Dateiwarteschlange",
+    "Fila de arquivos",
+    "Очередь файлов"
+  ],
+  "File size limit (MiB)": [
+    "ファイルサイズ上限（MiB）",
+    "파일 크기 한도(MiB)",
+    "Tamaño máximo de archivo (MiB)",
+    "Taille maximale des fichiers (Mio)",
+    "Maximale Dateigröße (MiB)",
+    "Tamanho máximo do arquivo (MiB)",
+    "Максимальный размер файла (МиБ)"
+  ],
+  "Files are processed locally. Reports redact metadata values.": [
+    "ファイルはローカルで処理され、レポートのメタデータ値は伏せられます。",
+    "파일은 로컬에서 처리되며 보고서의 메타데이터 값은 비공개 처리됩니다.",
+    "Los archivos se procesan localmente. Los informes ocultan los metadatos.",
+    "Traitement local. Les valeurs des métadonnées sont masquées dans les rapports.",
+    "Dateien werden lokal verarbeitet. Metadatenwerte werden im Bericht ausgeblendet.",
+    "Os arquivos são processados localmente. Os relatórios ocultam valores de metadados.",
+    "Файлы обрабатываются локально. Значения метаданных в отчётах скрываются."
+  ],
+  "Files eligible for Safe copies": [
+    "Safeコピーを作成可能なファイル",
+    "Safe 사본 생성 가능 파일",
+    "Archivos aptos para copias Safe",
+    "Fichiers admissibles aux copies Safe",
+    "Dateien für Safe-Kopien",
+    "Arquivos aptos a cópias Safe",
+    "Файлы, доступные для копий Safe"
+  ],
+  "Filesystem attribute plan": [
+    "ファイルシステム属性の計画",
+    "파일 시스템 속성 계획",
+    "Plan de atributos del sistema de archivos",
+    "Plan des attributs du système de fichiers",
+    "Plan für Dateisystemattribute",
+    "Plano de atributos do sistema de arquivos",
+    "План обработки атрибутов файловой системы"
+  ],
+  "Filesystem privacy attributes": [
+    "ファイルシステムのプライバシー属性",
+    "파일 시스템 개인정보 속성",
+    "Atributos de privacidad del sistema de archivos",
+    "Attributs de confidentialité du système de fichiers",
+    "Datenschutzattribute des Dateisystems",
+    "Atributos de privacidade do sistema de arquivos",
+    "Конфиденциальные атрибуты файловой системы"
+  ],
+  "Finder tags": [
+    "Finderタグ",
+    "Finder 태그",
+    "Etiquetas de Finder",
+    "Étiquettes Finder",
+    "Finder-Tags",
+    "Etiquetas do Finder",
+    "Теги Finder"
+  ],
+  "Findings": [
+    "検出項目",
+    "발견 사항",
+    "Hallazgos",
+    "Résultats",
+    "Befunde",
+    "Resultados",
+    "Находки"
+  ],
+  "Generate local signing key": [
+    "ローカル署名鍵を生成",
+    "로컬 서명 키 생성",
+    "Generar clave de firma local",
+    "Générer une clé de signature locale",
+    "Lokalen Signaturschlüssel erzeugen",
+    "Gerar chave de assinatura local",
+    "Создать локальный ключ подписи"
+  ],
+  "Generate system-keystore key": [
+    "システム鍵ストアの鍵を生成",
+    "시스템 키 저장소 키 생성",
+    "Generar clave en almacén del sistema",
+    "Générer une clé dans le trousseau système",
+    "Schlüssel im Systemspeicher erzeugen",
+    "Gerar chave no cofre do sistema",
+    "Создать ключ в системном хранилище"
+  ],
+  "Geometric correction": [
+    "幾何補正",
+    "기하 보정",
+    "Corrección geométrica",
+    "Correction géométrique",
+    "Geometrische Korrektur",
+    "Correção geométrica",
+    "Геометрическая коррекция"
+  ],
+  "Image pixel budget (MP)": [
+    "画像ピクセル上限（MP）",
+    "이미지 픽셀 한도(MP)",
+    "Límite de píxeles de imagen (MP)",
+    "Budget de pixels d’image (MP)",
+    "Bildpixellimit (MP)",
+    "Limite de pixels de imagem (MP)",
+    "Лимит пикселей изображений (Мп)"
+  ],
+  "Image watermark processing": [
+    "画像透かし処理",
+    "이미지 워터마크 처리",
+    "Procesamiento de marcas de imagen",
+    "Traitement des filigranes d’image",
+    "Bildwasserzeichen verarbeiten",
+    "Processamento de marcas de imagem",
+    "Обработка водяных знаков изображения"
+  ],
+  "Images · PDF · Office · Text · Media": [
+    "画像 · PDF · Office · テキスト · メディア",
+    "이미지 · PDF · Office · 텍스트 · 미디어",
+    "Imágenes · PDF · Office · Texto · Multimedia",
+    "Images · PDF · Office · Texte · Médias",
+    "Bilder · PDF · Office · Text · Medien",
+    "Imagens · PDF · Office · Texto · Mídia",
+    "Изображения · PDF · Office · Текст · Медиа"
+  ],
+  "Include author and work claim values in reports": [
+    "作者・作品の申告値をレポートに含める",
+    "보고서에 저자 및 작품 주장 값 포함",
+    "Incluir autor y obra declarados en los informes",
+    "Inclure les déclarations d’auteur et d’œuvre",
+    "Urheber- und Werkangaben in Berichte aufnehmen",
+    "Incluir declarações de autor e obra nos relatórios",
+    "Включать заявления об авторе и произведении в отчёты"
+  ],
+  "Include decodable legacy device identifiers in reports": [
+    "解読可能な旧機器識別子をレポートに含める",
+    "보고서에 해독 가능한 구형 기기 식별자 포함",
+    "Incluir identificadores antiguos decodificables",
+    "Inclure les identifiants historiques décodables",
+    "Dekodierbare alte Gerätekennungen aufnehmen",
+    "Incluir identificadores antigos decodificáveis",
+    "Включать декодируемые исторические ID устройств"
+  ],
+  "Include subfolders": [
+    "サブフォルダーを含める",
+    "하위 폴더 포함",
+    "Incluir subcarpetas",
+    "Inclure les sous-dossiers",
+    "Unterordner einbeziehen",
+    "Incluir subpastas",
+    "Включать вложенные папки"
+  ],
+  "Indeterminate": [
+    "判定不能",
+    "판단 불가",
+    "Indeterminado",
+    "Indéterminé",
+    "Unbestimmt",
+    "Indeterminado",
+    "Неопределённо"
+  ],
+  "Inspect provenance chain": [
+    "来歴チェーンを調べる",
+    "출처 체인 검사",
+    "Examinar cadena de procedencia",
+    "Examiner la chaîne de provenance",
+    "Herkunftskette prüfen",
+    "Examinar cadeia de proveniência",
+    "Просмотреть цепочку происхождения"
+  ],
+  "Inspect versions and custody": [
+    "版と管理履歴を調べる",
+    "버전 및 관리 이력 검사",
+    "Examinar versiones y custodia",
+    "Examiner les versions et la garde",
+    "Versionen und Verwahrung prüfen",
+    "Examinar versões e custódia",
+    "Просмотреть версии и передачу"
+  ],
+  "Invalid": [
+    "無効",
+    "유효하지 않음",
+    "No válido",
+    "Invalide",
+    "Ungültig",
+    "Inválido",
+    "Недействительно"
+  ],
+  "Issue": [
+    "発行",
+    "발행",
+    "Emitir",
+    "Émettre",
+    "Ausstellen",
+    "Emitir",
+    "Выпуск"
+  ],
+  "Issuer signature threshold": [
+    "発行者署名のしきい値",
+    "발행자 서명 임계값",
+    "Umbral de firmas de emisores",
+    "Seuil de signatures d’émetteurs",
+    "Schwelle für Herausgebersignaturen",
+    "Limiar de assinaturas de emissores",
+    "Порог подписей издателей"
+  ],
+  "JSON report": [
+    "JSONレポート",
+    "JSON 보고서",
+    "Informe JSON",
+    "Rapport JSON",
+    "JSON-Bericht",
+    "Relatório JSON",
+    "Отчёт JSON"
+  ],
+  "Lab comparison": [
+    "Lab 比較",
+    "Lab 비교",
+    "Lab comparación",
+    "Lab comparaison",
+    "Lab Vergleich",
+    "Lab comparação",
+    "Lab сравнение"
+  ],
+  "Lab signals": [
+    "Lab 信号",
+    "Lab 신호",
+    "Lab señales",
+    "Lab signaux",
+    "Lab Signale",
+    "Lab sinais",
+    "Lab сигналы"
+  ],
+  "Language": [
+    "言語",
+    "언어",
+    "Idioma",
+    "Langue",
+    "Sprache",
+    "Idioma",
+    "Язык"
+  ],
+  "Latest image processing result": [
+    "最新の画像処理結果",
+    "최근 이미지 처리 결과",
+    "Último resultado de procesamiento",
+    "Dernier résultat de traitement d’image",
+    "Letztes Bildverarbeitungsergebnis",
+    "Último resultado de processamento",
+    "Последний результат обработки изображения"
+  ],
+  "Light": [
+    "ライト",
+    "밝게",
+    "Claro",
+    "Clair",
+    "Hell",
+    "Claro",
+    "Светлая"
+  ],
+  "Local Ed25519 key created": [
+    "ローカルEd25519鍵を作成しました",
+    "로컬 Ed25519 키 생성됨",
+    "Clave Ed25519 local creada",
+    "Clé Ed25519 locale créée",
+    "Lokaler Ed25519-Schlüssel erstellt",
+    "Chave Ed25519 local criada",
+    "Создан локальный ключ Ed25519"
+  ],
+  "Local trust": [
+    "ローカルの信頼",
+    "로컬 신뢰",
+    "Confianza local",
+    "Confiance locale",
+    "Lokales Vertrauen",
+    "Confiança local",
+    "Локальное доверие"
+  ],
+  "Low bits, frequency and encoding": [
+    "下位ビット・周波数・符号化",
+    "하위 비트, 주파수 및 인코딩",
+    "Bits inferiores, frecuencia y codificación",
+    "Bits faibles, fréquence et encodage",
+    "Niederwertige Bits, Frequenz und Kodierung",
+    "Bits inferiores, frequência e codificação",
+    "Младшие биты, частоты и кодирование"
+  ],
+  "Low-bit clearing": [
+    "下位ビットのクリア",
+    "하위 비트 지우기",
+    "Borrado de bits inferiores",
+    "Effacement des bits faibles",
+    "Löschen niederwertiger Bits",
+    "Limpeza de bits inferiores",
+    "Обнуление младших битов"
+  ],
+  "MCP permissions": [
+    "MCP権限",
+    "MCP 권한",
+    "Permisos MCP",
+    "Autorisations MCP",
+    "MCP-Berechtigungen",
+    "Permissões MCP",
+    "Разрешения MCP"
+  ],
+  "Mark / Trace": [
+    "Mark / Trace",
+    "Mark / Trace",
+    "Mark / Trace",
+    "Mark / Trace",
+    "Mark / Trace",
+    "Mark / Trace",
+    "Mark / Trace"
+  ],
+  "Maximum change": [
+    "最大変化",
+    "최대 변화",
+    "Cambio máximo",
+    "Changement maximal",
+    "Maximale Änderung",
+    "Alteração máxima",
+    "Максимальное изменение"
+  ],
+  "Method": [
+    "方式",
+    "방법",
+    "Método",
+    "Méthode",
+    "Methode",
+    "Método",
+    "Метод"
+  ],
+  "Method-specific detector retests": [
+    "方式別の検出器再検証",
+    "방법별 검출기 재검사",
+    "Repruebas por detector específico",
+    "Revérifications par détecteur",
+    "Methodenspezifische Nachprüfungen",
+    "Reverificações por detector específico",
+    "Повторные проверки соответствующим детектором"
+  ],
+  "Modify": [
+    "変更",
+    "수정",
+    "Modificar",
+    "Modifier",
+    "Ändern",
+    "Modificar",
+    "Изменение"
+  ],
+  "Needs review": [
+    "要確認",
+    "검토 필요",
+    "Requiere revisión",
+    "À examiner",
+    "Prüfung erforderlich",
+    "Requer revisão",
+    "Требуется проверка"
+  ],
+  "Next page": [
+    "次のページ",
+    "다음 페이지",
+    "Página siguiente",
+    "Page suivante",
+    "Nächste Seite",
+    "Próxima página",
+    "Следующая страница"
+  ],
+  "No findings match the filter": [
+    "フィルターに一致する項目なし",
+    "필터에 맞는 항목 없음",
+    "Sin hallazgos para este filtro",
+    "Aucun résultat pour ce filtre",
+    "Keine passenden Befunde",
+    "Nenhum resultado para este filtro",
+    "Нет находок для этого фильтра"
+  ],
+  "No report yet": [
+    "レポートはまだありません",
+    "아직 보고서 없음",
+    "Aún no hay informe",
+    "Aucun rapport pour le moment",
+    "Noch kein Bericht",
+    "Ainda sem relatório",
+    "Отчёта пока нет"
+  ],
+  "No supported fields to remove": [
+    "削除可能な対応フィールドなし",
+    "제거할 지원 필드 없음",
+    "No hay campos compatibles para eliminar",
+    "Aucun champ pris en charge à supprimer",
+    "Keine unterstützten Felder zum Entfernen",
+    "Nenhum campo compatível para remover",
+    "Нет поддерживаемых полей для удаления"
+  ],
+  "Normalize new-copy creation time": [
+    "新規コピーの作成時刻を正規化",
+    "새 사본 생성 시각 정규화",
+    "Normalizar fecha de creación de la copia",
+    "Normaliser la création de la nouvelle copie",
+    "Erstellungszeit der neuen Kopie vereinheitlichen",
+    "Normalizar a criação da nova cópia",
+    "Нормализовать время создания новой копии"
+  ],
+  "Normalize new-copy modification time": [
+    "新規コピーの更新時刻を正規化",
+    "새 사본 수정 시각 정규화",
+    "Normalizar fecha de modificación de la copia",
+    "Normaliser la modification de la nouvelle copie",
+    "Änderungszeit der neuen Kopie vereinheitlichen",
+    "Normalizar a modificação da nova cópia",
+    "Нормализовать время изменения новой копии"
+  ],
+  "Not assessed": [
+    "未評価",
+    "평가하지 않음",
+    "No evaluado",
+    "Non évalué",
+    "Nicht bewertet",
+    "Não avaliado",
+    "Не оценено"
+  ],
+  "Not detected": [
+    "未検出",
+    "검출되지 않음",
+    "No detectado",
+    "Non détecté",
+    "Nicht erkannt",
+    "Não detectado",
+    "Не обнаружено"
+  ],
+  "Not verified yet": [
+    "未検証",
+    "아직 검증하지 않음",
+    "Aún no verificado",
+    "Pas encore vérifié",
+    "Noch nicht geprüft",
+    "Ainda não verificado",
+    "Пока не проверено"
+  ],
+  "OEM device attribution": [
+    "OEM・機器の帰属判定",
+    "OEM 기기 귀속 판단",
+    "Atribución a fabricante o dispositivo",
+    "Attribution OEM ou appareil",
+    "OEM- und Gerätezuordnung",
+    "Atribuição ao fabricante ou dispositivo",
+    "Атрибуция OEM и устройства"
+  ],
+  "Office content scope": [
+    "Office内容の処理範囲",
+    "Office 콘텐츠 범위",
+    "Alcance del contenido Office",
+    "Portée du contenu Office",
+    "Office-Inhaltsumfang",
+    "Escopo do conteúdo Office",
+    "Область содержимого Office"
+  ],
+  "Offline": [
+    "オフライン",
+    "오프라인",
+    "Sin conexión",
+    "Hors ligne",
+    "Offline",
+    "Offline",
+    "Офлайн"
+  ],
+  "Offline privacy audit": [
+    "オフラインプライバシー監査",
+    "오프라인 개인정보 감사",
+    "Auditoría de privacidad sin conexión",
+    "Audit de confidentialité hors ligne",
+    "Offline-Datenschutzprüfung",
+    "Auditoria de privacidade offline",
+    "Офлайн-аудит конфиденциальности"
+  ],
+  "Open output folder": [
+    "出力フォルダーを開く",
+    "출력 폴더 열기",
+    "Abrir carpeta de salida",
+    "Ouvrir le dossier de sortie",
+    "Ausgabeordner öffnen",
+    "Abrir pasta de saída",
+    "Открыть папку вывода"
+  ],
+  "Operations per MCP connection": [
+    "MCP接続ごとの操作数",
+    "MCP 연결당 작업 수",
+    "Operaciones por conexión MCP",
+    "Opérations par connexion MCP",
+    "Operationen pro MCP-Verbindung",
+    "Operações por conexão MCP",
+    "Операций на подключение MCP"
+  ],
+  "Original format": [
+    "元の形式",
+    "원본 형식",
+    "Formato original",
+    "Format original",
+    "Originalformat",
+    "Formato original",
+    "Исходный формат"
+  ],
+  "Original source credentials": [
+    "元の来歴資格情報",
+    "원본 출처 자격 증명",
+    "Credenciales de origen originales",
+    "Justificatifs de provenance d’origine",
+    "Ursprüngliche Herkunftsnachweise",
+    "Credenciais de origem originais",
+    "Исходные учётные данные происхождения"
+  ],
+  "Output copy": [
+    "出力コピー",
+    "출력 사본",
+    "Copia de salida",
+    "Copie de sortie",
+    "Ausgabekopie",
+    "Cópia de saída",
+    "Выходная копия"
+  ],
+  "Output folder": [
+    "出力フォルダー",
+    "출력 폴더",
+    "Carpeta de salida",
+    "Dossier de sortie",
+    "Ausgabeordner",
+    "Pasta de saída",
+    "Папка вывода"
+  ],
+  "Outside-group comparison": [
+    "グループ外の比較",
+    "그룹 외 비교",
+    "Comparación entre grupos",
+    "Comparaison hors groupe",
+    "Gruppenübergreifender Vergleich",
+    "Comparação entre grupos",
+    "Сравнение вне группы"
+  ],
+  "PDF content scope": [
+    "PDF内容の処理範囲",
+    "PDF 콘텐츠 범위",
+    "Alcance del contenido PDF",
+    "Portée du contenu PDF",
+    "PDF-Inhaltsumfang",
+    "Escopo do conteúdo PDF",
+    "Область содержимого PDF"
+  ],
+  "PDF scan complete. Safe rewriting is protected": [
+    "PDFスキャン完了。Safeでは書き換えを保護",
+    "PDF 검사 완료. Safe 재작성은 보호됨",
+    "PDF analizado. Reescritura Safe protegida",
+    "PDF analysé. Réécriture Safe protégée",
+    "PDF geprüft. Safe-Neuschreiben geschützt",
+    "PDF analisado. Regravação Safe protegida",
+    "PDF проверен. Перезапись Safe защищена"
+  ],
+  "Pending": [
+    "待機中",
+    "대기 중",
+    "Pendiente",
+    "En attente",
+    "Ausstehend",
+    "Pendente",
+    "Ожидание"
+  ],
+  "Post-processing recheck": [
+    "処理後の再検証",
+    "처리 후 재검사",
+    "Revisión tras el procesamiento",
+    "Revérification après traitement",
+    "Nachprüfung nach Verarbeitung",
+    "Reverificação após o processamento",
+    "Повторная проверка после обработки"
+  ],
+  "Previous page": [
+    "前のページ",
+    "이전 페이지",
+    "Página anterior",
+    "Page précédente",
+    "Vorherige Seite",
+    "Página anterior",
+    "Предыдущая страница"
+  ],
+  "Process and save copy": [
+    "処理してコピーを保存",
+    "처리 후 사본 저장",
+    "Procesar y guardar copia",
+    "Traiter et enregistrer une copie",
+    "Verarbeiten und Kopie speichern",
+    "Processar e salvar cópia",
+    "Обработать и сохранить копию"
+  ],
+  "Processing mode": [
+    "処理モード",
+    "처리 모드",
+    "Modo de procesamiento",
+    "Mode de traitement",
+    "Verarbeitungsmodus",
+    "Modo de processamento",
+    "Режим обработки"
+  ],
+  "Queued": [
+    "キュー待機中",
+    "대기열에 있음",
+    "En cola",
+    "En file d’attente",
+    "Eingereiht",
+    "Na fila",
+    "В очереди"
+  ],
+  "Queued detection result": [
+    "キュー画像の検出結果",
+    "대기 이미지 검출 결과",
+    "Resultado de detección en cola",
+    "Résultat de détection en file",
+    "Erkennungsergebnis der Warteschlange",
+    "Resultado da detecção em fila",
+    "Результат обнаружения в очереди"
+  ],
+  "Queued tasks": [
+    "キュー内タスク",
+    "대기 작업",
+    "Tareas en cola",
+    "Tâches en attente",
+    "Eingereihte Aufgaben",
+    "Tarefas na fila",
+    "Задачи в очереди"
+  ],
+  "Ready": [
+    "準備完了",
+    "준비됨",
+    "Listo",
+    "Prêt",
+    "Bereit",
+    "Pronto",
+    "Готово"
+  ],
+  "Ready to clean": [
+    "クリーニング可能",
+    "정리 준비됨",
+    "Listo para limpiar",
+    "Prêt à nettoyer",
+    "Bereit zur Bereinigung",
+    "Pronto para limpar",
+    "Готово к очистке"
+  ],
+  "Record type": [
+    "記録の種類",
+    "기록 유형",
+    "Tipo de registro",
+    "Type d’enregistrement",
+    "Datensatztyp",
+    "Tipo de registro",
+    "Тип записи"
+  ],
+  "Reference group (optional)": [
+    "参照グループ（任意）",
+    "참조 그룹(선택)",
+    "Grupo de referencia (opcional)",
+    "Groupe de référence (facultatif)",
+    "Referenzgruppe (optional)",
+    "Grupo de referência (opcional)",
+    "Контрольная группа (необязательно)"
+  ],
+  "Reference-group residual comparisons": [
+    "参照グループの残差比較",
+    "참조 그룹 잔차 비교",
+    "Comparación de residuos por grupo",
+    "Comparaisons des résidus par groupe",
+    "Restwertvergleiche der Referenzgruppe",
+    "Comparações de resíduos por grupo",
+    "Сравнения остатков контрольной группы"
+  ],
+  "Remaining detection": [
+    "残存する検出",
+    "남은 검출",
+    "Detección restante",
+    "Détection restante",
+    "Verbleibende Erkennung",
+    "Detecção restante",
+    "Оставшееся обнаружение"
+  ],
+  "Remove": [
+    "削除",
+    "제거",
+    "Eliminar",
+    "Supprimer",
+    "Entfernen",
+    "Remover",
+    "Удалить"
+  ],
+  "Remove leading BOM": [
+    "先頭BOMを削除",
+    "선두 BOM 제거",
+    "Eliminar BOM inicial",
+    "Supprimer le BOM initial",
+    "Führende BOM entfernen",
+    "Remover BOM inicial",
+    "Удалить начальный BOM"
+  ],
+  "Remove removable source credentials and their signatures": [
+    "削除可能な来歴資格情報と署名を削除",
+    "제거 가능한 출처 자격 증명 및 서명 제거",
+    "Eliminar credenciales y firmas extraíbles",
+    "Supprimer les justificatifs et signatures amovibles",
+    "Entfernbare Herkunftsnachweise und Signaturen entfernen",
+    "Remover credenciais e assinaturas removíveis",
+    "Удалить доступные для удаления данные происхождения и подписи"
+  ],
+  "Removed structures": [
+    "削除した構造",
+    "제거된 구조",
+    "Estructuras eliminadas",
+    "Structures supprimées",
+    "Entfernte Strukturen",
+    "Estruturas removidas",
+    "Удалённые структуры"
+  ],
+  "Report could not be saved. Choose a new path": [
+    "レポートを保存できません。別のパスを選択してください",
+    "보고서를 저장할 수 없습니다. 새 경로를 선택하세요",
+    "No se pudo guardar el informe. Elige otra ruta",
+    "Rapport non enregistré. Choisissez un autre chemin",
+    "Bericht nicht gespeichert. Anderen Pfad wählen",
+    "Não foi possível salvar o relatório. Escolha outro caminho",
+    "Не удалось сохранить отчёт. Выберите другой путь"
+  ],
+  "Report exported": [
+    "レポートを出力しました",
+    "보고서 내보냄",
+    "Informe exportado",
+    "Rapport exporté",
+    "Bericht exportiert",
+    "Relatório exportado",
+    "Отчёт экспортирован"
+  ],
+  "Report for": [
+    "レポート対象",
+    "보고서 대상",
+    "Informe de",
+    "Rapport pour",
+    "Bericht für",
+    "Relatório de",
+    "Отчёт для"
+  ],
+  "Report saved": [
+    "レポートを保存しました",
+    "보고서 저장됨",
+    "Informe guardado",
+    "Rapport enregistré",
+    "Bericht gespeichert",
+    "Relatório salvo",
+    "Отчёт сохранён"
+  ],
+  "Rotate signing key": [
+    "署名鍵を更新",
+    "서명 키 교체",
+    "Rotar clave de firma",
+    "Renouveler la clé de signature",
+    "Signaturschlüssel wechseln",
+    "Rotacionar chave de assinatura",
+    "Сменить ключ подписи"
+  ],
+  "Run watermark detector": [
+    "透かし検出を実行",
+    "워터마크 검출 실행",
+    "Ejecutar detector de marcas",
+    "Lancer le détecteur de filigranes",
+    "Wasserzeichendetektor starten",
+    "Executar detector de marcas",
+    "Запустить детектор водяных знаков"
+  ],
+  "Run watermark lab": [
+    "透かしLabを実行",
+    "워터마크 Lab 실행",
+    "Ejecutar laboratorio de marcas",
+    "Lancer le laboratoire de filigranes",
+    "Wasserzeichen-Lab starten",
+    "Executar laboratório de marcas",
+    "Запустить лабораторию водяных знаков"
+  ],
+  "Running in an isolated worker": [
+    "隔離ワーカーで処理中",
+    "격리된 작업자에서 실행 중",
+    "Ejecutando en proceso aislado",
+    "Exécution dans un processus isolé",
+    "Ausführung in isoliertem Prozess",
+    "Executando em processo isolado",
+    "Выполняется в изолированном процессе"
+  ],
+  "Safe profile": [
+    "Safeポリシー",
+    "Safe 정책",
+    "Perfil Safe",
+    "Profil Safe",
+    "Safe-Profil",
+    "Perfil Safe",
+    "Профиль Safe"
+  ],
+  "Same as original": [
+    "原本と同じ場所",
+    "원본과 같은 위치",
+    "Junto al original",
+    "Avec l’original",
+    "Neben dem Original",
+    "Junto do original",
+    "Рядом с оригиналом"
+  ],
+  "Sample": [
+    "サンプル",
+    "샘플",
+    "Muestra",
+    "Échantillon",
+    "Probe",
+    "Amostra",
+    "Образец"
+  ],
+  "Sample comparisons": [
+    "サンプル比較",
+    "샘플 비교",
+    "Comparación de muestras",
+    "Comparaisons d’échantillons",
+    "Probenvergleiche",
+    "Comparações de amostras",
+    "Сравнения образцов"
+  ],
+  "Sanitizing": [
+    "クリーニング中",
+    "정리 중",
+    "Limpiando",
+    "Nettoyage",
+    "Wird bereinigt",
+    "Limpando",
+    "Очистка"
+  ],
+  "Save all copies": [
+    "すべてのコピーを保存",
+    "모든 사본 저장",
+    "Guardar todas las copias",
+    "Enregistrer toutes les copies",
+    "Alle Kopien speichern",
+    "Salvar todas as cópias",
+    "Сохранить все копии"
+  ],
+  "Save and verify clean copy": [
+    "クリーニング済みコピーを保存して検証",
+    "정리한 사본 저장 및 검증",
+    "Guardar y verificar copia limpia",
+    "Enregistrer et vérifier la copie nettoyée",
+    "Bereinigte Kopie speichern und prüfen",
+    "Salvar e verificar cópia limpa",
+    "Сохранить и проверить очищенную копию"
+  ],
+  "Save clean copy": [
+    "クリーニング済みコピーを保存",
+    "정리한 사본 저장",
+    "Guardar copia limpia",
+    "Enregistrer la copie nettoyée",
+    "Bereinigte Kopie speichern",
+    "Salvar cópia limpa",
+    "Сохранить очищенную копию"
+  ],
+  "Save cleaned copy and verify": [
+    "クリーニング済みコピーを保存して検証",
+    "정리한 사본 저장 및 검증",
+    "Guardar copia limpia y verificar",
+    "Enregistrer la copie nettoyée et vérifier",
+    "Bereinigte Kopie speichern und prüfen",
+    "Salvar cópia limpa e verificar",
+    "Сохранить очищенную копию и проверить"
+  ],
+  "Save marked copy and verify": [
+    "透かし付きコピーを保存して検証",
+    "표식된 사본 저장 및 검증",
+    "Guardar copia marcada y verificar",
+    "Enregistrer la copie marquée et vérifier",
+    "Markierte Kopie speichern und prüfen",
+    "Salvar cópia marcada e verificar",
+    "Сохранить копию с меткой и проверить"
+  ],
+  "Scale": [
+    "倍率",
+    "배율",
+    "Escala",
+    "Échelle",
+    "Skalierung",
+    "Escala",
+    "Масштаб"
+  ],
+  "Scan all": [
+    "すべてスキャン",
+    "모두 검사",
+    "Analizar todo",
+    "Tout analyser",
+    "Alles prüfen",
+    "Analisar tudo",
+    "Проверить всё"
+  ],
+  "Scan all files": [
+    "すべてのファイルをスキャン",
+    "모든 파일 검사",
+    "Analizar todos los archivos",
+    "Analyser tous les fichiers",
+    "Alle Dateien prüfen",
+    "Analisar todos os arquivos",
+    "Проверить все файлы"
+  ],
+  "Scan complete": [
+    "スキャン完了",
+    "검사 완료",
+    "Análisis completado",
+    "Analyse terminée",
+    "Prüfung abgeschlossen",
+    "Análise concluída",
+    "Проверка завершена"
+  ],
+  "Scan queue": [
+    "キューをスキャン",
+    "대기열 검사",
+    "Analizar cola",
+    "Analyser la file",
+    "Warteschlange prüfen",
+    "Analisar fila",
+    "Проверить очередь"
+  ],
+  "Scan selected": [
+    "選択項目をスキャン",
+    "선택 항목 검사",
+    "Analizar selección",
+    "Analyser la sélection",
+    "Auswahl prüfen",
+    "Analisar seleção",
+    "Проверить выбранное"
+  ],
+  "Scanning": [
+    "スキャン中",
+    "검사 중",
+    "Analizando",
+    "Analyse en cours",
+    "Prüfung läuft",
+    "Analisando",
+    "Сканирование"
+  ],
+  "Search findings": [
+    "検出項目を検索",
+    "발견 사항 검색",
+    "Buscar hallazgos",
+    "Rechercher des résultats",
+    "Befunde durchsuchen",
+    "Pesquisar resultados",
+    "Поиск находок"
+  ],
+  "Select 2 to 8 samples": [
+    "2〜8個のサンプルを選択",
+    "샘플 2~8개 선택",
+    "Elegir de 2 a 8 muestras",
+    "Choisir 2 à 8 échantillons",
+    "2 bis 8 Proben wählen",
+    "Escolher de 2 a 8 amostras",
+    "Выбрать от 2 до 8 образцов"
+  ],
+  "Select a file in Files first.": [
+    "先にファイルワークスペースでファイルを選択してください。",
+    "먼저 파일 작업 공간에서 파일을 선택하세요.",
+    "Primero selecciona un archivo en Archivos.",
+    "Sélectionnez d’abord un fichier dans Fichiers.",
+    "Zuerst eine Datei im Dateibereich wählen.",
+    "Primeiro selecione um arquivo em Arquivos.",
+    "Сначала выберите файл в разделе файлов."
+  ],
+  "Selected file": [
+    "選択したファイル",
+    "선택한 파일",
+    "Archivo seleccionado",
+    "Fichier sélectionné",
+    "Ausgewählte Datei",
+    "Arquivo selecionado",
+    "Выбранный файл"
+  ],
+  "Settings": [
+    "設定",
+    "설정",
+    "Ajustes",
+    "Paramètres",
+    "Einstellungen",
+    "Configurações",
+    "Настройки"
+  ],
+  "Signal processing": [
+    "信号処理",
+    "신호 처리",
+    "Procesamiento de señales",
+    "Traitement du signal",
+    "Signalverarbeitung",
+    "Processamento de sinais",
+    "Обработка сигнала"
+  ],
+  "Signal processing (experimental)": [
+    "信号処理（実験的）",
+    "신호 처리(실험적)",
+    "Procesamiento de señales (experimental)",
+    "Traitement du signal (expérimental)",
+    "Signalverarbeitung (experimentell)",
+    "Processamento de sinais (experimental)",
+    "Обработка сигнала (экспериментальная)"
+  ],
+  "Signature": [
+    "署名",
+    "서명",
+    "Firma",
+    "Signature",
+    "Signatur",
+    "Assinatura",
+    "Подпись"
+  ],
+  "Signed checkpoint result": [
+    "署名付きチェックポイントの結果",
+    "서명된 체크포인트 결과",
+    "Resultado del punto de control firmado",
+    "Résultat du point de contrôle signé",
+    "Ergebnis des signierten Prüfpunkts",
+    "Resultado do ponto de controle assinado",
+    "Результат подписанной контрольной точки"
+  ],
+  "Signed record": [
+    "署名付き記録",
+    "서명된 기록",
+    "Registro firmado",
+    "Enregistrement signé",
+    "Signierter Datensatz",
+    "Registro assinado",
+    "Подписанная запись"
+  ],
+  "Strength": [
+    "強度",
+    "강도",
+    "Intensidad",
+    "Intensité",
+    "Stärke",
+    "Intensidade",
+    "Сила"
+  ],
+  "Text and HTML": [
+    "テキストとHTML",
+    "텍스트 및 HTML",
+    "Texto y HTML",
+    "Texte et HTML",
+    "Text und HTML",
+    "Texto e HTML",
+    "Текст и HTML"
+  ],
+  "Timeout (seconds)": [
+    "制限時間（秒）",
+    "제한 시간(초)",
+    "Tiempo límite (segundos)",
+    "Délai maximal (secondes)",
+    "Zeitlimit (Sekunden)",
+    "Tempo limite (segundos)",
+    "Тайм-аут (секунды)"
+  ],
+  "Transfer": [
+    "引き渡し",
+    "인계",
+    "Transferir",
+    "Transférer",
+    "Übergabe",
+    "Transferir",
+    "Передача"
+  ],
+  "Trusted": [
+    "信頼済み",
+    "신뢰됨",
+    "De confianza",
+    "Approuvé",
+    "Vertrauenswürdig",
+    "Confiável",
+    "Доверенный"
+  ],
+  "Untrusted": [
+    "信頼なし",
+    "신뢰되지 않음",
+    "No confiable",
+    "Non approuvé",
+    "Nicht vertrauenswürdig",
+    "Não confiável",
+    "Недоверенный"
+  ],
+  "Unverifiable": [
+    "検証不能",
+    "검증 불가",
+    "No verificable",
+    "Invérifiable",
+    "Nicht überprüfbar",
+    "Não verificável",
+    "Невозможно проверить"
+  ],
+  "Use C2PA certificate signing": [
+    "C2PA証明書署名を使用",
+    "C2PA 인증서 서명 사용",
+    "Usar firma con certificado C2PA",
+    "Utiliser une signature par certificat C2PA",
+    "C2PA-Zertifikatsignatur verwenden",
+    "Usar assinatura com certificado C2PA",
+    "Использовать подпись сертификатом C2PA"
+  ],
+  "Use current-time claim": [
+    "現在時刻の申告を使用",
+    "현재 시각 주장 사용",
+    "Usar hora actual declarada",
+    "Utiliser l’heure actuelle déclarée",
+    "Aktuelle Zeitangabe verwenden",
+    "Usar hora atual declarada",
+    "Использовать заявление о текущем времени"
+  ],
+  "Use system key storage": [
+    "システム鍵ストアを使用",
+    "시스템 키 저장소 사용",
+    "Usar almacén de claves del sistema",
+    "Utiliser le trousseau système",
+    "Systemschlüsselspeicher verwenden",
+    "Usar cofre de chaves do sistema",
+    "Использовать системное хранилище ключей"
+  ],
+  "Valid": [
+    "有効",
+    "유효함",
+    "Válido",
+    "Valide",
+    "Gültig",
+    "Válido",
+    "Действительно"
+  ],
+  "Verification": [
+    "検証",
+    "검증",
+    "Verificación",
+    "Vérification",
+    "Überprüfung",
+    "Verificação",
+    "Проверка"
+  ],
+  "Verify RFC 3161 response": [
+    "RFC 3161応答を検証",
+    "RFC 3161 응답 검증",
+    "Verificar respuesta RFC 3161",
+    "Vérifier la réponse RFC 3161",
+    "RFC-3161-Antwort prüfen",
+    "Verificar resposta RFC 3161",
+    "Проверить ответ RFC 3161"
+  ],
+  "Verify copy": [
+    "コピーを検証",
+    "사본 검증",
+    "Verificar copia",
+    "Vérifier la copie",
+    "Kopie prüfen",
+    "Verificar cópia",
+    "Проверить копию"
+  ],
+  "Verify copy again": [
+    "コピーを再検証",
+    "사본 재검증",
+    "Verificar copia de nuevo",
+    "Vérifier à nouveau la copie",
+    "Kopie erneut prüfen",
+    "Verificar cópia novamente",
+    "Проверить копию повторно"
+  ],
+  "Verify current file": [
+    "現在のファイルを検証",
+    "현재 파일 검증",
+    "Verificar archivo actual",
+    "Vérifier le fichier actuel",
+    "Aktuelle Datei prüfen",
+    "Verificar arquivo atual",
+    "Проверить текущий файл"
+  ],
+  "Verify evidence package": [
+    "証拠パッケージを検証",
+    "증거 패키지 검증",
+    "Verificar paquete de evidencias",
+    "Vérifier le dossier de preuves",
+    "Nachweispaket prüfen",
+    "Verificar pacote de evidências",
+    "Проверить пакет доказательств"
+  ],
+  "Verify files": [
+    "Verify ファイル",
+    "Verify 파일",
+    "Verify archivos",
+    "Verify fichiers",
+    "Verify Dateien",
+    "Verify arquivos",
+    "Verify файлы"
+  ],
+  "Verify provenance": [
+    "Verify 来歴",
+    "Verify 출처",
+    "Verify procedencia",
+    "Vérifier la provenance",
+    "Verify Herkunft",
+    "Verify proveniência",
+    "Verify происхождение"
+  ],
+  "Verifying": [
+    "検証中",
+    "검증 중",
+    "Verificando",
+    "Vérification en cours",
+    "Überprüfung läuft",
+    "Verificando",
+    "Проверяется"
+  ],
+  "Version": [
+    "バージョン",
+    "버전",
+    "Versión",
+    "Version",
+    "Version",
+    "Versão",
+    "Версия"
+  ],
+  "View JSON": [
+    "JSONを表示",
+    "JSON 보기",
+    "Ver JSON",
+    "Afficher le JSON",
+    "JSON anzeigen",
+    "Ver JSON",
+    "Просмотреть JSON"
+  ],
+  "Watermark and provenance results": [
+    "透かし・来歴の結果",
+    "워터마크 및 출처 결과",
+    "Resultados de marcas y procedencia",
+    "Résultats des filigranes et de provenance",
+    "Wasserzeichen- und Herkunftsergebnisse",
+    "Resultados de marcas e proveniência",
+    "Результаты проверки водяных знаков и происхождения"
+  ],
+  "Watermark strength": [
+    "透かし強度",
+    "워터마크 강도",
+    "Intensidad de marca",
+    "Intensité du filigrane",
+    "Wasserzeichenstärke",
+    "Intensidade da marca",
+    "Сила водяного знака"
+  ],
+  "Work identifier": [
+    "作品識別子",
+    "작품 식별자",
+    "Identificador de obra",
+    "Identifiant d’œuvre",
+    "Werkkennung",
+    "Identificador da obra",
+    "Идентификатор произведения"
+  ],
+  "blocks": [
+    "ブロック",
+    "블록",
+    "bloques",
+    "blocs",
+    "Blöcke",
+    "blocos",
+    "блоки"
+  ],
+  "bytes": [
+    "バイト",
+    "바이트",
+    "bytes",
+    "octets",
+    "Bytes",
+    "bytes",
+    "байт"
+  ],
+  "offset": [
+    "オフセット",
+    "오프셋",
+    "desplazamiento",
+    "décalage",
+    "Offset",
+    "deslocamento",
+    "смещение"
+  ],
+  "records": [
+    "記録",
+    "기록",
+    "registros",
+    "enregistrements",
+    "Datensätze",
+    "registros",
+    "записи"
+  ],
+  "reference samples": [
+    "参照サンプル",
+    "참조 샘플",
+    "muestras de referencia",
+    "échantillons de référence",
+    "Referenzproben",
+    "amostras de referência",
+    "контрольные образцы"
+  ],
+  "Abnormal controls and nonlinguistic markers": [
+    "異常な制御文字・非言語マーカー",
+    "비정상 제어 문자 및 비언어 표식",
+    "Controles anómalos y marcas no lingüísticas",
+    "Contrôles anormaux et marqueurs non linguistiques",
+    "Ungewöhnliche Steuerzeichen und nichtsprachliche Marker",
+    "Controles anormais e marcadores não linguísticos",
+    "Необычные управляющие и нетекстовые знаки"
+  ],
+  "Accept supported Word revisions": [
+    "対応するWord変更履歴を反映",
+    "지원되는 Word 변경 내용 수락",
+    "Aceptar revisiones de Word compatibles",
+    "Accepter les révisions Word prises en charge",
+    "Unterstützte Word-Änderungen annehmen",
+    "Aceitar revisões Word compatíveis",
+    "Принять поддерживаемые исправления Word"
+  ],
+  "Adjacent low-bit correlation": [
+    "隣接下位ビットの相関",
+    "인접 하위 비트 상관",
+    "Correlación de bits inferiores adyacentes",
+    "Corrélation des bits faibles voisins",
+    "Korrelation benachbarter niederwertiger Bits",
+    "Correlação de bits inferiores adjacentes",
+    "Корреляция соседних младших битов"
+  ],
+  "Analyzed video frames": [
+    "解析した動画フレーム",
+    "분석된 영상 프레임",
+    "Fotogramas analizados",
+    "Images vidéo analysées",
+    "Analysierte Videoframes",
+    "Quadros de vídeo analisados",
+    "Проанализированные кадры видео"
+  ],
+  "Annotations and comments": [
+    "注釈とコメント",
+    "주석 및 댓글",
+    "Anotaciones y comentarios",
+    "Annotations et commentaires",
+    "Anmerkungen und Kommentare",
+    "Anotações e comentários",
+    "Аннотации и комментарии"
+  ],
+  "Anthropic text watermarks": [
+    "Anthropicテキスト透かし",
+    "Anthropic 텍스트 워터마크",
+    "Marcas de texto de Anthropic",
+    "Filigranes de texte Anthropic",
+    "Anthropic-Textwasserzeichen",
+    "Marcas de texto da Anthropic",
+    "Текстовые водяные знаки Anthropic"
+  ],
+  "Attachments and embedded files": [
+    "添付ファイルと埋め込みファイル",
+    "첨부 및 포함 파일",
+    "Adjuntos y archivos incrustados",
+    "Pièces jointes et fichiers incorporés",
+    "Anhänge und eingebettete Dateien",
+    "Anexos e arquivos incorporados",
+    "Вложения и встроенные файлы"
+  ],
+  "Audit AI provenance": [
+    "AI来歴を監査",
+    "AI 출처 감사",
+    "Auditar procedencia de IA",
+    "Auditer la provenance IA",
+    "KI-Herkunft prüfen",
+    "Auditar proveniência de IA",
+    "Проверить происхождение ИИ"
+  ],
+  "BCH corrected bits": [
+    "BCH訂正ビット数",
+    "BCH 수정 비트 수",
+    "Bits corregidos por BCH",
+    "Bits corrigés par BCH",
+    "BCH-korrigierte Bits",
+    "Bits corrigidos por BCH",
+    "Биты, исправленные BCH"
+  ],
+  "Batch Safe copies": [
+    "Safeコピーを一括作成",
+    "Safe 사본 일괄 처리",
+    "Copias Safe por lotes",
+    "Copies Safe par lots",
+    "Safe-Kopien im Stapel",
+    "Cópias Safe em lote",
+    "Пакетное создание копий Safe"
+  ],
+  "Blocks rewriting": [
+    "書き換えを阻止",
+    "재작성 차단",
+    "Impide la reescritura",
+    "Bloque la réécriture",
+    "Blockiert Neuschreiben",
+    "Bloqueia regravação",
+    "Блокирует перезапись"
+  ],
+  "Blur": [
+    "ぼかし",
+    "흐림",
+    "Desenfoque",
+    "Flou",
+    "Weichzeichnung",
+    "Desfoque",
+    "Размытие"
+  ],
+  "C2PA source credentials": [
+    "C2PA来歴資格情報",
+    "C2PA 출처 자격 증명",
+    "Credenciales de origen C2PA",
+    "Justificatifs de provenance C2PA",
+    "C2PA-Herkunftsnachweise",
+    "Credenciais de origem C2PA",
+    "Данные происхождения C2PA"
+  ],
+  "C2PA work and watermark association": [
+    "C2PA作品・透かし関連付け",
+    "C2PA 작품 및 워터마크 연결",
+    "Asociación C2PA de obra y marca",
+    "Association C2PA de l’œuvre et du filigrane",
+    "C2PA-Werk- und Wasserzeichenzuordnung",
+    "Associação C2PA de obra e marca",
+    "Связь произведения и водяного знака C2PA"
+  ],
+  "Changed samples": [
+    "変化したサンプル数",
+    "변경된 샘플 수",
+    "Muestras modificadas",
+    "Échantillons modifiés",
+    "Geänderte Abtastwerte",
+    "Amostras alteradas",
+    "Изменённые значения"
+  ],
+  "Checkpoints and RFC 3161 timestamps": [
+    "チェックポイントとRFC 3161時刻認証",
+    "체크포인트 및 RFC 3161 타임스탬프",
+    "Puntos de control y sellos RFC 3161",
+    "Points de contrôle et horodatages RFC 3161",
+    "Prüfpunkte und RFC-3161-Zeitstempel",
+    "Pontos de controle e carimbos RFC 3161",
+    "Контрольные точки и метки времени RFC 3161"
+  ],
+  "Co-sign receiver transfer proposal": [
+    "受信者として引き渡し提案に共同署名",
+    "수신자로 인계 제안 공동 서명",
+    "Cofirmar propuesta como receptor",
+    "Cosigner la proposition comme destinataire",
+    "Übergabevorschlag als Empfänger mitzeichnen",
+    "Coassinar proposta como destinatário",
+    "Подписать предложение передачи как получатель"
+  ],
+  "Comments and authors": [
+    "コメントと作者",
+    "댓글 및 작성자",
+    "Comentarios y autores",
+    "Commentaires et auteurs",
+    "Kommentare und Autoren",
+    "Comentários e autores",
+    "Комментарии и авторы"
+  ],
+  "Custom XML and bindings": [
+    "カスタムXMLと結合",
+    "사용자 지정 XML 및 바인딩",
+    "XML personalizado y vínculos",
+    "XML personnalisé et liaisons",
+    "Benutzerdefiniertes XML und Bindungen",
+    "XML personalizado e vínculos",
+    "Пользовательский XML и привязки"
+  ],
+  "DCT 8×8 AC band power": [
+    "DCT 8×8 AC帯域パワー",
+    "DCT 8×8 AC 대역 전력",
+    "Potencia de banda AC DCT 8×8",
+    "Puissance de bande AC DCT 8×8",
+    "DCT-8×8-AC-Bandleistung",
+    "Potência de banda AC DCT 8×8",
+    "Мощность полосы AC DCT 8×8"
+  ],
+  "DCT AC energy": [
+    "DCT ACエネルギー",
+    "DCT AC 에너지",
+    "Energía AC DCT",
+    "Énergie AC DCT",
+    "DCT-AC-Energie",
+    "Energia AC DCT",
+    "Энергия AC DCT"
+  ],
+  "DCT difference": [
+    "DCT差分",
+    "DCT 차이",
+    "Diferencia DCT",
+    "Différence DCT",
+    "DCT-Differenz",
+    "Diferença DCT",
+    "Разность DCT"
+  ],
+  "DFT 16×16 AC band power": [
+    "DFT 16×16 AC帯域パワー",
+    "DFT 16×16 AC 대역 전력",
+    "Potencia de banda AC DFT 16×16",
+    "Puissance de bande AC DFT 16×16",
+    "DFT-16×16-AC-Bandleistung",
+    "Potência de banda AC DFT 16×16",
+    "Мощность полосы AC DFT 16×16"
+  ],
+  "DFT AC energy": [
+    "DFT ACエネルギー",
+    "DFT AC 에너지",
+    "Energía AC DFT",
+    "Énergie AC DFT",
+    "DFT-AC-Energie",
+    "Energia AC DFT",
+    "Энергия AC DFT"
+  ],
+  "DFT difference": [
+    "DFT差分",
+    "DFT 차이",
+    "Diferencia DFT",
+    "Différence DFT",
+    "DFT-Differenz",
+    "Diferença DFT",
+    "Разность DFT"
+  ],
+  "Embedded objects with supported references": [
+    "対応する参照を持つ埋め込みオブジェクト",
+    "지원되는 참조를 가진 포함 개체",
+    "Objetos incrustados con referencias compatibles",
+    "Objets incorporés avec références prises en charge",
+    "Eingebettete Objekte mit unterstützten Verweisen",
+    "Objetos incorporados com referências compatíveis",
+    "Встроенные объекты с поддерживаемыми ссылками"
+  ],
+  "Experimental standard text credential wrappers": [
+    "標準テキスト資格情報ラッパー（実験的）",
+    "실험적 표준 텍스트 자격 증명 래퍼",
+    "Envoltorios estándar de credenciales de texto (experimental)",
+    "Enveloppes standard de justificatifs texte (expérimental)",
+    "Experimentelle Standard-Textnachweishüllen",
+    "Invólucros padrão de credenciais de texto (experimental)",
+    "Экспериментальные стандартные текстовые оболочки"
+  ],
+  "Explicitly hidden Word text": [
+    "明示的に非表示のWordテキスト",
+    "명시적으로 숨긴 Word 텍스트",
+    "Texto de Word oculto explícitamente",
+    "Texte Word explicitement masqué",
+    "Explizit ausgeblendeter Word-Text",
+    "Texto Word explicitamente oculto",
+    "Явно скрытый текст Word"
+  ],
+  "Explicitly remove removable C2PA Content Credentials": [
+    "削除可能なC2PA Content Credentialsを明示的に削除",
+    "제거 가능한 C2PA Content Credentials 명시적 제거",
+    "Eliminar explícitamente Content Credentials C2PA extraíbles",
+    "Supprimer explicitement les Content Credentials C2PA amovibles",
+    "Entfernbare C2PA Content Credentials explizit entfernen",
+    "Remover explicitamente Content Credentials C2PA removíveis",
+    "Явно удалить удаляемые Content Credentials C2PA"
+  ],
+  "External hyperlink relationships": [
+    "外部ハイパーリンク関係",
+    "외부 하이퍼링크 관계",
+    "Relaciones de hipervínculos externos",
+    "Relations de liens hypertextes externes",
+    "Externe Hyperlinkbeziehungen",
+    "Relações de hiperlinks externos",
+    "Внешние гиперссылки"
+  ],
+  "FileVeil structural watermark removed and rechecked": [
+    "FileVeil構造透かしを削除し再検証しました",
+    "FileVeil 구조 워터마크 제거 및 재검사 완료",
+    "Marca estructural FileVeil eliminada y revisada",
+    "Filigrane structurel FileVeil supprimé et revérifié",
+    "FileVeil-Strukturwasserzeichen entfernt und nachgeprüft",
+    "Marca estrutural FileVeil removida e reverificada",
+    "Структурный знак FileVeil удалён и проверен повторно"
+  ],
+  "Google SynthID images": [
+    "Google SynthID画像",
+    "Google SynthID 이미지",
+    "Imágenes Google SynthID",
+    "Images Google SynthID",
+    "Google-SynthID-Bilder",
+    "Imagens Google SynthID",
+    "Изображения Google SynthID"
+  ],
+  "Google SynthID text": [
+    "Google SynthIDテキスト",
+    "Google SynthID 텍스트",
+    "Texto Google SynthID",
+    "Texte Google SynthID",
+    "Google-SynthID-Text",
+    "Texto Google SynthID",
+    "Текст Google SynthID"
+  ],
+  "HTML author, generator and source fields": [
+    "HTML作者・生成器・出所フィールド",
+    "HTML 작성자, 생성기 및 출처 필드",
+    "Campos HTML de autor, generador y origen",
+    "Champs HTML d’auteur, générateur et source",
+    "HTML-Felder für Autor, Generator und Quelle",
+    "Campos HTML de autor, gerador e origem",
+    "Поля HTML автора, генератора и источника"
+  ],
+  "HTML comments": [
+    "HTMLコメント",
+    "HTML 주석",
+    "Comentarios HTML",
+    "Commentaires HTML",
+    "HTML-Kommentare",
+    "Comentários HTML",
+    "Комментарии HTML"
+  ],
+  "Hidden worksheets without dependencies": [
+    "依存関係のない非表示ワークシート",
+    "종속성이 없는 숨겨진 워크시트",
+    "Hojas ocultas sin dependencias",
+    "Feuilles masquées sans dépendances",
+    "Ausgeblendete Tabellen ohne Abhängigkeiten",
+    "Planilhas ocultas sem dependências",
+    "Скрытые листы без зависимостей"
+  ],
+  "High-pass residual RMS": [
+    "高域通過残差RMS",
+    "고역 통과 잔차 RMS",
+    "RMS del residuo de paso alto",
+    "RMS du résidu passe-haut",
+    "RMS des Hochpassrests",
+    "RMS do resíduo passa-alta",
+    "RMS высокочастотного остатка"
+  ],
+  "High-pass residual correlation": [
+    "高域通過残差の相関",
+    "고역 통과 잔차 상관",
+    "Correlación del residuo de paso alto",
+    "Corrélation du résidu passe-haut",
+    "Korrelation der Hochpassreste",
+    "Correlação do resíduo passa-alta",
+    "Корреляция высокочастотных остатков"
+  ],
+  "High-pass residual ×8 +128": [
+    "高域通過残差 ×8 +128",
+    "고역 통과 잔차 ×8 +128",
+    "Residuo de paso alto ×8 +128",
+    "Résidu passe-haut ×8 +128",
+    "Hochpassrest ×8 +128",
+    "Resíduo passa-alta ×8 +128",
+    "Высокочастотный остаток ×8 +128"
+  ],
+  "Input legacy structures": [
+    "入力の歴史的構造",
+    "입력의 구형 구조",
+    "Estructuras heredadas de entrada",
+    "Structures historiques d’entrée",
+    "Historische Strukturen der Eingabe",
+    "Estruturas legadas da entrada",
+    "Исторические структуры входного файла"
+  ],
+  "Issue-copy digest matches": [
+    "発行コピーのハッシュが一致",
+    "발행 사본 해시 일치",
+    "Coincide el resumen de copia emitida",
+    "Empreinte de copie émise concordante",
+    "Hash der Ausgabekopie stimmt überein",
+    "Resumo da cópia emitida corresponde",
+    "Хеш выпущенной копии совпадает"
+  ],
+  "Issue-copy digest mismatch": [
+    "発行コピーのハッシュが不一致",
+    "발행 사본 해시 불일치",
+    "No coincide el resumen de copia emitida",
+    "Empreinte de copie émise différente",
+    "Hash der Ausgabekopie stimmt nicht überein",
+    "Resumo da cópia emitida não corresponde",
+    "Хеш выпущенной копии не совпадает"
+  ],
+  "JavaScript active content": [
+    "JavaScriptなどのアクティブ内容",
+    "JavaScript 활성 콘텐츠",
+    "Contenido activo JavaScript",
+    "Contenu actif JavaScript",
+    "Aktiver JavaScript-Inhalt",
+    "Conteúdo ativo JavaScript",
+    "Активное содержимое JavaScript"
+  ],
+  "KEY binary signing private key": [
+    "KEYバイナリ署名秘密鍵",
+    "KEY 이진 서명 개인 키",
+    "Clave privada binaria de firma KEY",
+    "Clé privée de signature binaire KEY",
+    "Binärer privater KEY-Signaturschlüssel",
+    "Chave privada binária de assinatura KEY",
+    "Закрытый двоичный ключ подписи KEY"
+  ],
+  "LSB pair χ² / degrees of freedom": [
+    "LSBペアχ² / 自由度",
+    "LSB 쌍 χ² / 자유도",
+    "χ² de pares LSB / grados de libertad",
+    "χ² des paires LSB / degrés de liberté",
+    "LSB-Paar-χ² / Freiheitsgrade",
+    "χ² de pares LSB / graus de liberdade",
+    "χ² пар LSB / степени свободы"
+  ],
+  "Leave-one-out": [
+    "一個抜き交差検証",
+    "하나씩 제외",
+    "Validación dejando uno fuera",
+    "Validation avec exclusion d’un échantillon",
+    "Leave-One-Out-Verfahren",
+    "Validação deixando um de fora",
+    "Исключение по одному образцу"
+  ],
+  "Legacy cryptographic state": [
+    "歴史的暗号検証状態",
+    "구형 암호 검증 상태",
+    "Estado criptográfico heredado",
+    "État cryptographique historique",
+    "Historischer Kryptografiestatus",
+    "Estado criptográfico legado",
+    "Криптографическое состояние исторического формата"
+  ],
+  "Legacy post-clean verification": [
+    "歴史的構造のクリーニング後検証",
+    "구형 구조 정리 후 검증",
+    "Verificación de estructuras heredadas tras limpiar",
+    "Vérification historique après nettoyage",
+    "Historische Nachprüfung nach Bereinigung",
+    "Verificação legada após limpeza",
+    "Проверка исторических структур после очистки"
+  ],
+  "Legacy structures": [
+    "歴史的構造",
+    "구형 구조",
+    "Estructuras heredadas",
+    "Structures historiques",
+    "Historische Strukturen",
+    "Estruturas legadas",
+    "Исторические структуры"
+  ],
+  "Link an Engine 2 pixel watermark": [
+    "Engine 2ピクセル透かしを関連付け",
+    "Engine 2 픽셀 워터마크 연결",
+    "Vincular marca de píxeles Engine 2",
+    "Lier un filigrane de pixels Engine 2",
+    "Engine-2-Pixelwasserzeichen verknüpfen",
+    "Vincular marca de pixels Engine 2",
+    "Связать пиксельный знак Engine 2"
+  ],
+  "Maximum RGBA8 MSE": [
+    "RGBA8最大MSE",
+    "최대 RGBA8 MSE",
+    "MSE máximo RGBA8",
+    "MSE maximal RGBA8",
+    "Maximaler RGBA8-MSE",
+    "MSE máximo RGBA8",
+    "Максимальная MSE RGBA8"
+  ],
+  "Mean RGB lowest bits": [
+    "RGB最下位ビットの平均",
+    "RGB 최하위 비트 평균",
+    "Media de bits mínimos RGB",
+    "Moyenne des bits faibles RGB",
+    "Mittelwert niedrigster RGB-Bits",
+    "Média dos bits mínimos RGB",
+    "Средние младшие биты RGB"
+  ],
+  "Mean absolute difference ×8": [
+    "平均絶対差 ×8",
+    "평균 절대 차이 ×8",
+    "Diferencia absoluta media ×8",
+    "Différence absolue moyenne ×8",
+    "Mittlere absolute Differenz ×8",
+    "Diferença absoluta média ×8",
+    "Средняя абсолютная разность ×8"
+  ],
+  "NATI issuer policy": [
+    "NATI発行者ポリシー",
+    "NATI 발행자 정책",
+    "Política de emisores NATI",
+    "Politique d’émetteurs NATI",
+    "NATI-Herausgeberrichtlinie",
+    "Política de emissores NATI",
+    "Политика издателей NATI"
+  ],
+  "NTFS private data streams": [
+    "NTFSプライベートデータストリーム",
+    "NTFS 개인 데이터 스트림",
+    "Flujos de datos privados NTFS",
+    "Flux de données privés NTFS",
+    "Private NTFS-Datenströme",
+    "Fluxos de dados privados NTFS",
+    "Частные потоки данных NTFS"
+  ],
+  "Negative-control positives": [
+    "陰性対照の陽性数",
+    "음성 대조군 양성 수",
+    "Positivos en controles negativos",
+    "Positifs des témoins négatifs",
+    "Positive Negativkontrollen",
+    "Positivos em controles negativos",
+    "Положительные результаты отрицательного контроля"
+  ],
+  "OpenAI text watermarks": [
+    "OpenAIテキスト透かし",
+    "OpenAI 텍스트 워터마크",
+    "Marcas de texto de OpenAI",
+    "Filigranes de texte OpenAI",
+    "OpenAI-Textwasserzeichen",
+    "Marcas de texto da OpenAI",
+    "Текстовые водяные знаки OpenAI"
+  ],
+  "Or system watermark-key public identifier": [
+    "またはシステム透かし鍵の公開識別子",
+    "또는 시스템 워터마크 키의 공개 식별자",
+    "O identificador público de clave del sistema",
+    "Ou identifiant public de clé du système",
+    "Oder öffentliche Kennung des System-Wasserzeichenschlüssels",
+    "Ou identificador público de chave do sistema",
+    "Или открытый ID системного ключа водяного знака"
+  ],
+  "Other proprietary image watermarks": [
+    "その他の専有画像透かし",
+    "기타 독점 이미지 워터마크",
+    "Otras marcas de imagen propietarias",
+    "Autres filigranes d’image propriétaires",
+    "Andere proprietäre Bildwasserzeichen",
+    "Outras marcas de imagem proprietárias",
+    "Другие закрытые водяные знаки изображений"
+  ],
+  "Pixel watermark experiments are unsupported for this format.": [
+    "この形式はピクセル透かし実験に未対応です。",
+    "이 형식은 픽셀 워터마크 실험을 지원하지 않습니다.",
+    "Este formato no admite experimentos de marcas de píxeles.",
+    "Ce format ne prend pas en charge les essais de filigranes de pixels.",
+    "Dieses Format unterstützt keine Pixelwasserzeichen-Experimente.",
+    "Este formato não suporta experimentos de marcas de pixels.",
+    "Этот формат не поддерживает эксперименты с пиксельными знаками."
+  ],
+  "Prepare sender transfer proposal": [
+    "送信者の引き渡し提案を作成",
+    "송신자 인계 제안 준비",
+    "Preparar propuesta como emisor",
+    "Préparer la proposition comme expéditeur",
+    "Übergabevorschlag als Absender vorbereiten",
+    "Preparar proposta como remetente",
+    "Подготовить предложение передачи отправителя"
+  ],
+  "Preserve or evaluate the selected namespace": [
+    "選択した名前空間を保持または評価",
+    "선택한 네임스페이스 보존 또는 평가",
+    "Conservar o evaluar el espacio de nombres",
+    "Conserver ou évaluer l’espace de noms choisi",
+    "Gewählten Namensraum erhalten oder bewerten",
+    "Preservar ou avaliar o espaço de nomes",
+    "Сохранить или оценить выбранное пространство имён"
+  ],
+  "Progressive": [
+    "プログレッシブ",
+    "프로그레시브",
+    "Progresivo",
+    "Progressif",
+    "Progressiv",
+    "Progressivo",
+    "Прогрессивное"
+  ],
+  "Quantization SHA-256": [
+    "量子化SHA-256",
+    "양자화 SHA-256",
+    "SHA-256 de cuantización",
+    "SHA-256 de quantification",
+    "Quantisierungs-SHA-256",
+    "SHA-256 de quantização",
+    "SHA-256 квантования"
+  ],
+  "RFC 3161 verification result": [
+    "RFC 3161検証結果",
+    "RFC 3161 검증 결과",
+    "Resultado de verificación RFC 3161",
+    "Résultat de vérification RFC 3161",
+    "RFC-3161-Prüfergebnis",
+    "Resultado de verificação RFC 3161",
+    "Результат проверки RFC 3161"
+  ],
+  "RGB bits to clear": [
+    "クリアするRGBビット数",
+    "지울 RGB 비트 수",
+    "Bits RGB a borrar",
+    "Bits RGB à effacer",
+    "Zu löschende RGB-Bits",
+    "Bits RGB a limpar",
+    "Число обнуляемых битов RGB"
+  ],
+  "RGB entropy": [
+    "RGBエントロピー",
+    "RGB 엔트로피",
+    "Entropía RGB",
+    "Entropie RGB",
+    "RGB-Entropie",
+    "Entropia RGB",
+    "Энтропия RGB"
+  ],
+  "RGB low bits cleared": [
+    "RGB下位ビットをクリア済み",
+    "RGB 하위 비트 지워짐",
+    "Bits inferiores RGB borrados",
+    "Bits faibles RGB effacés",
+    "Niederwertige RGB-Bits gelöscht",
+    "Bits inferiores RGB limpos",
+    "Младшие биты RGB обнулены"
+  ],
+  "RGB lowest-bit one counts": [
+    "RGB最下位ビットの1の数",
+    "RGB 최하위 비트의 1 개수",
+    "Recuento de unos del bit mínimo RGB",
+    "Comptage des 1 du bit faible RGB",
+    "Anzahl Einsen niedrigster RGB-Bits",
+    "Contagem de uns do bit mínimo RGB",
+    "Число единиц в младшем бите RGB"
+  ],
+  "RGB two-low-bit one fractions": [
+    "RGB下位2ビットの1の比率",
+    "RGB 하위 두 비트의 1 비율",
+    "Proporción de unos en los dos bits RGB inferiores",
+    "Proportion de 1 des deux bits faibles RGB",
+    "Einsenanteil der zwei niedrigsten RGB-Bits",
+    "Proporção de uns dos dois bits RGB inferiores",
+    "Доля единиц двух младших битов RGB"
+  ],
+  "RGB values use 16-level bins. Hover to inspect each count.": [
+    "RGB値は16段階に集計されます。カーソルで各個数を確認できます。",
+    "RGB 값은 16단계 구간으로 집계됩니다. 마우스를 올려 개수를 확인하세요.",
+    "Los valores RGB usan 16 intervalos. Pasa el cursor para ver los recuentos.",
+    "Les valeurs RGB utilisent 16 classes. Survolez pour voir les effectifs.",
+    "RGB-Werte nutzen 16 Klassen. Mauszeiger zeigt die Anzahl an.",
+    "Os valores RGB usam 16 intervalos. Passe o cursor para ver as contagens.",
+    "RGB разбит на 16 интервалов. Наведите указатель для просмотра числа."
+  ],
+  "Recipient public-key SHA-256": [
+    "受信者公開鍵のSHA-256",
+    "수신자 공개 키 SHA-256",
+    "SHA-256 de clave pública del receptor",
+    "SHA-256 de la clé publique du destinataire",
+    "SHA-256 des Empfängerschlüssels",
+    "SHA-256 da chave pública do destinatário",
+    "SHA-256 открытого ключа получателя"
+  ],
+  "Recipient public-key identifier SHA-256": [
+    "受信者公開鍵識別子SHA-256",
+    "수신자 공개 키 식별자 SHA-256",
+    "Identificador SHA-256 de clave del receptor",
+    "Identifiant SHA-256 de clé du destinataire",
+    "SHA-256-Kennung des Empfängerschlüssels",
+    "Identificador SHA-256 da chave do destinatário",
+    "Идентификатор SHA-256 ключа получателя"
+  ],
+  "Recovered work reference matches the selected reference": [
+    "復元された作品参照が選択した参照と一致",
+    "복원된 작품 참조가 선택한 참조와 일치",
+    "La referencia recuperada coincide con la seleccionada",
+    "La référence récupérée correspond à la sélection",
+    "Wiederhergestellte Werkreferenz stimmt mit Auswahl überein",
+    "A referência recuperada corresponde à selecionada",
+    "Восстановленная ссылка на произведение совпадает с выбранной"
+  ],
+  "Retained encoded media and structure verified": [
+    "保持された符号化メディアと構造を検証済み",
+    "보존된 인코딩 미디어 및 구조 검증됨",
+    "Contenido codificado y estructura conservados verificados",
+    "Média encodé et structure conservés vérifiés",
+    "Erhaltene Mediendaten und Struktur geprüft",
+    "Mídia codificada e estrutura preservadas verificadas",
+    "Сохранённые медиапотоки и структура проверены"
+  ],
+  "Retained regions are byte-for-byte identical": [
+    "保持領域はバイト単位で一致",
+    "보존 영역이 바이트 단위로 동일함",
+    "Las regiones conservadas son idénticas byte a byte",
+    "Les zones conservées sont identiques octet par octet",
+    "Erhaltene Bereiche sind bytegenau identisch",
+    "As regiões preservadas são idênticas byte a byte",
+    "Сохранённые области побайтно идентичны"
+  ],
+  "Retained-region equality did not pass": [
+    "保持領域の一致検証に失敗",
+    "보존 영역 동일성 검사 실패",
+    "Falló la igualdad de regiones conservadas",
+    "Échec d’égalité des zones conservées",
+    "Gleichheit erhaltener Bereiche nicht bestätigt",
+    "Falha na igualdade das regiões preservadas",
+    "Равенство сохранённых областей не подтверждено"
+  ],
+  "SELF local signing": [
+    "SELFローカル署名",
+    "SELF 로컬 서명",
+    "Firma local SELF",
+    "Signature locale SELF",
+    "Lokale SELF-Signatur",
+    "Assinatura local SELF",
+    "Локальная подпись SELF"
+  ],
+  "Sampled Haar detail power": [
+    "標本化Haar詳細パワー",
+    "표본 Haar 세부 전력",
+    "Potencia de detalles Haar muestreados",
+    "Puissance des détails Haar échantillonnés",
+    "Abgetastete Haar-Detailleistung",
+    "Potência de detalhes Haar amostrados",
+    "Мощность выбранных деталей Хаара"
+  ],
+  "Sampled original-resolution 8×8 block DCT": [
+    "原解像度の8×8ブロックDCT標本",
+    "원본 해상도 8×8 블록 DCT 표본",
+    "DCT 8×8 muestreada a resolución original",
+    "DCT 8×8 échantillonnée à résolution d’origine",
+    "Abgetastete 8×8-DCT in Originalauflösung",
+    "DCT 8×8 amostrada na resolução original",
+    "Выборочная DCT 8×8 в исходном разрешении"
+  ],
+  "Sequential": [
+    "シーケンシャル",
+    "순차",
+    "Secuencial",
+    "Séquentiel",
+    "Sequenziell",
+    "Sequencial",
+    "Последовательное"
+  ],
+  "Structural record absent from this variant": [
+    "この変換版に構造記録なし",
+    "이 변형에 구조 기록 없음",
+    "Registro estructural ausente en esta variante",
+    "Enregistrement structurel absent de cette variante",
+    "Strukturdatensatz in dieser Variante fehlt",
+    "Registro estrutural ausente nesta variante",
+    "В этом варианте структурная запись отсутствует"
+  ],
+  "Structural record remains in this variant": [
+    "この変換版に構造記録が残存",
+    "이 변형에 구조 기록 남음",
+    "El registro estructural permanece en esta variante",
+    "L’enregistrement structurel reste dans cette variante",
+    "Strukturdatensatz bleibt in dieser Variante erhalten",
+    "O registro estrutural permanece nesta variante",
+    "В этом варианте структурная запись сохранилась"
+  ],
+  "Successor public-key SHA-256": [
+    "後継公開鍵のSHA-256",
+    "후속 공개 키 SHA-256",
+    "SHA-256 de clave pública sucesora",
+    "SHA-256 de la clé publique suivante",
+    "SHA-256 des Nachfolgeschlüssels",
+    "SHA-256 da chave pública sucessora",
+    "SHA-256 следующего открытого ключа"
+  ],
+  "Synthetic LSB test protocol": [
+    "合成LSBテストプロトコル",
+    "합성 LSB 시험 프로토콜",
+    "Protocolo de prueba LSB sintético",
+    "Protocole de test LSB synthétique",
+    "Synthetisches LSB-Testprotokoll",
+    "Protocolo de teste LSB sintético",
+    "Синтетический тестовый протокол LSB"
+  ],
+  "Target detected supported image watermarks": [
+    "検出済み対応画像透かしを対象にする",
+    "검출된 지원 이미지 워터마크 대상으로 처리",
+    "Tratar marcas detectadas compatibles",
+    "Cibler les filigranes détectés pris en charge",
+    "Erkannte unterstützte Bildwasserzeichen behandeln",
+    "Tratar marcas detectadas compatíveis",
+    "Обрабатывать обнаруженные поддерживаемые знаки"
+  ],
+  "The copy must keep the original file extension.": [
+    "コピーは元の拡張子を保持する必要があります。",
+    "사본은 원본 파일 확장자를 유지해야 합니다.",
+    "La copia debe conservar la extensión original.",
+    "La copie doit conserver l’extension d’origine.",
+    "Die Kopie muss die ursprüngliche Dateiendung behalten.",
+    "A cópia deve manter a extensão original.",
+    "Копия должна сохранить исходное расширение файла."
+  ],
+  "The current wrapper context is protected from removal.": [
+    "現在のラッパー文脈は削除から保護されています。",
+    "현재 래퍼 문맥은 제거가 차단되어 있습니다.",
+    "El contexto actual del envoltorio está protegido.",
+    "Le contexte actuel de l’enveloppe est protégé.",
+    "Der aktuelle Hüllenkontext ist vor Entfernung geschützt.",
+    "O contexto atual do invólucro está protegido.",
+    "Текущий контекст оболочки защищён от удаления."
+  ],
+  "The destination exists. Choose a new file name.": [
+    "保存先が存在します。別のファイル名を選択してください。",
+    "대상이 존재합니다. 새 파일 이름을 선택하세요.",
+    "El destino ya existe. Elige otro nombre.",
+    "La destination existe. Choisissez un autre nom.",
+    "Zieldatei existiert. Neuen Dateinamen wählen.",
+    "O destino já existe. Escolha outro nome.",
+    "Файл назначения существует. Выберите другое имя."
+  ],
+  "The key destination exists. Choose a new file.": [
+    "鍵の保存先が存在します。別のファイルを選択してください。",
+    "키 대상이 존재합니다. 새 파일을 선택하세요.",
+    "El archivo de clave ya existe. Elige otro.",
+    "Le fichier de clé existe. Choisissez-en un autre.",
+    "Schlüsseldatei existiert. Andere Datei wählen.",
+    "O arquivo de chave já existe. Escolha outro.",
+    "Файл ключа существует. Выберите другой файл."
+  ],
+  "The output already exists. Choose a new filename.": [
+    "出力先が存在します。別のファイル名を選択してください。",
+    "출력이 이미 존재합니다. 새 파일 이름을 선택하세요.",
+    "La salida ya existe. Elige otro nombre.",
+    "La sortie existe déjà. Choisissez un autre nom.",
+    "Ausgabedatei existiert. Anderen Namen wählen.",
+    "A saída já existe. Escolha outro nome.",
+    "Выходной файл существует. Выберите другое имя."
+  ],
+  "The watermark payload has no successful key authentication.": [
+    "透かしペイロードの鍵認証に成功していません。",
+    "워터마크 페이로드 키 인증에 성공하지 못했습니다.",
+    "La carga de la marca no ha autenticado la clave.",
+    "La charge du filigrane n’a pas été authentifiée par clé.",
+    "Wasserzeichennutzlast ohne erfolgreiche Schlüsselauthentifizierung.",
+    "A carga da marca não obteve autenticação por chave.",
+    "Подлинность данных водяного знака по ключу не подтверждена."
+  ],
+  "Two low-bit differences": [
+    "下位2ビットの差分",
+    "하위 두 비트 차이",
+    "Diferencias de dos bits inferiores",
+    "Différences des deux bits faibles",
+    "Unterschiede zweier niederwertiger Bits",
+    "Diferenças dos dois bits inferiores",
+    "Разности двух младших битов"
+  ],
+  "Unix user.* attributes": [
+    "Unix user.*属性",
+    "Unix user.* 속성",
+    "Atributos Unix user.*",
+    "Attributs Unix user.*",
+    "Unix-user.*-Attribute",
+    "Atributos Unix user.*",
+    "Атрибуты Unix user.*"
+  ],
+  "Unknown and proprietary watermarks remain unassessed.": [
+    "未知および専有透かしは未評価です。",
+    "알 수 없는 독점 워터마크는 평가하지 않았습니다.",
+    "Las marcas desconocidas y propietarias siguen sin evaluar.",
+    "Les filigranes inconnus et propriétaires restent non évalués.",
+    "Unbekannte und proprietäre Wasserzeichen bleiben unbewertet.",
+    "Marcas desconhecidas e proprietárias continuam não avaliadas.",
+    "Неизвестные и закрытые водяные знаки остаются неоценёнными."
+  ],
+  "Unknown keyed-watermark detection remains unassessed": [
+    "未知の鍵付き透かし検出は未評価",
+    "알 수 없는 키 기반 워터마크 검출은 평가하지 않음",
+    "Detección de marcas con clave desconocidas sin evaluar",
+    "Détection des filigranes à clé inconnus non évaluée",
+    "Unbekannte schlüsselbasierte Wasserzeichen unbewertet",
+    "Detecção de marcas com chave desconhecidas não avaliada",
+    "Обнаружение неизвестных знаков с ключом не оценено"
+  ],
+  "Wait until this file is ready for image processing.": [
+    "このファイルが画像処理可能になるまでお待ちください。",
+    "이 파일이 이미지 처리 준비가 될 때까지 기다리세요.",
+    "Espera hasta que el archivo esté listo para procesar.",
+    "Attendez que ce fichier soit prêt pour le traitement.",
+    "Warten, bis diese Datei zur Bildverarbeitung bereit ist.",
+    "Aguarde até o arquivo estar pronto para processar.",
+    "Подождите, пока файл будет готов к обработке изображения."
+  ],
+  "Word internal editing identifiers": [
+    "Word内部編集識別子",
+    "Word 내부 편집 식별자",
+    "Identificadores internos de edición de Word",
+    "Identifiants internes d’édition Word",
+    "Interne Word-Bearbeitungskennungen",
+    "Identificadores internos de edição Word",
+    "Внутренние идентификаторы редактирования Word"
+  ],
+  "macOS download origins and dates": [
+    "macOSダウンロード元・日時",
+    "macOS 다운로드 출처 및 날짜",
+    "Origen y fechas de descarga de macOS",
+    "Origines et dates de téléchargement macOS",
+    "macOS-Downloadquellen und -daten",
+    "Origem e datas de download do macOS",
+    "Источники и даты загрузок macOS"
+  ],
+  "macOS last-used attributes": [
+    "macOS最終使用属性",
+    "macOS 최근 사용 속성",
+    "Atributos de último uso de macOS",
+    "Attributs de dernière utilisation macOS",
+    "macOS-Attribute zur letzten Nutzung",
+    "Atributos de último uso do macOS",
+    "Атрибуты последнего использования macOS"
+  ],
+  "quantization tables": [
+    "量子化テーブル",
+    "양자화 표",
+    "tablas de cuantización",
+    "tables de quantification",
+    "Quantisierungstabellen",
+    "tabelas de quantização",
+    "таблицы квантования"
+  ],
+  "High contrast": [
+    "高コントラスト",
+    "고대비",
+    "Alto contraste",
+    "Contraste élevé",
+    "Hoher Kontrast",
+    "Alto contraste",
+    "Высокий контраст"
+  ],
+  "Files": [
+    "ファイル",
+    "파일",
+    "Archivos",
+    "Fichiers",
+    "Dateien",
+    "Arquivos",
+    "Файлы"
+  ],
+  "Queue": [
+    "キュー",
+    "대기열",
+    "Cola",
+    "File d’attente",
+    "Warteschlange",
+    "Fila",
+    "Очередь"
+  ],
+  "Open files": [
+    "ファイルを開く",
+    "파일 열기",
+    "Abrir archivos",
+    "Ouvrir des fichiers",
+    "Dateien öffnen",
+    "Abrir arquivos",
+    "Открыть файлы"
+  ],
+  "Open folder": [
+    "フォルダーを開く",
+    "폴더 열기",
+    "Abrir carpeta",
+    "Ouvrir un dossier",
+    "Ordner öffnen",
+    "Abrir pasta",
+    "Открыть папку"
+  ],
+  "Scan": [
+    "スキャン",
+    "검사",
+    "Analizar",
+    "Analyser",
+    "Prüfen",
+    "Analisar",
+    "Сканировать"
+  ],
+  "Sanitize": [
+    "クリーニング",
+    "정리",
+    "Limpiar",
+    "Nettoyer",
+    "Bereinigen",
+    "Limpar",
+    "Очистить"
+  ],
+  "Verify": [
+    "検証",
+    "검증",
+    "Verificar",
+    "Vérifier",
+    "Prüfen",
+    "Verificar",
+    "Проверить"
+  ],
+  "Choose folder": [
+    "フォルダーを選択",
+    "폴더 선택",
+    "Elegir carpeta",
+    "Choisir un dossier",
+    "Ordner wählen",
+    "Escolher pasta",
+    "Выбрать папку"
+  ],
+  "Copy report": [
+    "レポートをコピー",
+    "보고서 복사",
+    "Copiar informe",
+    "Copier le rapport",
+    "Bericht kopieren",
+    "Copiar relatório",
+    "Копировать отчёт"
+  ],
+  "Copied": [
+    "コピーしました",
+    "복사됨",
+    "Copiado",
+    "Copié",
+    "Kopiert",
+    "Copiado",
+    "Скопировано"
+  ],
+  "Reveal in folder": [
+    "フォルダーで表示",
+    "폴더에서 보기",
+    "Mostrar en carpeta",
+    "Afficher dans le dossier",
+    "Im Ordner anzeigen",
+    "Mostrar na pasta",
+    "Показать в папке"
+  ],
+  "Remove selected": [
+    "選択項目を削除",
+    "선택 항목 제거",
+    "Eliminar selección",
+    "Supprimer la sélection",
+    "Auswahl entfernen",
+    "Remover seleção",
+    "Удалить выбранное"
+  ],
+  "Clear": [
+    "消去",
+    "비우기",
+    "Vaciar",
+    "Effacer",
+    "Leeren",
+    "Limpar",
+    "Очистить"
+  ],
+  "Stop": [
+    "停止",
+    "중지",
+    "Detener",
+    "Arrêter",
+    "Stoppen",
+    "Parar",
+    "Остановить"
+  ],
+  "Retry": [
+    "再試行",
+    "다시 시도",
+    "Reintentar",
+    "Réessayer",
+    "Erneut versuchen",
+    "Tentar novamente",
+    "Повторить"
+  ],
+  "Close": [
+    "閉じる",
+    "닫기",
+    "Cerrar",
+    "Fermer",
+    "Schließen",
+    "Fechar",
+    "Закрыть"
+  ],
+  "Done": [
+    "完了",
+    "완료",
+    "Hecho",
+    "Terminé",
+    "Fertig",
+    "Concluído",
+    "Готово"
+  ],
+  "Dismiss": [
+    "閉じる",
+    "닫기",
+    "Descartar",
+    "Fermer",
+    "Schließen",
+    "Dispensar",
+    "Закрыть"
+  ],
+  "Theme": [
+    "テーマ",
+    "테마",
+    "Tema",
+    "Thème",
+    "Design",
+    "Tema",
+    "Тема"
+  ],
+  "System": [
+    "システム",
+    "시스템",
+    "Sistema",
+    "Système",
+    "System",
+    "Sistema",
+    "Системная"
+  ],
+  "Resource limits": [
+    "リソース上限",
+    "리소스 한도",
+    "Límites de recursos",
+    "Limites de ressources",
+    "Ressourcenlimits",
+    "Limites de recursos",
+    "Ограничения ресурсов"
+  ],
+  "File size limit": [
+    "ファイルサイズ上限",
+    "파일 크기 한도",
+    "Tamaño máximo de archivo",
+    "Taille maximale du fichier",
+    "Maximale Dateigröße",
+    "Tamanho máximo do arquivo",
+    "Ограничение размера файла"
+  ],
+  "Task timeout": [
+    "タスク制限時間",
+    "작업 제한 시간",
+    "Tiempo límite de tarea",
+    "Délai maximal de tâche",
+    "Aufgabenzeitlimit",
+    "Tempo limite da tarefa",
+    "Тайм-аут задачи"
+  ],
+  "Timeout": [
+    "タイムアウト",
+    "시간 초과",
+    "Tiempo agotado",
+    "Délai dépassé",
+    "Zeitüberschreitung",
+    "Tempo esgotado",
+    "Тайм-аут"
+  ],
+  "seconds": [
+    "秒",
+    "초",
+    "segundos",
+    "secondes",
+    "Sekunden",
+    "segundos",
+    "секунды"
+  ],
+  "Profile": [
+    "ポリシー",
+    "정책",
+    "Perfil",
+    "Profil",
+    "Profil",
+    "Perfil",
+    "Профиль"
+  ],
+  "Safe": [
+    "Safeクリーニング",
+    "Safe 정리",
+    "Limpieza Safe",
+    "Nettoyage Safe",
+    "Safe-Bereinigung",
+    "Limpeza Safe",
+    "Очистка Safe"
+  ],
+  "Working": [
+    "処理中",
+    "처리 중",
+    "Trabajando",
+    "Traitement en cours",
+    "In Bearbeitung",
+    "Processando",
+    "Обработка"
+  ],
+  "Running": [
+    "実行中",
+    "실행 중",
+    "En ejecución",
+    "En cours",
+    "Wird ausgeführt",
+    "Em execução",
+    "Выполняется"
+  ],
+  "Completed": [
+    "完了",
+    "완료됨",
+    "Completado",
+    "Terminé",
+    "Abgeschlossen",
+    "Concluído",
+    "Завершено"
+  ],
+  "Timed out": [
+    "時間切れ",
+    "시간 초과됨",
+    "Tiempo agotado",
+    "Délai dépassé",
+    "Zeitlimit überschritten",
+    "Tempo esgotado",
+    "Время истекло"
+  ],
+  "Error": [
+    "エラー",
+    "오류",
+    "Error",
+    "Erreur",
+    "Fehler",
+    "Erro",
+    "Ошибка"
+  ],
+  "Failed": [
+    "失敗",
+    "실패",
+    "Fallido",
+    "Échec",
+    "Fehlgeschlagen",
+    "Falhou",
+    "Сбой"
+  ],
+  "Unsupported": [
+    "未対応",
+    "지원하지 않음",
+    "No compatible",
+    "Non pris en charge",
+    "Nicht unterstützt",
+    "Não suportado",
+    "Не поддерживается"
+  ],
+  "Blocked": [
+    "ブロック済み",
+    "차단됨",
+    "Bloqueado",
+    "Bloqué",
+    "Blockiert",
+    "Bloqueado",
+    "Заблокировано"
+  ],
+  "Ready to scan": [
+    "スキャン可能",
+    "검사 준비됨",
+    "Listo para analizar",
+    "Prêt à analyser",
+    "Bereit zur Prüfung",
+    "Pronto para analisar",
+    "Готово к сканированию"
+  ],
+  "Ready to sanitize": [
+    "クリーニング可能",
+    "정리 준비됨",
+    "Listo para limpiar",
+    "Prêt à nettoyer",
+    "Bereit zur Bereinigung",
+    "Pronto para limpar",
+    "Готово к очистке"
+  ],
+  "Verified": [
+    "検証済み",
+    "검증됨",
+    "Verificado",
+    "Vérifié",
+    "Geprüft",
+    "Verificado",
+    "Проверено"
+  ],
+  "Partially verified": [
+    "一部検証済み",
+    "부분 검증됨",
+    "Parcialmente verificado",
+    "Partiellement vérifié",
+    "Teilweise geprüft",
+    "Parcialmente verificado",
+    "Частично проверено"
+  ],
+  "Verified within scope": [
+    "範囲内で検証済み",
+    "범위 내 검증됨",
+    "Verificado dentro del alcance",
+    "Vérifié dans la portée définie",
+    "Im festgelegten Umfang geprüft",
+    "Verificado dentro do escopo",
+    "Проверено в указанной области"
+  ],
+  "Verification failed": [
+    "検証失敗",
+    "검증 실패",
+    "Verificación fallida",
+    "Échec de vérification",
+    "Überprüfung fehlgeschlagen",
+    "Falha na verificação",
+    "Проверка не пройдена"
+  ],
+  "Details": [
+    "詳細",
+    "세부 정보",
+    "Detalles",
+    "Détails",
+    "Details",
+    "Detalhes",
+    "Подробности"
+  ],
+  "Evidence": [
+    "証拠",
+    "증거",
+    "Evidencia",
+    "Preuves",
+    "Nachweise",
+    "Evidências",
+    "Доказательства"
+  ],
+  "Finding details": [
+    "検出項目の詳細",
+    "발견 사항 세부 정보",
+    "Detalles del hallazgo",
+    "Détails du résultat",
+    "Befunddetails",
+    "Detalhes do resultado",
+    "Подробности находки"
+  ],
+  "No file selected": [
+    "ファイル未選択",
+    "선택한 파일 없음",
+    "Ningún archivo seleccionado",
+    "Aucun fichier sélectionné",
+    "Keine Datei ausgewählt",
+    "Nenhum arquivo selecionado",
+    "Файл не выбран"
+  ],
+  "Select a file": [
+    "ファイルを選択",
+    "파일 선택",
+    "Elegir un archivo",
+    "Choisir un fichier",
+    "Datei wählen",
+    "Escolher um arquivo",
+    "Выбрать файл"
+  ],
+  "Select a file to inspect its findings": [
+    "ファイルを選択して検出項目を表示",
+    "파일을 선택하여 발견 사항 보기",
+    "Elige un archivo para ver sus hallazgos",
+    "Choisissez un fichier pour voir les résultats",
+    "Datei zum Anzeigen der Befunde wählen",
+    "Escolha um arquivo para ver os resultados",
+    "Выберите файл для просмотра находок"
+  ],
+  "Drop files or add them to begin": [
+    "ファイルをドロップまたは追加して開始",
+    "파일을 놓거나 추가하여 시작",
+    "Suelta o añade archivos para comenzar",
+    "Déposez ou ajoutez des fichiers pour commencer",
+    "Dateien ablegen oder hinzufügen",
+    "Solte ou adicione arquivos para começar",
+    "Перетащите или добавьте файлы для начала"
+  ],
+  "Supported formats": [
+    "対応形式",
+    "지원 형식",
+    "Formatos compatibles",
+    "Formats pris en charge",
+    "Unterstützte Formate",
+    "Formatos suportados",
+    "Поддерживаемые форматы"
+  ],
+  "Run a scan to see findings": [
+    "スキャンして検出項目を表示",
+    "검사를 실행하여 발견 사항 보기",
+    "Analiza para ver los hallazgos",
+    "Lancez une analyse pour voir les résultats",
+    "Prüfung starten, um Befunde anzuzeigen",
+    "Execute uma análise para ver os resultados",
+    "Запустите сканирование для просмотра находок"
+  ],
+  "No findings": [
+    "検出項目なし",
+    "발견 사항 없음",
+    "Sin hallazgos",
+    "Aucun résultat",
+    "Keine Befunde",
+    "Nenhum resultado",
+    "Находок нет"
+  ],
+  "All": [
+    "すべて",
+    "모두",
+    "Todo",
+    "Tout",
+    "Alle",
+    "Tudo",
+    "Все"
+  ],
+  "Removable": [
+    "削除可能",
+    "제거 가능",
+    "Eliminable",
+    "Supprimable",
+    "Entfernbar",
+    "Removível",
+    "Можно удалить"
+  ],
+  "Retained": [
+    "保持済み",
+    "보존됨",
+    "Conservado",
+    "Conservé",
+    "Erhalten",
+    "Preservado",
+    "Сохранено"
+  ],
+  "Removed": [
+    "削除済み",
+    "제거됨",
+    "Eliminado",
+    "Supprimé",
+    "Entfernt",
+    "Removido",
+    "Удалено"
+  ],
+  "Search": [
+    "検索",
+    "검색",
+    "Buscar",
+    "Rechercher",
+    "Suchen",
+    "Pesquisar",
+    "Поиск"
+  ],
+  "Search queue": [
+    "キューを検索",
+    "대기열 검색",
+    "Buscar en la cola",
+    "Rechercher dans la file",
+    "Warteschlange durchsuchen",
+    "Pesquisar fila",
+    "Поиск в очереди"
+  ],
+  "Filter": [
+    "フィルター",
+    "필터",
+    "Filtro",
+    "Filtre",
+    "Filter",
+    "Filtro",
+    "Фильтр"
+  ],
+  "Category": [
+    "カテゴリ",
+    "범주",
+    "Categoría",
+    "Catégorie",
+    "Kategorie",
+    "Categoria",
+    "Категория"
+  ],
+  "Status": [
+    "状態",
+    "상태",
+    "Estado",
+    "État",
+    "Status",
+    "Estado",
+    "Состояние"
+  ],
+  "Location": [
+    "場所",
+    "위치",
+    "Ubicación",
+    "Emplacement",
+    "Position",
+    "Localização",
+    "Расположение"
+  ],
+  "Confidence": [
+    "確度",
+    "신뢰도",
+    "Confianza",
+    "Confiance",
+    "Konfidenz",
+    "Confiança",
+    "Достоверность"
+  ],
+  "Action": [
+    "操作",
+    "작업",
+    "Acción",
+    "Action",
+    "Aktion",
+    "Ação",
+    "Действие"
+  ],
+  "Plan": [
+    "計画",
+    "계획",
+    "Plan",
+    "Plan",
+    "Plan",
+    "Plano",
+    "План"
+  ],
+  "Review plan": [
+    "計画を確認",
+    "계획 검토",
+    "Revisar plan",
+    "Examiner le plan",
+    "Plan prüfen",
+    "Revisar plano",
+    "Просмотреть план"
+  ],
+  "Review before saving": [
+    "保存前に確認",
+    "저장 전 검토",
+    "Revisar antes de guardar",
+    "Vérifier avant d’enregistrer",
+    "Vor dem Speichern prüfen",
+    "Revisar antes de salvar",
+    "Проверить перед сохранением"
+  ],
+  "Known privacy fields": [
+    "既知のプライバシーフィールド",
+    "알려진 개인정보 필드",
+    "Campos de privacidad conocidos",
+    "Champs de confidentialité connus",
+    "Bekannte Datenschutzfelder",
+    "Campos de privacidade conhecidos",
+    "Известные конфиденциальные поля"
+  ],
+  "Preserved data": [
+    "保持データ",
+    "보존된 데이터",
+    "Datos conservados",
+    "Données conservées",
+    "Erhaltene Daten",
+    "Dados preservados",
+    "Сохранённые данные"
+  ],
+  "Remaining risks": [
+    "残存リスク",
+    "남은 위험",
+    "Riesgos restantes",
+    "Risques restants",
+    "Verbleibende Risiken",
+    "Riscos restantes",
+    "Оставшиеся риски"
+  ],
+  "Warnings": [
+    "注意事項",
+    "알림",
+    "Avisos",
+    "Avertissements",
+    "Hinweise",
+    "Avisos",
+    "Предупреждения"
+  ],
+  "Comparison": [
+    "比較",
+    "비교",
+    "Comparación",
+    "Comparaison",
+    "Vergleich",
+    "Comparação",
+    "Сравнение"
+  ],
+  "Before": [
+    "処理前",
+    "처리 전",
+    "Antes",
+    "Avant",
+    "Vorher",
+    "Antes",
+    "До"
+  ],
+  "After": [
+    "処理後",
+    "처리 후",
+    "Después",
+    "Après",
+    "Nachher",
+    "Depois",
+    "После"
+  ],
+  "Original": [
+    "原本",
+    "원본",
+    "Original",
+    "Original",
+    "Original",
+    "Original",
+    "Оригинал"
+  ],
+  "Output": [
+    "出力",
+    "출력",
+    "Salida",
+    "Sortie",
+    "Ausgabe",
+    "Saída",
+    "Результат"
+  ],
+  "Integrity": [
+    "整合性",
+    "무결성",
+    "Integridad",
+    "Intégrité",
+    "Integrität",
+    "Integridade",
+    "Целостность"
+  ],
+  "Parseable": [
+    "構造を解析可能",
+    "구조 분석 가능",
+    "Estructura analizable",
+    "Structure analysable",
+    "Struktur lesbar",
+    "Estrutura analisável",
+    "Структура разбирается"
+  ],
+  "Decodeable": [
+    "デコード可能",
+    "디코딩 가능",
+    "Decodificable",
+    "Décodable",
+    "Dekodierbar",
+    "Decodificável",
+    "Декодируется"
+  ],
+  "Pixels equal": [
+    "ピクセル一致",
+    "픽셀 동일",
+    "Píxeles iguales",
+    "Pixels identiques",
+    "Pixel identisch",
+    "Pixels iguais",
+    "Пиксели совпадают"
+  ],
+  "Content equal": [
+    "内容一致",
+    "콘텐츠 동일",
+    "Contenido idéntico",
+    "Contenu identique",
+    "Inhalt identisch",
+    "Conteúdo igual",
+    "Содержимое совпадает"
+  ],
+  "Original unchanged": [
+    "原本のハッシュ一致",
+    "원본 변경 없음",
+    "Original sin cambios",
+    "Original inchangé",
+    "Original unverändert",
+    "Original inalterado",
+    "Оригинал не изменён"
+  ],
+  "Security markers preserved": [
+    "安全マーカーを保持",
+    "보안 표식 보존됨",
+    "Marcas de seguridad conservadas",
+    "Marqueurs de sécurité conservés",
+    "Sicherheitsmarker erhalten",
+    "Marcadores de segurança preservados",
+    "Метки безопасности сохранены"
+  ],
+  "Not checked": [
+    "未確認",
+    "확인하지 않음",
+    "No comprobado",
+    "Non vérifié",
+    "Nicht geprüft",
+    "Não verificado",
+    "Не проверялось"
+  ],
+  "Passed": [
+    "合格",
+    "통과",
+    "Aprobado",
+    "Réussi",
+    "Bestanden",
+    "Aprovado",
+    "Пройдено"
+  ],
+  "Yes": [
+    "はい",
+    "예",
+    "Sí",
+    "Oui",
+    "Ja",
+    "Sim",
+    "Да"
+  ],
+  "No": [
+    "いいえ",
+    "아니요",
+    "No",
+    "Non",
+    "Nein",
+    "Não",
+    "Нет"
+  ],
+  "Input SHA-256": [
+    "入力SHA-256",
+    "입력 SHA-256",
+    "SHA-256 de entrada",
+    "SHA-256 de l’entrée",
+    "Eingabe-SHA-256",
+    "SHA-256 de entrada",
+    "SHA-256 входного файла"
+  ],
+  "Original SHA-256": [
+    "原本SHA-256",
+    "원본 SHA-256",
+    "SHA-256 original",
+    "SHA-256 original",
+    "Original-SHA-256",
+    "SHA-256 original",
+    "SHA-256 оригинала"
+  ],
+  "Output SHA-256": [
+    "出力SHA-256",
+    "출력 SHA-256",
+    "SHA-256 de salida",
+    "SHA-256 de sortie",
+    "Ausgabe-SHA-256",
+    "SHA-256 de saída",
+    "SHA-256 результата"
+  ],
+  "Source file": [
+    "入力ファイル",
+    "입력 파일",
+    "Archivo de origen",
+    "Fichier source",
+    "Quelldatei",
+    "Arquivo de origem",
+    "Исходный файл"
+  ],
+  "Show full path": [
+    "完全パスを表示",
+    "전체 경로 표시",
+    "Mostrar ruta completa",
+    "Afficher le chemin complet",
+    "Vollständigen Pfad anzeigen",
+    "Mostrar caminho completo",
+    "Показать полный путь"
+  ],
+  "Format": [
+    "形式",
+    "형식",
+    "Formato",
+    "Format",
+    "Format",
+    "Formato",
+    "Формат"
+  ],
+  "Size": [
+    "サイズ",
+    "크기",
+    "Tamaño",
+    "Taille",
+    "Größe",
+    "Tamanho",
+    "Размер"
+  ],
+  "Operation": [
+    "操作",
+    "작업",
+    "Operación",
+    "Opération",
+    "Vorgang",
+    "Operação",
+    "Операция"
+  ],
+  "Capabilities": [
+    "対応機能",
+    "지원 기능",
+    "Capacidades",
+    "Capacités",
+    "Fähigkeiten",
+    "Capacidades",
+    "Возможности"
+  ],
+  "About": [
+    "このアプリについて",
+    "정보",
+    "Acerca de",
+    "À propos",
+    "Über",
+    "Sobre",
+    "О программе"
+  ],
+  "Batch processing": [
+    "一括処理",
+    "일괄 처리",
+    "Procesamiento por lotes",
+    "Traitement par lots",
+    "Stapelverarbeitung",
+    "Processamento em lote",
+    "Пакетная обработка"
+  ],
+  "Recursive folder import": [
+    "サブフォルダーも再帰的に追加",
+    "하위 폴더 재귀 가져오기",
+    "Importar carpetas recursivamente",
+    "Importer les dossiers récursivement",
+    "Ordner rekursiv importieren",
+    "Importar pastas recursivamente",
+    "Рекурсивный импорт папок"
+  ],
+  "Skip symbolic links": [
+    "シンボリックリンクをスキップ",
+    "심볼릭 링크 건너뛰기",
+    "Omitir enlaces simbólicos",
+    "Ignorer les liens symboliques",
+    "Symbolische Links überspringen",
+    "Ignorar links simbólicos",
+    "Пропускать символьные ссылки"
+  ],
+  "Select all": [
+    "すべて選択",
+    "모두 선택",
+    "Seleccionar todo",
+    "Tout sélectionner",
+    "Alle auswählen",
+    "Selecionar tudo",
+    "Выбрать всё"
+  ],
+  "Deselect all": [
+    "すべて選択解除",
+    "모두 선택 해제",
+    "Deseleccionar todo",
+    "Tout désélectionner",
+    "Auswahl aufheben",
+    "Desmarcar tudo",
+    "Снять всё выделение"
+  ],
+  "Selected": [
+    "選択済み",
+    "선택됨",
+    "Seleccionado",
+    "Sélectionné",
+    "Ausgewählt",
+    "Selecionado",
+    "Выбрано"
+  ],
+  "Open": [
+    "開く",
+    "열기",
+    "Abrir",
+    "Ouvrir",
+    "Öffnen",
+    "Abrir",
+    "Открыть"
+  ],
+  "Save": [
+    "保存",
+    "저장",
+    "Guardar",
+    "Enregistrer",
+    "Speichern",
+    "Salvar",
+    "Сохранить"
+  ],
+  "Reset": [
+    "リセット",
+    "초기화",
+    "Restablecer",
+    "Réinitialiser",
+    "Zurücksetzen",
+    "Redefinir",
+    "Сбросить"
+  ],
+  "Reset limits": [
+    "上限をリセット",
+    "한도 초기화",
+    "Restablecer límites",
+    "Réinitialiser les limites",
+    "Limits zurücksetzen",
+    "Redefinir limites",
+    "Сбросить ограничения"
+  ],
+  "Loading": [
+    "読み込み中",
+    "불러오는 중",
+    "Cargando",
+    "Chargement",
+    "Wird geladen",
+    "Carregando",
+    "Загрузка"
+  ],
+  "Continue": [
+    "続行",
+    "계속",
+    "Continuar",
+    "Continuer",
+    "Fortfahren",
+    "Continuar",
+    "Продолжить"
+  ],
+  "A task is running": [
+    "タスク実行中",
+    "작업 실행 중",
+    "Hay una tarea en ejecución",
+    "Une tâche est en cours",
+    "Eine Aufgabe läuft",
+    "Uma tarefa está em execução",
+    "Выполняется задача"
+  ],
+  "Finish or cancel the current task before continuing": [
+    "現在のタスクを完了または中止してから続行",
+    "현재 작업 완료 또는 취소 후 계속하세요",
+    "Finaliza o cancela la tarea antes de continuar",
+    "Terminez ou annulez la tâche avant de continuer",
+    "Aktuelle Aufgabe vor dem Fortfahren abschließen oder abbrechen",
+    "Conclua ou cancele a tarefa antes de continuar",
+    "Завершите или отмените текущую задачу перед продолжением"
+  ],
+  "Readable folders": [
+    "読み取り可能フォルダー",
+    "읽을 수 있는 폴더",
+    "Carpetas de lectura",
+    "Dossiers lisibles",
+    "Lesbare Ordner",
+    "Pastas de leitura",
+    "Папки для чтения"
+  ],
+  "Output folders": [
+    "出力フォルダー",
+    "출력 폴더",
+    "Carpetas de salida",
+    "Dossiers de sortie",
+    "Ausgabeordner",
+    "Pastas de saída",
+    "Папки вывода"
+  ],
+  "Add readable folder": [
+    "読み取りフォルダーを追加",
+    "읽기 폴더 추가",
+    "Añadir carpeta de lectura",
+    "Ajouter un dossier de lecture",
+    "Leseordner hinzufügen",
+    "Adicionar pasta de leitura",
+    "Добавить папку чтения"
+  ],
+  "Add output folder": [
+    "出力フォルダーを追加",
+    "출력 폴더 추가",
+    "Añadir carpeta de salida",
+    "Ajouter un dossier de sortie",
+    "Ausgabeordner hinzufügen",
+    "Adicionar pasta de saída",
+    "Добавить папку вывода"
+  ],
+  "Local MCP server": [
+    "ローカルMCPサーバー",
+    "로컬 MCP 서버",
+    "Servidor MCP local",
+    "Serveur MCP local",
+    "Lokaler MCP-Server",
+    "Servidor MCP local",
+    "Локальный сервер MCP"
+  ],
+  "MCP configuration copied": [
+    "MCP設定をコピーしました",
+    "MCP 설정 복사됨",
+    "Configuración MCP copiada",
+    "Configuration MCP copiée",
+    "MCP-Konfiguration kopiert",
+    "Configuração MCP copiada",
+    "Настройки MCP скопированы"
+  ],
+  "Could not locate MCP executable": [
+    "MCP実行ファイルが見つかりません",
+    "MCP 실행 파일을 찾을 수 없음",
+    "No se encontró el ejecutable MCP",
+    "Exécutable MCP introuvable",
+    "MCP-Programm nicht gefunden",
+    "Executável MCP não encontrado",
+    "Исполняемый файл MCP не найден"
+  ],
+  "Processing parameters verified": [
+    "処理パラメーターを検証済み",
+    "처리 매개변수 검증됨",
+    "Parámetros de procesamiento verificados",
+    "Paramètres de traitement vérifiés",
+    "Verarbeitungsparameter geprüft",
+    "Parâmetros de processamento verificados",
+    "Параметры обработки проверены"
+  ],
+  "No safe cleanup plan is available": [
+    "安全なクリーニング計画なし",
+    "안전한 정리 계획 없음",
+    "No hay plan de limpieza segura",
+    "Aucun plan de nettoyage sûr disponible",
+    "Kein sicherer Bereinigungsplan verfügbar",
+    "Nenhum plano de limpeza segura disponível",
+    "Безопасный план очистки недоступен"
+  ],
+  "No new regular files were added": [
+    "新しい通常ファイルの追加なし",
+    "새 일반 파일이 추가되지 않음",
+    "No se añadieron archivos regulares nuevos",
+    "Aucun nouveau fichier ordinaire ajouté",
+    "Keine neuen regulären Dateien hinzugefügt",
+    "Nenhum novo arquivo regular adicionado",
+    "Новые обычные файлы не добавлены"
+  ],
+  "Scan a file to see its plan": [
+    "ファイルをスキャンして計画を表示",
+    "파일을 검사하여 계획 보기",
+    "Analiza un archivo para ver su plan",
+    "Analysez un fichier pour voir son plan",
+    "Datei prüfen, um ihren Plan anzuzeigen",
+    "Analise um arquivo para ver o plano",
+    "Проверьте файл для просмотра плана"
+  ],
+  "Preserve": [
+    "保持",
+    "보존",
+    "Conservar",
+    "Conserver",
+    "Erhalten",
+    "Preservar",
+    "Сохранить"
+  ],
+  "Remove field": [
+    "フィールドを削除",
+    "필드 제거",
+    "Eliminar campo",
+    "Supprimer le champ",
+    "Feld entfernen",
+    "Remover campo",
+    "Удалить поле"
+  ],
+  "Normalize": [
+    "正規化",
+    "정규화",
+    "Normalizar",
+    "Normaliser",
+    "Vereinheitlichen",
+    "Normalizar",
+    "Нормализовать"
+  ],
+  "Rebuild": [
+    "再構築",
+    "재구성",
+    "Reconstruir",
+    "Reconstruire",
+    "Neu aufbauen",
+    "Reconstruir",
+    "Пересобрать"
+  ],
+  "Review retained data": [
+    "保持データを確認",
+    "보존 데이터 검토",
+    "Revisar datos conservados",
+    "Examiner les données conservées",
+    "Erhaltene Daten prüfen",
+    "Revisar dados preservados",
+    "Проверить сохранённые данные"
+  ],
+  "Unavailable": [
+    "利用不可",
+    "사용 불가",
+    "No disponible",
+    "Indisponible",
+    "Nicht verfügbar",
+    "Indisponível",
+    "Недоступно"
+  ],
+  "Embedded metadata": [
+    "埋め込みメタデータ",
+    "포함된 메타데이터",
+    "Metadatos incrustados",
+    "Métadonnées intégrées",
+    "Eingebettete Metadaten",
+    "Metadados incorporados",
+    "Встроенные метаданные"
+  ],
+  "Container structure": [
+    "コンテナー構造",
+    "컨테이너 구조",
+    "Estructura del contenedor",
+    "Structure du conteneur",
+    "Containerstruktur",
+    "Estrutura do contêiner",
+    "Структура контейнера"
+  ],
+  "Filesystem attributes": [
+    "ファイルシステム属性",
+    "파일 시스템 속성",
+    "Atributos del sistema de archivos",
+    "Attributs du système de fichiers",
+    "Dateisystemattribute",
+    "Atributos do sistema de arquivos",
+    "Атрибуты файловой системы"
+  ],
+  "Provenance credentials": [
+    "来歴資格情報",
+    "출처 자격 증명",
+    "Credenciales de procedencia",
+    "Justificatifs de provenance",
+    "Herkunftsnachweise",
+    "Credenciais de proveniência",
+    "Данные происхождения"
+  ],
+  "Content watermarks": [
+    "コンテンツ透かし",
+    "콘텐츠 워터마크",
+    "Marcas de contenido",
+    "Filigranes de contenu",
+    "Inhaltswasserzeichen",
+    "Marcas de conteúdo",
+    "Контентные водяные знаки"
+  ],
+  "Statistical watermarks": [
+    "統計的透かし",
+    "통계 워터마크",
+    "Marcas estadísticas",
+    "Filigranes statistiques",
+    "Statistische Wasserzeichen",
+    "Marcas estatísticas",
+    "Статистические водяные знаки"
+  ],
+  "Present": [
+    "検出あり",
+    "검출됨",
+    "Presente",
+    "Présent",
+    "Vorhanden",
+    "Presente",
+    "Обнаружено"
+  ],
+  "Removal verified": [
+    "削除を検証済み",
+    "제거 검증됨",
+    "Eliminación verificada",
+    "Suppression vérifiée",
+    "Entfernung geprüft",
+    "Remoção verificada",
+    "Удаление проверено"
+  ],
+  "Processing verified": [
+    "処理を検証済み",
+    "처리 검증됨",
+    "Procesamiento verificado",
+    "Traitement vérifié",
+    "Verarbeitung geprüft",
+    "Processamento verificado",
+    "Обработка проверена"
+  ],
+  "Strong evidence": [
+    "強い証拠",
+    "강한 증거",
+    "Evidencia sólida",
+    "Preuves solides",
+    "Starke Nachweise",
+    "Evidência forte",
+    "Убедительные доказательства"
+  ],
+  "Heuristic": [
+    "ヒューリスティック",
+    "휴리스틱",
+    "Heurístico",
+    "Heuristique",
+    "Heuristisch",
+    "Heurístico",
+    "Эвристика"
+  ],
+  "Unknown": [
+    "不明",
+    "알 수 없음",
+    "Desconocido",
+    "Inconnu",
+    "Unbekannt",
+    "Desconhecido",
+    "Неизвестно"
+  ],
+  "Explicit MCP signing keys": [
+    "MCP署名鍵の明示的な許可",
+    "명시적으로 허용한 MCP 서명 키",
+    "Claves de firma MCP autorizadas",
+    "Clés de signature MCP autorisées",
+    "Explizit erlaubte MCP-Signaturschlüssel",
+    "Chaves de assinatura MCP autorizadas",
+    "Явно разрешённые ключи подписи MCP"
+  ],
+  "Authorize signing key": [
+    "署名鍵を許可",
+    "서명 키 허용",
+    "Autorizar clave de firma",
+    "Autoriser une clé de signature",
+    "Signaturschlüssel erlauben",
+    "Autorizar chave de assinatura",
+    "Разрешить ключ подписи"
+  ],
+  "Authorize a system key by public-key identifier": [
+    "公開鍵識別子でシステム鍵を許可",
+    "공개 키 식별자로 시스템 키 허용",
+    "Autorizar clave del sistema por identificador público",
+    "Autoriser une clé système par son identifiant public",
+    "Systemschlüssel über öffentliche Kennung erlauben",
+    "Autorizar chave do sistema por identificador público",
+    "Разрешить системный ключ по открытому ID"
+  ],
+  "Authorize system key": [
+    "システム鍵を許可",
+    "시스템 키 허용",
+    "Autorizar clave del sistema",
+    "Autoriser une clé système",
+    "Systemschlüssel erlauben",
+    "Autorizar chave do sistema",
+    "Разрешить системный ключ"
+  ],
+  "A system key reference requires 64 hexadecimal characters": [
+    "システム鍵参照は16進数64文字が必要です",
+    "시스템 키 참조에는 16진수 64자가 필요합니다",
+    "La referencia de clave requiere 64 caracteres hexadecimales",
+    "La référence de clé nécessite 64 caractères hexadécimaux",
+    "Eine Systemschlüsselreferenz benötigt 64 Hexadezimalzeichen",
+    "A referência de chave exige 64 caracteres hexadecimais",
+    "Ссылка на системный ключ требует 64 шестнадцатеричных символа"
+  ],
+  "Language preference could not be saved": [
+    "言語設定を保存できませんでした",
+    "언어 설정을 저장할 수 없음",
+    "No se pudo guardar el idioma",
+    "La langue n’a pas pu être enregistrée",
+    "Spracheinstellung konnte nicht gespeichert werden",
+    "Não foi possível salvar o idioma",
+    "Не удалось сохранить настройку языка"
+  ],
+  "Output rescan verified removal of this supported field.": [
+    "出力の再スキャンでこの対応フィールドの削除を確認しました。",
+    "출력 재검사로 이 지원 필드의 제거를 확인했습니다.",
+    "El nuevo análisis verificó la eliminación de este campo compatible.",
+    "La nouvelle analyse a vérifié la suppression de ce champ pris en charge.",
+    "Die erneute Ausgabeprüfung bestätigte die Entfernung dieses unterstützten Feldes.",
+    "A nova análise confirmou a remoção deste campo suportado.",
+    "Повторное сканирование подтвердило удаление этого поддерживаемого поля."
+  ],
+  "Scan files": [
+    "すべてのファイルをスキャン",
+    "모든 파일 검사",
+    "Analizar todos los archivos",
+    "Analyser tous les fichiers",
+    "Alle Dateien prüfen",
+    "Analisar todos os arquivos",
+    "Проверить все файлы"
+  ],
+  "Compare copy": [
+    "原本とコピーを比較",
+    "원본과 사본 비교",
+    "Comparar original y copia",
+    "Comparer l’original et la copie",
+    "Original und Kopie vergleichen",
+    "Comparar original e cópia",
+    "Сравнить оригинал и копию"
+  ],
+  "Save sanitized copy": [
+    "クリーニング済みコピーを保存",
+    "정리한 사본 저장",
+    "Guardar copia limpia",
+    "Enregistrer la copie nettoyée",
+    "Bereinigte Kopie speichern",
+    "Salvar cópia limpa",
+    "Сохранить очищенную копию"
+  ],
+  "Save clean copies": [
+    "すべてのコピーを保存",
+    "모든 사본 저장",
+    "Guardar todas las copias",
+    "Enregistrer toutes les copies",
+    "Alle Kopien speichern",
+    "Salvar todas as cópias",
+    "Сохранить все копии"
+  ],
+  "Sanitize selected": [
+    "クリーニング",
+    "정리",
+    "Limpiar",
+    "Nettoyer",
+    "Bereinigen",
+    "Limpar",
+    "Очистить"
+  ],
+  "Sanitize queue": [
+    "クリーニング",
+    "정리",
+    "Limpiar",
+    "Nettoyer",
+    "Bereinigen",
+    "Limpar",
+    "Очистить"
+  ],
+  "Clean copies": [
+    "Clean ファイル",
+    "Clean 파일",
+    "Clean archivos",
+    "Clean fichiers",
+    "Clean Dateien",
+    "Clean arquivos",
+    "Clean файлы"
+  ],
+  "Next to originals": [
+    "原本と同じ場所",
+    "원본과 같은 위치",
+    "Junto al original",
+    "Avec l’original",
+    "Neben dem Original",
+    "Junto do original",
+    "Рядом с оригиналом"
+  ],
+  "Export reports": [
+    "すべてのレポートを出力",
+    "모든 보고서 내보내기",
+    "Exportar todos los informes",
+    "Exporter tous les rapports",
+    "Alle Berichte exportieren",
+    "Exportar todos os relatórios",
+    "Экспортировать все отчёты"
+  ],
+  "Export JSON report": [
+    "レポートを出力",
+    "보고서 내보내기",
+    "Exportar informe",
+    "Exporter le rapport",
+    "Bericht exportieren",
+    "Exportar relatório",
+    "Экспортировать отчёт"
+  ],
+  "Redacted JSON report": [
+    "JSONレポート",
+    "JSON 보고서",
+    "Informe JSON",
+    "Rapport JSON",
+    "JSON-Bericht",
+    "Relatório JSON",
+    "Отчёт JSON"
+  ],
+  "Save report": [
+    "保存",
+    "저장",
+    "Guardar",
+    "Enregistrer",
+    "Speichern",
+    "Salvar",
+    "Сохранить"
+  ],
+  "Show in folder": [
+    "フォルダーで表示",
+    "폴더에서 보기",
+    "Mostrar en carpeta",
+    "Afficher dans le dossier",
+    "Im Ordner anzeigen",
+    "Mostrar na pasta",
+    "Показать в папке"
+  ],
+  "Cancel task": [
+    "キャンセル",
+    "취소",
+    "Cancelar",
+    "Annuler",
+    "Abbrechen",
+    "Cancelar",
+    "Отмена"
+  ],
+  "Cancel remaining": [
+    "キャンセル",
+    "취소",
+    "Cancelar",
+    "Annuler",
+    "Abbrechen",
+    "Cancelar",
+    "Отмена"
+  ],
+  "Maximum file size": [
+    "ファイルサイズ上限",
+    "파일 크기 한도",
+    "Tamaño máximo de archivo",
+    "Taille maximale du fichier",
+    "Maximale Dateigröße",
+    "Tamanho máximo do arquivo",
+    "Ограничение размера файла"
+  ],
+  "All findings": [
+    "すべて",
+    "모두",
+    "Todo",
+    "Tout",
+    "Alle",
+    "Tudo",
+    "Все"
+  ],
+  "No findings match this filter": [
+    "フィルターに一致する項目なし",
+    "필터에 맞는 항목 없음",
+    "Sin hallazgos para este filtro",
+    "Aucun résultat pour ce filtre",
+    "Keine passenden Befunde",
+    "Nenhum resultado para este filtro",
+    "Нет находок для этого фильтра"
+  ],
+  "Sanitization plan": [
+    "クリーニング計画",
+    "정리 계획",
+    "Plan de limpieza",
+    "Plan de nettoyage",
+    "Bereinigungsplan",
+    "Plano de limpeza",
+    "План очистки"
+  ],
+  "Pixels identical": [
+    "ピクセル一致",
+    "픽셀 동일",
+    "Píxeles iguales",
+    "Pixels identiques",
+    "Pixel identisch",
+    "Pixels iguais",
+    "Пиксели совпадают"
+  ],
+  "Content preserved": [
+    "内容一致",
+    "콘텐츠 동일",
+    "Contenido idéntico",
+    "Contenu identique",
+    "Inhalt identisch",
+    "Conteúdo igual",
+    "Содержимое совпадает"
+  ],
+  "Add files to begin": [
+    "ファイルを追加して開始",
+    "파일을 추가하여 시작",
+    "Añade archivos para comenzar",
+    "Ajoutez des fichiers pour commencer",
+    "Zum Start Dateien hinzufügen",
+    "Adicione arquivos para começar",
+    "Добавьте файлы для начала"
+  ],
+  "Offline file privacy": [
+    "オフラインプライバシー監査",
+    "오프라인 개인정보 감사",
+    "Auditoría de privacidad sin conexión",
+    "Audit de confidentialité hors ligne",
+    "Offline-Datenschutzprüfung",
+    "Auditoria de privacidade offline",
+    "Офлайн-аудит конфиденциальности"
+  ],
+  "Chinese": [
+    "简体中文",
+    "简体中文",
+    "简体中文",
+    "简体中文",
+    "简体中文",
+    "简体中文",
+    "简体中文"
+  ],
+  "English": [
+    "English",
+    "English",
+    "English",
+    "English",
+    "English",
+    "English",
+    "English"
+  ],
+  "MiB": [
+    "MiB",
+    "MiB",
+    "MiB",
+    "MiB",
+    "MiB",
+    "MiB",
+    "MiB"
+  ],
+  "JPEG, PNG, DOCX, XLSX, PPTX": [
+    "JPEG, PNG, DOCX, XLSX, PPTX",
+    "JPEG, PNG, DOCX, XLSX, PPTX",
+    "JPEG, PNG, DOCX, XLSX, PPTX",
+    "JPEG, PNG, DOCX, XLSX, PPTX",
+    "JPEG, PNG, DOCX, XLSX, PPTX",
+    "JPEG, PNG, DOCX, XLSX, PPTX",
+    "JPEG, PNG, DOCX, XLSX, PPTX"
+  ],
+  "Image exceeds the pixel budget": [
+    "画像がピクセル上限を超えています",
+    "이미지가 픽셀 한도를 초과함",
+    "La imagen supera el límite de píxeles",
+    "L’image dépasse le budget de pixels",
+    "Bild überschreitet das Pixellimit",
+    "A imagem excede o limite de pixels",
+    "Изображение превышает лимит пикселей"
+  ],
+  "Diff Lab inputs exceed the aggregate byte budget": [
+    "Lab入力が合計バイト上限を超えています",
+    "Lab 입력이 총 바이트 한도를 초과함",
+    "Las entradas de Lab superan el límite total de bytes",
+    "Les entrées Lab dépassent le budget total d’octets",
+    "Lab-Eingaben überschreiten das Gesamtbytelimit",
+    "As entradas do Lab excedem o limite total de bytes",
+    "Входные данные Lab превышают общий лимит байтов"
+  ],
+  "Diff Lab images exceed the aggregate pixel budget": [
+    "Lab画像が合計ピクセル上限を超えています",
+    "Lab 이미지가 총 픽셀 한도를 초과함",
+    "Las imágenes de Lab superan el límite total de píxeles",
+    "Les images Lab dépassent le budget total de pixels",
+    "Lab-Bilder überschreiten das Gesamtpixellimit",
+    "As imagens do Lab excedem o limite total de pixels",
+    "Изображения Lab превышают общий лимит пикселей"
+  ],
+  "The trusted qpdf PDF backend is unavailable": [
+    "信頼されたqpdf PDFバックエンドを利用できません",
+    "신뢰된 qpdf PDF 백엔드를 사용할 수 없음",
+    "El motor PDF qpdf de confianza no está disponible",
+    "Le moteur PDF qpdf approuvé est indisponible",
+    "Das vertrauenswürdige qpdf-PDF-Backend ist nicht verfügbar",
+    "O mecanismo PDF qpdf confiável está indisponível",
+    "Доверенный PDF-компонент qpdf недоступен"
+  ],
+  "Encrypted PDF documents are protected": [
+    "暗号化PDF文書は保護されています",
+    "암호화된 PDF 문서는 보호됨",
+    "Los PDF cifrados están protegidos",
+    "Les PDF chiffrés sont protégés",
+    "Verschlüsselte PDFs sind geschützt",
+    "Os PDFs criptografados são protegidos",
+    "Зашифрованные PDF защищены"
+  ],
+  "PDF strict parsing failed or required repair": [
+    "PDFの厳密解析に失敗、または修復が必要です",
+    "PDF 엄격 분석 실패 또는 복구 필요",
+    "Falló el análisis estricto del PDF o requiere reparación",
+    "Analyse stricte du PDF échouée ou réparation requise",
+    "Strikte PDF-Analyse fehlgeschlagen oder Reparatur erforderlich",
+    "Falha na análise estrita do PDF ou reparo necessário",
+    "Строгий разбор PDF не удался или требуется исправление"
+  ],
+  "PDF full rewrite failed or required repair": [
+    "PDFの完全書き換えに失敗、または修復が必要です",
+    "PDF 전체 재작성 실패 또는 복구 필요",
+    "Falló la reescritura completa del PDF o requiere reparación",
+    "Réécriture complète du PDF échouée ou réparation requise",
+    "Vollständiges PDF-Neuschreiben fehlgeschlagen oder Reparatur erforderlich",
+    "Falha na regravação completa do PDF ou reparo necessário",
+    "Полная перезапись PDF не удалась или требуется исправление"
+  ],
+  "Removing provenance credentials requires the Deep policy": [
+    "来歴資格情報の削除にはDeepポリシーが必要です",
+    "출처 자격 증명 제거에는 Deep 정책이 필요함",
+    "Eliminar credenciales requiere la política Deep",
+    "La suppression des justificatifs requiert la politique Deep",
+    "Herkunftsnachweise erfordern zum Entfernen die Deep-Richtlinie",
+    "Remover credenciais exige a política Deep",
+    "Для удаления данных происхождения требуется политика Deep"
+  ],
+  "PDF content changes require the Deep policy": [
+    "PDF内容の変更にはDeepポリシーが必要です",
+    "PDF 콘텐츠 변경에는 Deep 정책이 필요함",
+    "Cambiar contenido PDF requiere la política Deep",
+    "Les modifications PDF requièrent la politique Deep",
+    "PDF-Inhaltsänderungen erfordern die Deep-Richtlinie",
+    "Alterar conteúdo PDF exige a política Deep",
+    "Для изменения содержимого PDF требуется политика Deep"
+  ],
+  "Office content changes require the Deep policy": [
+    "Office内容の変更にはDeepポリシーが必要です",
+    "Office 콘텐츠 변경에는 Deep 정책이 필요함",
+    "Cambiar contenido Office requiere la política Deep",
+    "Les modifications Office requièrent la politique Deep",
+    "Office-Inhaltsänderungen erfordern die Deep-Richtlinie",
+    "Alterar conteúdo Office exige a política Deep",
+    "Для изменения содержимого Office требуется политика Deep"
+  ],
+  "The difference lab requires 2 to 8 explicit samples": [
+    "差分Labには2〜8個の明示的なサンプルが必要です",
+    "차이 Lab에는 명시적 샘플 2~8개가 필요함",
+    "El laboratorio requiere entre 2 y 8 muestras explícitas",
+    "Le laboratoire requiert 2 à 8 échantillons explicites",
+    "Das Differenz-Lab benötigt 2 bis 8 explizite Proben",
+    "O laboratório exige entre 2 e 8 amostras explícitas",
+    "Лаборатории различий требуется от 2 до 8 явных образцов"
+  ],
+  "Structure confirmed by a real reference sample": [
+    "実際の参照サンプルで確認された構造",
+    "실제 참조 샘플로 확인된 구조",
+    "Estructura confirmada por muestra real",
+    "Structure confirmée par un échantillon réel",
+    "Durch echte Referenzprobe bestätigte Struktur",
+    "Estrutura confirmada por amostra real",
+    "Структура подтверждена реальным образцом"
+  ],
+  "Unverified structural candidate": [
+    "未検証の構造候補",
+    "검증되지 않은 구조 후보",
+    "Candidato estructural no verificado",
+    "Candidat structurel non vérifié",
+    "Ungeprüfter Strukturkandidat",
+    "Candidato estrutural não verificado",
+    "Непроверенный структурный кандидат"
+  ],
+  "PNG pixel-count limit exceeded": [
+    "画像がピクセル上限を超えています",
+    "이미지가 픽셀 한도를 초과함",
+    "La imagen supera el límite de píxeles",
+    "L’image dépasse le budget de pixels",
+    "Bild überschreitet das Pixellimit",
+    "A imagem excede o limite de pixels",
+    "Изображение превышает лимит пикселей"
+  ],
+  "JPEG pixel-count limit exceeded": [
+    "画像がピクセル上限を超えています",
+    "이미지가 픽셀 한도를 초과함",
+    "La imagen supera el límite de píxeles",
+    "L’image dépasse le budget de pixels",
+    "Bild überschreitet das Pixellimit",
+    "A imagem excede o limite de pixels",
+    "Изображение превышает лимит пикселей"
+  ],
+  "Office content-changing selections require the Deep policy": [
+    "Office内容の変更にはDeepポリシーが必要です",
+    "Office 콘텐츠 변경에는 Deep 정책이 필요함",
+    "Cambiar contenido Office requiere la política Deep",
+    "Les modifications Office requièrent la politique Deep",
+    "Office-Inhaltsänderungen erfordern die Deep-Richtlinie",
+    "Alterar conteúdo Office exige a política Deep",
+    "Для изменения содержимого Office требуется политика Deep"
+  ],
+  "1 bit": [
+    "1ビット",
+    "1비트",
+    "1 bit",
+    "1 bit",
+    "1 Bit",
+    "1 bit",
+    "1 бит"
+  ],
+  "2 bits": [
+    "2ビット",
+    "2비트",
+    "2 bits",
+    "2 bits",
+    "2 Bits",
+    "2 bits",
+    "2 бита"
+  ],
+  "3 bits": [
+    "3ビット",
+    "3비트",
+    "3 bits",
+    "3 bits",
+    "3 Bits",
+    "3 bits",
+    "3 бита"
+  ],
+  "Certificate chain PEM": [
+    "証明書チェーンPEM",
+    "인증서 체인 PEM",
+    "Cadena de certificados PEM",
+    "Chaîne de certificats PEM",
+    "Zertifikatskette PEM",
+    "Cadeia de certificados PEM",
+    "Цепочка сертификатов PEM"
+  ],
+  "Certificate private key PEM": [
+    "証明書秘密鍵PEM",
+    "인증서 개인 키 PEM",
+    "Clave privada de certificado PEM",
+    "Clé privée du certificat PEM",
+    "Privater Zertifikatschlüssel PEM",
+    "Chave privada do certificado PEM",
+    "Закрытый ключ сертификата PEM"
+  ],
+  "Checkpoint trust keys JSON": [
+    "チェックポイント信頼鍵JSON",
+    "체크포인트 신뢰 키 JSON",
+    "Claves de confianza de puntos de control JSON",
+    "Clés de confiance des points de contrôle JSON",
+    "Vertrauensschlüssel für Prüfpunkte JSON",
+    "Chaves de confiança de pontos de controle JSON",
+    "Доверенные ключи контрольных точек JSON"
+  ],
+  "Choose external checkpoints": [
+    "外部チェックポイントを選択",
+    "외부 체크포인트 선택",
+    "Elegir puntos de control externos",
+    "Choisir des points de contrôle externes",
+    "Externe Prüfpunkte wählen",
+    "Escolher pontos de controle externos",
+    "Выбрать внешние контрольные точки"
+  ],
+  "Choose local signing keys": [
+    "ローカル署名鍵を選択",
+    "로컬 서명 키 선택",
+    "Elegir claves de firma locales",
+    "Choisir des clés de signature locales",
+    "Lokale Signaturschlüssel wählen",
+    "Escolher chaves de assinatura locais",
+    "Выбрать локальные ключи подписи"
+  ],
+  "Choose negative controls": [
+    "陰性対照を選択",
+    "음성 대조군 선택",
+    "Elegir controles negativos",
+    "Choisir des témoins négatifs",
+    "Negativkontrollen wählen",
+    "Escolher controles negativos",
+    "Выбрать отрицательный контроль"
+  ],
+  "Choose signing keys": [
+    "署名鍵を選択",
+    "서명 키 선택",
+    "Elegir claves de firma",
+    "Choisir des clés de signature",
+    "Signaturschlüssel wählen",
+    "Escolher chaves de assinatura",
+    "Выбрать ключи подписи"
+  ],
+  "Clean": [
+    "Clean クリーニング",
+    "Clean 정리",
+    "Clean limpieza",
+    "Clean nettoyage",
+    "Clean bereinigen",
+    "Clean limpeza",
+    "Clean очистка"
+  ],
+  "Engine 2 watermark key file": [
+    "Engine 2透かし鍵ファイル",
+    "Engine 2 워터마크 키 파일",
+    "Archivo de clave de marca Engine 2",
+    "Fichier de clé de filigrane Engine 2",
+    "Engine-2-Wasserzeichen-Schlüsseldatei",
+    "Arquivo de chave de marca Engine 2",
+    "Файл ключа водяного знака Engine 2"
+  ],
+  "Lab": [
+    "Lab 実験",
+    "Lab 실험",
+    "Lab experimentos",
+    "Lab expériences",
+    "Lab Experimente",
+    "Lab experimentos",
+    "Lab эксперименты"
+  ],
+  "Local C2PA trust roots PEM": [
+    "ローカルC2PA信頼ルートPEM",
+    "로컬 C2PA 신뢰 루트 PEM",
+    "Raíces de confianza C2PA locales PEM",
+    "Racines de confiance C2PA locales PEM",
+    "Lokale C2PA-Vertrauensanker PEM",
+    "Raízes de confiança C2PA locais PEM",
+    "Локальные корни доверия C2PA PEM"
+  ],
+  "Mark": [
+    "Mark 埋め込み",
+    "Mark 삽입",
+    "Mark insertar",
+    "Mark insérer",
+    "Mark einbetten",
+    "Mark inserir",
+    "Mark внедрение"
+  ],
+  "Original timestamp query": [
+    "元の時刻認証要求",
+    "원본 타임스탬프 요청",
+    "Consulta original de sello de tiempo",
+    "Requête d’horodatage d’origine",
+    "Ursprüngliche Zeitstempelanfrage",
+    "Solicitação original de carimbo de tempo",
+    "Исходный запрос метки времени"
+  ],
+  "Previous version or history file": [
+    "前の版または履歴ファイル",
+    "이전 버전 또는 이력 파일",
+    "Versión anterior o archivo de historial",
+    "Version précédente ou fichier d’historique",
+    "Vorherige Version oder Verlaufsdatei",
+    "Versão anterior ou arquivo de histórico",
+    "Предыдущая версия или файл истории"
+  ],
+  "Reference file": [
+    "参照ファイル",
+    "참조 파일",
+    "Archivo de referencia",
+    "Fichier de référence",
+    "Referenzdatei",
+    "Arquivo de referência",
+    "Контрольный файл"
+  ],
+  "Timestamp response DER": [
+    "時刻認証応答DER",
+    "타임스탬프 응답 DER",
+    "Respuesta de sello de tiempo DER",
+    "Réponse d’horodatage DER",
+    "Zeitstempelantwort DER",
+    "Resposta de carimbo de tempo DER",
+    "Ответ метки времени DER"
+  ],
+  "Timestamp trust roots PEM": [
+    "時刻認証信頼ルートPEM",
+    "타임스탬프 신뢰 루트 PEM",
+    "Raíces de confianza de sellos de tiempo PEM",
+    "Racines de confiance d’horodatage PEM",
+    "Zeitstempel-Vertrauensanker PEM",
+    "Raízes de confiança de carimbos de tempo PEM",
+    "Корни доверия меток времени PEM"
+  ],
+  "Trace": [
+    "Trace 来歴",
+    "Trace 추적",
+    "Trace seguimiento",
+    "Trace suivi",
+    "Trace verfolgen",
+    "Trace rastrear",
+    "Trace история"
+  ],
+  "Trust policy JSON": [
+    "信頼ポリシーJSON",
+    "신뢰 정책 JSON",
+    "Política de confianza JSON",
+    "Politique de confiance JSON",
+    "Vertrauensrichtlinie JSON",
+    "Política de confiança JSON",
+    "Политика доверия JSON"
+  ]
+}

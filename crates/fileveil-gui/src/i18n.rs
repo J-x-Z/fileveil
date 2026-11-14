@@ -2,18 +2,142 @@
 //! Presentation-only translations. Format rules and report values stay in the shared core.
 use fileveil_core::{Action, Confidence, Finding, FindingState, Outcome, RiskLayer};
 
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Language {
     #[default]
+    #[serde(rename = "zh", alias = "Chinese", alias = "chinese")]
     Chinese,
+    #[serde(rename = "en", alias = "English", alias = "english")]
     English,
+    #[serde(rename = "ja", alias = "Japanese")]
+    Japanese,
+    #[serde(rename = "ko", alias = "Korean")]
+    Korean,
+    #[serde(rename = "es", alias = "Spanish")]
+    Spanish,
+    #[serde(rename = "fr", alias = "French")]
+    French,
+    #[serde(rename = "de", alias = "German")]
+    German,
+    #[serde(rename = "pt", alias = "Portuguese")]
+    Portuguese,
+    #[serde(rename = "ru", alias = "Russian")]
+    Russian,
+}
+
+impl Language {
+    pub const ALL: [Self; 9] = [
+        Self::Chinese,
+        Self::English,
+        Self::Japanese,
+        Self::Korean,
+        Self::Spanish,
+        Self::French,
+        Self::German,
+        Self::Portuguese,
+        Self::Russian,
+    ];
+
+    pub fn native_name(self) -> &'static str {
+        match self {
+            Self::Chinese => "简体中文",
+            Self::English => "English",
+            Self::Japanese => "日本語",
+            Self::Korean => "한국어",
+            Self::Spanish => "Español",
+            Self::French => "Français",
+            Self::German => "Deutsch",
+            Self::Portuguese => "Português",
+            Self::Russian => "Русский",
+        }
+    }
+
+    pub fn from_locale(locale: &str) -> Option<Self> {
+        match locale
+            .trim()
+            .split(['-', '_', '.', '@'])
+            .next()?
+            .to_ascii_lowercase()
+            .as_str()
+        {
+            "zh" => Some(Self::Chinese),
+            "en" => Some(Self::English),
+            "ja" => Some(Self::Japanese),
+            "ko" => Some(Self::Korean),
+            "es" => Some(Self::Spanish),
+            "fr" => Some(Self::French),
+            "de" => Some(Self::German),
+            "pt" => Some(Self::Portuguese),
+            "ru" => Some(Self::Russian),
+            _ => None,
+        }
+    }
+
+    fn catalog_index(self) -> Option<usize> {
+        match self {
+            Self::Japanese => Some(0),
+            Self::Korean => Some(1),
+            Self::Spanish => Some(2),
+            Self::French => Some(3),
+            Self::German => Some(4),
+            Self::Portuguese => Some(5),
+            Self::Russian => Some(6),
+            _ => None,
+        }
+    }
+}
+
+fn catalog() -> &'static std::collections::BTreeMap<String, [String; 7]> {
+    static CATALOG: std::sync::OnceLock<std::collections::BTreeMap<String, [String; 7]>> =
+        std::sync::OnceLock::new();
+    CATALOG.get_or_init(|| {
+        let mut entries: std::collections::BTreeMap<String, [String; 7]> =
+            serde_json::from_str(include_str!("../locales/short.json"))
+                .expect("bundled UI translations");
+        let long: std::collections::BTreeMap<String, [String; 7]> =
+            serde_json::from_str(include_str!("../locales/long.json"))
+                .expect("bundled UI explanations");
+        let findings: std::collections::BTreeMap<String, [String; 7]> =
+            serde_json::from_str(include_str!("../locales/findings.json"))
+                .expect("bundled finding translations");
+        for (key, translations) in long.into_iter().chain(findings) {
+            assert!(
+                entries.insert(key, translations).is_none(),
+                "duplicate translation key"
+            );
+        }
+        entries
+    })
+}
+
+/// Preserve the established Chinese wording while sharing other-language translations.
+pub fn text<'a>(language: Language, chinese: &'a str, english: &'a str) -> &'a str {
+    if language == Language::Chinese {
+        chinese
+    } else {
+        tr(language, english)
+    }
 }
 
 pub fn tr(language: Language, english: &str) -> &str {
-    if language == Language::English {
-        return english;
+    if language != Language::Chinese {
+        return language
+            .catalog_index()
+            .and_then(|index| catalog().get(english).map(|values| values[index].as_str()))
+            .unwrap_or(english);
     }
     match english {
+        "Valid" => "有效",
+        "Invalid" => "无效",
+        "Trusted" => "受信任",
+        "Untrusted" => "未受本地信任",
+        "Detected" => "检测到",
+        "Not detected" => "未检测到",
+        "Indeterminate" => "无法判断",
+        "Technical report values and unrecognized backend messages are shown in English." => {
+            "技术报告值和未识别的后端消息以英文显示。"
+        }
+        "Language preference could not be saved" => "语言设置无法保存。",
         "Watermark signals can be copied. Signatures, current content binding, issuer trust and trusted time are assessed separately. Offline dates are user assertions." => {
             "水印信号可以被复制。数字签名、当前内容绑定、发行者信任与可信时间分别评估。离线时间属于用户声明。"
         }
@@ -625,8 +749,8 @@ pub fn action(language: Language, value: Action) -> &'static str {
         Action::AskUser => "Review retained data",
         Action::Unsupported => "Unavailable",
     };
-    if language == Language::English {
-        return english;
+    if language != Language::Chinese {
+        return tr(language, english);
     }
     match value {
         Action::Preserve => "保留",
@@ -639,8 +763,8 @@ pub fn action(language: Language, value: Action) -> &'static str {
 }
 
 pub fn layer(language: Language, value: RiskLayer) -> &'static str {
-    if language == Language::English {
-        return match value {
+    if language != Language::Chinese {
+        let english = match value {
             RiskLayer::EmbeddedMetadata => "Embedded metadata",
             RiskLayer::ContainerStructure => "Container structure",
             RiskLayer::Filesystem => "Filesystem attributes",
@@ -648,6 +772,7 @@ pub fn layer(language: Language, value: RiskLayer) -> &'static str {
             RiskLayer::ContentWatermark => "Content watermarks",
             RiskLayer::StatisticalWatermark => "Statistical watermarks",
         };
+        return tr(language, english);
     }
     match value {
         RiskLayer::EmbeddedMetadata => "嵌入元数据",
@@ -660,8 +785,8 @@ pub fn layer(language: Language, value: RiskLayer) -> &'static str {
 }
 
 pub fn state(language: Language, value: FindingState) -> &'static str {
-    if language == Language::English {
-        return match value {
+    if language != Language::Chinese {
+        let english = match value {
             FindingState::Present => "Present",
             FindingState::RemovedVerified => "Removal verified",
             FindingState::AppliedVerified => "Processing verified",
@@ -669,6 +794,7 @@ pub fn state(language: Language, value: FindingState) -> &'static str {
             FindingState::NotAssessed => "Not assessed",
             FindingState::Blocked => "Blocked",
         };
+        return tr(language, english);
     }
     match value {
         FindingState::Present => "已检出",
@@ -681,13 +807,14 @@ pub fn state(language: Language, value: FindingState) -> &'static str {
 }
 
 pub fn confidence(language: Language, value: Confidence) -> &'static str {
-    if language == Language::English {
-        return match value {
+    if language != Language::Chinese {
+        let english = match value {
             Confidence::Verified => "Verified",
             Confidence::StrongEvidence => "Strong evidence",
             Confidence::Heuristic => "Heuristic",
             Confidence::Unknown => "Unknown",
         };
+        return tr(language, english);
     }
     match value {
         Confidence::Verified => "已验证",
@@ -815,17 +942,12 @@ pub fn finding_title(language: Language, finding: &Finding) -> String {
             return finding.code.clone();
         }
     };
-    if language == Language::Chinese {
-        chinese
-    } else {
-        english
-    }
-    .into()
+    text(language, chinese, english).into()
 }
 
 fn property_title(language: Language, property: &str) -> &str {
-    if language == Language::English {
-        return property;
+    if language != Language::Chinese {
+        return tr(language, property);
     }
     match property {
         "creator" => "作者",
@@ -858,11 +980,15 @@ pub fn finding_summary(language: Language, finding: &Finding) -> String {
         return if language == Language::Chinese {
             "输出重扫已确认这项受支持字段完成移除。".into()
         } else {
-            "Output rescan verified removal of this supported field.".into()
+            tr(
+                language,
+                "Output rescan verified removal of this supported field.",
+            )
+            .into()
         };
     }
-    if language == Language::English {
-        return finding.summary.clone();
+    if language != Language::Chinese {
+        return tr(language, &finding.summary).into();
     }
     let summary = match finding.code.as_str() {
         "ooxml.hidden_sheets" => {
@@ -983,6 +1109,92 @@ mod tests {
     }
 
     #[test]
+    fn all_common_controls_and_outcomes_have_seven_translations() {
+        for (key, translations) in catalog() {
+            assert!(
+                translations.iter().all(|value| !value.trim().is_empty()),
+                "Empty translation for {key}"
+            );
+            assert!(!key.trim().is_empty());
+        }
+        assert!(catalog().len() >= 500);
+        for language in Language::ALL
+            .into_iter()
+            .filter(|language| language.catalog_index().is_some())
+        {
+            for key in [
+                "Settings",
+                "Language",
+                "Add files",
+                "Save clean copy",
+                "Verify files",
+                "Clean files",
+                "Lab signals",
+                "Lab comparison",
+                "Verify provenance",
+                "Ready",
+                "Scanning",
+                "Sanitizing",
+                "Verifying",
+                "Safe profile",
+                "High contrast",
+                "MCP permissions",
+                "Readable folders",
+                "Authorize signing key",
+                "Work identifier",
+                "Work identifier, version, asserted time and signing keys are required.",
+                "Verified within scope",
+                "Partially verified",
+                "Verification failed",
+                "Unsupported",
+                "Blocked",
+                "Not assessed",
+                "Post-processing recheck",
+                "Method-specific detector retests",
+                "Unknown keyed-watermark detection remains unassessed",
+            ] {
+                assert!(catalog().contains_key(key), "Missing {key}");
+                assert_ne!(
+                    tr(language, key),
+                    key,
+                    "Untranslated {key} for {language:?}"
+                );
+            }
+            assert_eq!(tr(language, "future-label"), "future-label");
+            assert_ne!(state(language, FindingState::NotAssessed), "未评估");
+            assert_ne!(action(language, Action::Preserve), "保留");
+            assert_ne!(confidence(language, Confidence::Unknown), "未知");
+        }
+    }
+
+    #[test]
+    fn detector_and_signature_states_preserve_chinese_and_translate_all_languages() {
+        for (english, chinese) in [
+            ("Valid", "有效"),
+            ("Invalid", "无效"),
+            ("Trusted", "受信任"),
+            ("Untrusted", "未受本地信任"),
+            ("Detected", "检测到"),
+            ("Not detected", "未检测到"),
+            ("Indeterminate", "无法判断"),
+        ] {
+            assert_eq!(tr(Language::Chinese, english), chinese);
+            assert_eq!(tr(Language::English, english), english);
+            for language in Language::ALL
+                .into_iter()
+                .filter(|language| language.catalog_index().is_some())
+            {
+                assert_ne!(
+                    tr(language, english),
+                    english,
+                    "Untranslated state for {language:?}"
+                );
+                assert_ne!(tr(language, english), chinese);
+            }
+        }
+    }
+
+    #[test]
     fn credential_scope_limits_have_chinese_explanations_and_preserve_english() {
         for message in [
             "Results cover the named public watermark protocols. Public messages can be copied and do not authenticate a model, person or device. Negative results leave other schemes unassessed.",
@@ -1038,5 +1250,3 @@ mod tests {
         assert!(finding_summary(Language::English, &finding).contains("verified removal"));
     }
 }
-
-// FVPROV1 63271 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiIwZDU1MWVlMzFjOTI1ZTAyMmE4ZjA3Yjg0MmI0ODhjOGFiNzk4YWM4N2M2MDczYWQ2MDVmMGRjMTE2MmY4YjU0IiwiY29weV9pZCI6InYwLjUuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC41LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL2NyYXRlcy9maWxldmVpbC1ndWkvc3JjL2kxOG4ucnMifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiIwNmY2OWI2OWM3OGZjMjMxZTY1NDhjNzk3NDMyNjFiMzM3NzdkN2Y5MGE1MWNiNzc2NjQyODhhODg5NzQ3YTcxZTgwMDc2NWFhODE2MDAxNzgxN2VkNDY0N2MyNjZhZmMwM2QxZWEyNWU2NzJhN2JjNzBjMjQxNmFlMTJmYjUwZiJ9XX1d FVPROV1-END

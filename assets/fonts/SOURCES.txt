@@ -2,3 +2,5 @@ Inter font from https://github.com/google/fonts/tree/main/ofl/inter
 Noto Sans SC font from https://github.com/google/fonts/tree/main/ofl/notosanssc
 Inter is unmodified. Noto Sans SC is a static weight-400 instance made with fontTools from the official variable TTF. Both are embedded with their SIL Open Font License notices.
 epaint default fonts from epaint_default_fonts 0.37.0, with included font-specific licenses.
+
+Noto Sans KR from https://github.com/google/fonts/tree/main/ofl/notosanskr. Hangul-only static weight-400 subset generated using fontTools, covering Hangul syllables and Jamo. Original variable TTF SHA-256 194018e6b2b293a7964f037b25c0249ce1418bc9ab3c971060a03aa57861e252. Embedded under the accompanying SIL OFL.

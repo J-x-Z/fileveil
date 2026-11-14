@@ -206,7 +206,7 @@ def copy_resources(destination: Path) -> None:
     except (FileNotFoundError, subprocess.TimeoutExpired):
         pass
     with zipfile.ZipFile(destination / "FileVeil-source.zip", "w", zipfile.ZIP_DEFLATED) as archive:
-        for base in ["Cargo.toml", "Cargo.lock", "LICENSE", "README.md", ".gitignore", ".gitattributes", ".github", "crates", "tools", "docs", "tests", "assets", "provenance", "THIRD_PARTY_NOTICES.txt"]:
+        for base in ["Cargo.toml", "Cargo.lock", "LICENSE", "README.md", "README.zh-CN.md", ".gitignore", ".gitattributes", ".github", "crates", "tools", "docs", "tests", "assets", "provenance", "THIRD_PARTY_NOTICES.txt"]:
             source = ROOT / base
             paths = source.rglob("*") if source.is_dir() else [source]
             for path in sorted(paths):
@@ -312,7 +312,37 @@ def minimum_macos(paths: list[Path]) -> str:
     return ".".join(str(part) for part in max(versions))
 
 
-def package_macos(binary: Path, stage: Path, version: str, icon: Path | None, temporary: Path) -> None:
+def macos_bundle_versions(version: str, build_override: str | None = None) -> tuple[str, str]:
+    """Keep SemVer in FileVeilReleaseVersion and Apple's fields numeric.
+
+    Build tuples preserve release order within the older 4/2/2 digit limits.
+    The final component reserves ranges for alpha, beta, rc and stable releases.
+    An explicit build version accommodates future version schemes.
+    """
+    match = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)(?:-([A-Za-z0-9.]+))?", version)
+    if match is None:
+        raise PackagingError("Unsupported macOS release version syntax")
+    major, minor, patch = (int(match[index]) for index in (1, 2, 3))
+    release = f"{major}.{minor}.{patch}"
+    if build_override is not None:
+        if not re.fullmatch(r"[1-9]\d{0,3}\.\d{1,2}\.\d{1,2}", build_override):
+            raise PackagingError("--macos-build-version requires three numeric components within 4/2/2 digits")
+        return release, ".".join(str(int(part)) for part in build_override.split("."))
+    build_major = major * 100 + minor + 1
+    stage = 99
+    if match[4] is not None:
+        prerelease = re.fullmatch(r"(alpha|beta|rc)\.([1-9]\d*)", match[4])
+        if prerelease is None or int(prerelease[2]) > 24:
+            raise PackagingError("Use --macos-build-version for this prerelease version")
+        stage = {"alpha": 0, "beta": 25, "rc": 50}[prerelease[1]] + int(prerelease[2])
+    if minor > 99 or patch > 99 or build_major > 9999:
+        raise PackagingError("Use --macos-build-version for this release version")
+    return release, f"{build_major}.{patch}.{stage}"
+
+
+def package_macos(binary: Path, stage: Path, version: str, icon: Path | None, temporary: Path,
+                  build_version: str | None = None) -> None:
+    release_version, bundle_version = macos_bundle_versions(version, build_version)
     contents = stage / "Contents"
     executable = contents / "MacOS" / BINARY_NAME
     executable.parent.mkdir(parents=True)
@@ -332,8 +362,11 @@ def package_macos(binary: Path, stage: Path, version: str, icon: Path | None, te
         "CFBundleIdentifier": BUNDLE_ID,
         "CFBundleExecutable": BINARY_NAME,
         "CFBundlePackageType": "APPL",
-        "CFBundleShortVersionString": version,
-        "CFBundleVersion": version,
+        "CFBundleShortVersionString": release_version,
+        "CFBundleVersion": bundle_version,
+        "FileVeilReleaseVersion": version,
+        "CFBundleDevelopmentRegion": "en",
+        "CFBundleLocalizations": ["en", "zh-Hans", "ja", "ko", "es", "fr", "de", "pt", "ru"],
         "CFBundleInfoDictionaryVersion": "6.0",
         "LSMinimumSystemVersion": minimum_macos([binary, cli_binary]),
         "NSHighResolutionCapable": True,
@@ -438,6 +471,7 @@ def main() -> int:
     parser.add_argument("--output-directory", type=Path, default=ROOT / "dist", help="Destination for the app or portable directory")
     parser.add_argument("--replace", action="store_true", help="Update an existing package with the FileVeil identity")
     parser.add_argument("--icon", type=Path, help="macOS PNG or ICNS icon. Defaults to assets/FileVeil.icns")
+    parser.add_argument("--macos-build-version", help="Explicit increasing numeric CFBundleVersion (for example 6.0.2)")
     arguments = parser.parse_args()
     target = arguments.target_directory.expanduser().resolve()
     output = arguments.output_directory.expanduser().resolve()
@@ -484,7 +518,7 @@ def main() -> int:
         temporary = Path(directory)
         staged = temporary / name
         if platform == "macos":
-            package_macos(binary, staged, version, icon, temporary)
+            package_macos(binary, staged, version, icon, temporary, arguments.macos_build_version)
         else:
             package_portable(binary, staged, version, platform)
         publish(staged, destination, replace=arguments.replace, platform=platform)
@@ -498,5 +532,3 @@ if __name__ == "__main__":
     except (PackagingError, OSError) as error:
         print(f"FileVeil packaging failed. {error}", file=sys.stderr)
         raise SystemExit(1)
-
-# FVPROV1 24811 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiIxNDEzMmQ5YzM3YzlkZjNlMTQ1ZjJlZWMwMDM2Y2U1MzVlNmU3M2U1YmY5ODdiYWFjOWVkMjYxMDlkZjhmNTg5IiwiY29weV9pZCI6InYwLjUuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC41LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL3Rvb2xzL3BhY2thZ2UtZGVza3RvcC5weSJ9LCJzaWduYXR1cmVzIjpbeyJrZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwicHVibGljX2tleV9oZXgiOiJhZGIzZTE3Y2QxMmY5NTZkMDA3MGUxNjYzZjUzMTUzN2ZjZWRmNzMwOGQwMTY1OGZlYTQ1NmZlZWE4ZjdmYmM1Iiwic2lnbmF0dXJlX2hleCI6IjJkZTAxYmUwMTFiNzkwNTQ0OGY2MWQxZjQyNmExMDRiNzdiZDczNGQyOTNjZDM4MjY0N2Q2ZGI3N2MxNmRkYWQ5YjZiYzQ1ODgwMTUyYTIyNzkwMmI1ZjdmOWExNzcyODk1N2QzOTg5YmE4YTU0NjgxYjU3OWNkOWQ5Y2IwOTBlIn1dfV0= FVPROV1-END

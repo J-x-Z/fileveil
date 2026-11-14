@@ -152,7 +152,7 @@ impl FileVeilApp {
         session.add_paths(paths);
         Self {
             session,
-            language: Language::Chinese,
+            language: crate::preferences::load(),
             appearance,
             finding_view: FindingView::default(),
             settings_open: false,
@@ -1318,15 +1318,10 @@ impl FileVeilApp {
                         ui.label(tr(language, "Language"));
                         egui::ComboBox::from_id_salt("settings_language")
                             .width(140.0)
-                            .selected_text(if self.language == Language::Chinese {
-                                "中文"
-                            } else {
-                                "English"
-                            })
+                            .selected_text(self.language.native_name())
                             .show_ui(ui, |ui| {
-                                for (choice, label) in
-                                    [(Language::Chinese, "中文"), (Language::English, "English")]
-                                {
+                                for choice in Language::ALL {
+                                    let label = choice.native_name();
                                     if ui
                                         .selectable_value(&mut self.language, choice, label)
                                         .clicked()
@@ -1336,6 +1331,7 @@ impl FileVeilApp {
                                 }
                             });
                     });
+                    ui.small(tr(self.language, "Technical report values and unrecognized backend messages are shown in English."));
                     ui.add_space(14.0);
                     ui.label(tr(language, "Appearance"));
                     ui.horizontal(|ui| {
@@ -1404,6 +1400,9 @@ impl FileVeilApp {
                 });
             self.settings_open = open;
             if language != self.language {
+                if let Err(message) = crate::preferences::save(self.language) {
+                    self.session.notice = Some(message.into());
+                }
                 context.request_repaint();
             }
             if old != self.appearance {
@@ -1550,16 +1549,35 @@ fn install_fonts(context: &egui::Context) {
         "Noto Sans SC".into(),
         egui::FontData::from_static(include_bytes!("../../../assets/fonts/NotoSansSC.ttf")).into(),
     );
+    fonts.font_data.insert(
+        "Noto Sans KR Hangul".into(),
+        egui::FontData::from_static(include_bytes!(
+            "../../../assets/fonts/NotoSansKR-Hangul.ttf"
+        ))
+        .into(),
+    );
     fonts
         .families
         .get_mut(&FontFamily::Proportional)
         .expect("proportional family")
-        .splice(0..0, ["Inter".into(), "Noto Sans SC".into()]);
+        .splice(
+            0..0,
+            [
+                "Inter".into(),
+                "Noto Sans SC".into(),
+                "Noto Sans KR Hangul".into(),
+            ],
+        );
     fonts
         .families
         .get_mut(&FontFamily::Monospace)
         .expect("monospace family")
         .push("Noto Sans SC".into());
+    fonts
+        .families
+        .get_mut(&FontFamily::Monospace)
+        .expect("monospace family")
+        .push("Noto Sans KR Hangul".into());
     context.set_fonts(fonts);
 }
 fn apply_style(context: &egui::Context, appearance: Appearance) {
@@ -1896,6 +1914,76 @@ mod tests {
                 ],
             );
         }
+    }
+
+    #[test]
+    fn all_language_settings_render_and_bundled_fonts_cover_translations() {
+        let context = egui::Context::default();
+        context.enable_accesskit();
+        let creation = eframe::CreationContext::_new_kittest(context.clone());
+        let mut app = FileVeilApp::new(&creation, Vec::new());
+        app.settings_open = true;
+        for language in Language::ALL {
+            app.language = language;
+            let mut update = render_test_frame(&mut app, &context, Vec::new());
+            for _ in 0..2 {
+                update = render_test_frame(&mut app, &context, Vec::new());
+            }
+            assert!(
+                update
+                    .nodes
+                    .iter()
+                    .any(|(_, node)| node.label() == Some(tr(language, "Language"))
+                        || node.value() == Some(tr(language, "Language"))),
+                "Language settings missing for {language:?}"
+            );
+            assert!(
+                update
+                    .nodes
+                    .iter()
+                    .any(|(_, node)| node.label() == Some(language.native_name())
+                        || node.value() == Some(language.native_name())),
+                "Language selection missing for {language:?}"
+            );
+            for (_, node) in &update.nodes {
+                if let Some(bounds) = node.bounds() {
+                    assert!(
+                        bounds.x0.is_finite()
+                            && bounds.y0.is_finite()
+                            && bounds.x1.is_finite()
+                            && bounds.y1.is_finite()
+                    );
+                }
+            }
+        }
+        let catalogs = [
+            include_str!("../locales/short.json"),
+            include_str!("../locales/long.json"),
+            include_str!("../locales/findings.json"),
+        ];
+        let mut characters = std::collections::BTreeSet::new();
+        for source in catalogs {
+            let entries: std::collections::BTreeMap<String, [String; 7]> =
+                serde_json::from_str(source).unwrap();
+            for values in entries.values() {
+                for value in values {
+                    characters.extend(value.chars().filter(|c| !c.is_whitespace()));
+                }
+            }
+        }
+        characters
+            .extend("日本語かなカナ한국어설정中文EspañolFrançaisDeutschPortuguêsРусский".chars());
+        let output = context.run_ui(egui::RawInput::default(), |ui| {
+            ui.fonts_mut(|fonts| {
+                for character in &characters {
+                    assert!(
+                        fonts.has_glyph(&FontId::proportional(14.0), *character),
+                        "Missing UI glyph {character}"
+                    );
+                }
+            });
+        });
+        output.drop_without_applying_deltas();
     }
 
     #[test]
@@ -2247,5 +2335,3 @@ mod tests {
         );
     }
 }
-
-// FVPROV1 92066 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiI1YTFiYzExMzFhMDFhZjU0ZTQwOTYxNjYyZjQ4MDdhMDAxMWZiMTNlNGVmZGMzM2Q1Y2JjMmU4OTNlMGNhNzcwIiwiY29weV9pZCI6InYwLjUuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC41LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL2NyYXRlcy9maWxldmVpbC1ndWkvc3JjL2FwcC5ycyJ9LCJzaWduYXR1cmVzIjpbeyJrZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwicHVibGljX2tleV9oZXgiOiJhZGIzZTE3Y2QxMmY5NTZkMDA3MGUxNjYzZjUzMTUzN2ZjZWRmNzMwOGQwMTY1OGZlYTQ1NmZlZWE4ZjdmYmM1Iiwic2lnbmF0dXJlX2hleCI6IjRlZjVmN2VkYTFiMjA1MjZhYmQyMjA2ZDE3NGNmYzI4MmM0YWE3MDc3ZjUzODMxNzYwYWExNDUxYjZkN2E3NzBhOWUyMmY2NTA0Y2EwOWM5MDJmYjE0YjgzOGYwZTMyMDYwM2EzNzU4MTU1NTYwMTJjNWIyYTgyOTE1YTlmMzA2In1dfV0= FVPROV1-END

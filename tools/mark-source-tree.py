@@ -62,6 +62,7 @@ def main():
     keys.add_argument("--key", type=Path)
     parser.add_argument("--release", required=True)
     parser.add_argument("--created-at", required=True, help="Explicit asserted date or timestamp")
+    parser.add_argument("--renew-release", action="store_true", help="Verify and Clean older signatures by this release key before signing the new release")
     parser.add_argument("--apply", action="store_true", help="Replace project files only after staged checks pass")
     args = parser.parse_args()
     root = args.root.resolve()
@@ -103,11 +104,17 @@ def main():
             if match:
                 record = json.loads(base64.b64decode(match[1], validate=True))[-1]
                 if (record["body"]["work_id"] != work_id
-                    or record["body"].get("copy_id") != args.release
                     or record["body"]["actor_key_id"] != key_id):
-                    raise ValueError(f"Existing provenance belongs to a different release: {name}")
+                    raise ValueError(f"Existing provenance belongs to a different publisher or file: {name}")
                 require_signature(command(executable, ["verify", str(path)]))
-                continue
+                if record["body"].get("copy_id") == args.release:
+                    continue
+                if not args.renew_release:
+                    raise ValueError(f"Use --renew-release to replace an older release signature: {name}")
+                restored = stage / f"{index}.previous{path.suffix}"
+                command(executable, ["clean", str(path), "-o", str(restored)])
+                data = restored.read_bytes()
+                path = restored
             output = stage / f"{index}{path.suffix}"
             options = json.dumps({"mark": {"version": args.release, "edition": "alpha"}})
             report = command(executable, ["mark", str(path), "-o", str(output), *credential,
@@ -154,5 +161,3 @@ if __name__ == "__main__":
         main()
     except (KeyError, ValueError, OSError, subprocess.SubprocessError) as error:
         raise SystemExit(f"Source release preparation failed. {error}") from None
-
-# FVPROV1 7892 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiI0Mzg2NTEyYWU2MGVmYWY1ZTMxOGJlMzUyNjc0ZjUxMmM1ZTM4YmZiNzU4MGFlMWUyZDc0ODQxMTkyMDM2ODEwIiwiY29weV9pZCI6InYwLjUuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC41LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL3Rvb2xzL21hcmstc291cmNlLXRyZWUucHkifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiIyN2M1Mjk0NWRlNGU0ZTg2OGMwM2Y2ZDZmZjUzYzIwNTI1ZjBhM2IyYjAyZTk5YjY0NDRjZTY1NDg1YzAzM2YzZjNiY2U2M2JiMzVmYTM0ZWI0Njg3MTk0Nzc2ODQ2OGJmYWVjODA0NTY5MDgyMjcyZWEwMTVkMzJhYmJhMTUwZCJ9XX1d FVPROV1-END
