@@ -132,6 +132,22 @@ def relative_directory(root, value):
     return current
 
 
+def authorize_transfer(caller_root, config_relative, transferred_config, expected_policy):
+    """Bind producer-controlled data to the caller commit's read-only configuration."""
+    if caller_root.is_symlink() or not caller_root.is_dir():
+        raise ValueError("Authorization requires the independently checked-out caller commit")
+    original_path = relative_directory(caller_root.resolve(strict=True), relative_name(config_relative))
+    original = read_config(original_path)
+    transferred = read_config(transferred_config)
+    if expected_policy not in POLICIES or original["policy"] != expected_policy:
+        raise ValueError("Caller configuration policy differs from the selected workflow policy")
+    expected = dict(original, artifact_directory="artifacts", output_directory="copyright",
+                    build_argv=[], test_argv=[])
+    if transferred != expected:
+        raise ValueError("Transferred configuration differs from the authorized caller commit")
+    return transferred
+
+
 def run_cli(executable, arguments, private, sequence):
     # Report files bound output memory and never contain the private key bytes.
     path = private / f"report-{sequence}.json"
@@ -502,9 +518,18 @@ def main():
     parser.add_argument("--after-build", action="store_true", help="Use artifacts from an already completed caller build/test")
     parser.add_argument("--build-context", type=Path, help="Bounded observations from the separate upstream build job")
     parser.add_argument("--compiler-context", type=Path, help="Final marked binary observations from the separate compiler build job")
+    parser.add_argument("--authorized-root", type=Path, help="Independent exact-commit caller checkout for CI authorization")
+    parser.add_argument("--authorized-config", help="Caller-relative configuration path from the trusted workflow input")
+    parser.add_argument("--authorized-policy", choices=POLICIES, help="Policy selected by the trusted workflow caller")
     args = parser.parse_args()
     root = args.config.absolute().parent.resolve()
     config = read_config(args.config.absolute())
+    authorization = (args.authorized_root, args.authorized_config, args.authorized_policy)
+    if any(value is not None for value in authorization):
+        if not all(value is not None for value in authorization):
+            raise ValueError("CI transfer authorization requires the caller root, configuration and policy")
+        config = authorize_transfer(args.authorized_root, args.authorized_config,
+                                    args.config.absolute(), args.authorized_policy)
     compiler_policy = config["policy"] in ("compiler_watermark", "hybrid")
     if compiler_policy and (not args.after_build or args.compiler_context is None):
         raise ValueError("Compiler/Hybrid requires the isolated IR-mark/final-build pipeline and final compiler context")
@@ -533,6 +558,13 @@ def main():
         context = json.loads(args.build_context.read_text(encoding="utf-8"))
         if not isinstance(context, dict) or context.get("schema") != "fileveil.ci.build-context.v1":
             raise ValueError("Unsupported upstream build observations")
+        if context.get("platform") != sys.platform:
+            raise ValueError("Upstream build platform differs from the signing platform")
+        if args.authorized_root is not None:
+            for field, variable in (("github_commit", "GITHUB_SHA"), ("github_ref", "GITHUB_REF"),
+                                    ("build_number", "GITHUB_RUN_NUMBER")):
+                if context.get(field) != os.getenv(variable):
+                    raise ValueError("Upstream GitHub context differs from the authorized workflow run")
         for key in ("build_assessed", "test_assessed", "github_commit", "github_ref", "build_number", "platform",
                 "upstream_configured_tests_assessed", "upstream_configured_test_scope", "marked_native_tests_assessed",
                 "marked_function_scope", "native_test_vectors"):
@@ -644,4 +676,4 @@ if __name__ == "__main__":
         print(f"FileVeil postprocessing failed ({error})", file=sys.stderr)
         sys.exit(1)
 
-# FVPROV1 39390 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiJiODM1Y2RkYTc1NjQ2MWEzZWE3Y2MwZjdhZmYxYWFlZWRjNjRkYmQyMjk5MTBhZDYxODlmNDk0MDJmMmYyYzQ3IiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL3Rvb2xzL3Byb2plY3QtcG9zdHByb2Nlc3MucHkifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiI2ZTc3MGYzMjNjZDQwN2E5NTUxMWZjMjBjMzM1NjNiYTZiMzhmZjk1YmFiOThlODdjZTk4MzVlZDI2OTRmYTAyMDExNjllZjdmNGZkOTkwZGQyYTVmM2Q0NDc4Zjk2ZDIwYWExMmQyMTQxYWU4ZWI1OWZiNTYwZGJiYmFiZmQwYyJ9XX1d FVPROV1-END
+# FVPROV1 41782 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiIxNTZkODE1YjcyOWMyMjNmODQ2MjFlZmJlZTQ4MDFhOGNmNDAzNDIxYzdhMTVhOTFmOGQxODEzMWViZDE0MzgwIiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL3Rvb2xzL3Byb2plY3QtcG9zdHByb2Nlc3MucHkifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiI0NzJlZDJhN2Y4NjgzZmU4MjI3NzliMDcyYTAyMmU3YjMxYjhlNjAwYTI0OWE3NWFhMGYwNWI3YWFmYjNjNWQ1Y2VlMDYzZWIyMTVjMjI2MmUxOGVkMmIxYzRhMmVkZGNjNWNjMjQ5NWNlMDYxYWQ2ZWFiNTAyYmE2MTg3MjIwYyJ9XX1d FVPROV1-END

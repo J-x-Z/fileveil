@@ -32,6 +32,8 @@ class PackagingTests(unittest.TestCase):
         "crates/fileveil-cli/Cargo.toml": '[package]\nname = "fileveil-cli"\n',
         "crates/fileveil-cli/src/main.rs": "// synthetic CLI source\n",
         "tools/package-desktop.py": "# synthetic packager source\n",
+        "tools/software-watermark/CMakeLists.txt": "# synthetic LLVM build recipe\n",
+        "tools/software-watermark/FileVeilWatermark.cpp": "// synthetic LLVM pass\n",
         "docs/GUI.md": "Synthetic GUI instructions\n",
         "assets/fonts/LICENSE.txt": "Synthetic font notice\n",
         "assets/licenses/dependency/COPYRIGHT.txt": "Synthetic dependency notice\n",
@@ -61,6 +63,11 @@ class PackagingTests(unittest.TestCase):
 
     def assert_sources(self, destination: Path) -> set[str]:
         self.assertEqual((destination / "LICENSE").read_bytes(), (self.root / "LICENSE").read_bytes())
+        for name in ("CMakeLists.txt", "FileVeilWatermark.cpp"):
+            self.assertEqual(
+                (destination / "software-watermark" / name).read_bytes(),
+                (self.root / "tools/software-watermark" / name).read_bytes(),
+            )
         self.assertEqual(
             (destination / "THIRD_PARTY_NOTICES" / "assets" / "licenses" / "dependency" / "COPYRIGHT.txt").read_bytes(),
             (self.root / "assets" / "licenses" / "dependency" / "COPYRIGHT.txt").read_bytes(),
@@ -132,6 +139,15 @@ class PackagingTests(unittest.TestCase):
         (self.root / "LICENSE").unlink()
         with self.assertRaisesRegex(packaging.PackagingError, "Project LICENSE"):
             packaging.copy_resources(self.temporary / "resources")
+
+    def test_packaging_rejects_missing_or_private_pass_sources(self) -> None:
+        source = self.root / "tools/software-watermark/FileVeilWatermark.cpp"
+        source.unlink()
+        with self.assertRaisesRegex(packaging.PackagingError, "Software watermark build sources"):
+            packaging.copy_resources(self.temporary / "missing-pass-resources")
+        source.write_bytes(b"FILEVEIL-ED25519-KEY-V1\n" + bytes(32))
+        with self.assertRaisesRegex(packaging.PackagingError, "Software watermark build sources"):
+            packaging.copy_resources(self.temporary / "private-pass-resources")
 
     def test_source_zip_includes_public_provenance_and_filters_its_private_keys(self) -> None:
         private_name = "provenance/operator.key"
@@ -302,4 +318,4 @@ class PackagingTests(unittest.TestCase):
 if __name__ == "__main__":
     unittest.main()
 
-# FVPROV1 16506 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiI1ZTcwOGNkMzBiNDRkNDM4MDFmNmYzNmUwNjJkNWVkYzlmZTZiMzA2ZDgxN2YwMjQ4YjRmODc3MDU2NDcwOTVhIiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL3Rlc3RzL3Rlc3RfcGFja2FnaW5nLnB5In0sInNpZ25hdHVyZXMiOlt7ImtleV9pZCI6Ijk5ZWE2M2VmY2NmZDBmZGJkNjhlMTZlZDhmMDNkMzM3ZjE1ZWMyZTRhNmEzZDY0ZTExZDcxNGVhMWU1NDI1MzMiLCJwdWJsaWNfa2V5X2hleCI6ImFkYjNlMTdjZDEyZjk1NmQwMDcwZTE2NjNmNTMxNTM3ZmNlZGY3MzA4ZDAxNjU4ZmVhNDU2ZmVlYThmN2ZiYzUiLCJzaWduYXR1cmVfaGV4IjoiYTk1MGM1MDNjNTY4MWZhNWQ2ZTg5ODIxYjQ0NjVkNjQxMDRmOTIxMDFlYmEzZDQzYzVkMWMyMTQ1NDEyNGM1ZmI1M2I0YWEwYTc3ODg2MmQ3NmJkYTVjMDIxOGQwZDQ4ZTliMGY4OTg2ZmE3YjUzODBkOGQ4NmI2YTU5OTczMDcifV19XQ== FVPROV1-END
+# FVPROV1 17547 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiI5OWZlYTBhZjEyODA5ZTRjOTdhYTI1YzdjYTAyY2M4N2RiNjE1ZWU3YzM5OGQyMzUzYWI1MTQ3NjE3ZmRmZjY1IiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL3Rlc3RzL3Rlc3RfcGFja2FnaW5nLnB5In0sInNpZ25hdHVyZXMiOlt7ImtleV9pZCI6Ijk5ZWE2M2VmY2NmZDBmZGJkNjhlMTZlZDhmMDNkMzM3ZjE1ZWMyZTRhNmEzZDY0ZTExZDcxNGVhMWU1NDI1MzMiLCJwdWJsaWNfa2V5X2hleCI6ImFkYjNlMTdjZDEyZjk1NmQwMDcwZTE2NjNmNTMxNTM3ZmNlZGY3MzA4ZDAxNjU4ZmVhNDU2ZmVlYThmN2ZiYzUiLCJzaWduYXR1cmVfaGV4IjoiMzdjZWU2Y2M3ZjM5OTgzNjkxZWU0OTMyYzI0YjlhMDBkMmY4NWJmNGNkOGQ3ZjcyM2Q0YTM0OWI0MmRlZjRiZmNkYzJmMWJjM2M0OTIyY2QyZDQzMTcyZDg0NDc2ZDYyY2ZjZTZiOTY0YzQzN2E1MzVjNGRlOTVjNjJlYzRkMDgifV19XQ== FVPROV1-END

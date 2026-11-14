@@ -948,13 +948,13 @@ fn register(
     } else {
         registry.private_base.join("states").join(&id)
     };
-    if registry.private_base.starts_with(&source)
-        || legacy_path
-            .as_ref()
-            .is_some_and(|path| registry.private_base.starts_with(path.parent().unwrap()))
+    if files::relative_to(&registry.private_base, &source).is_some()
+        || legacy_path.as_ref().is_some_and(|path| {
+            files::relative_to(&registry.private_base, path.parent().unwrap()).is_some()
+        })
         || output
             .as_ref()
-            .is_some_and(|path| registry.private_base.starts_with(path))
+            .is_some_and(|path| files::relative_to(&registry.private_base, path).is_some())
     {
         return Err(Error::Input("Registry state and keys must be outside project sources, public configuration and output".into()));
     }
@@ -1346,6 +1346,31 @@ mod tests {
             assert_eq!(fixture.read().private_base, latest.private_base);
         }
     }
+
+    #[test]
+    #[cfg(windows)]
+    fn windows_case_alias_is_rejected_before_auto_keys_enter_a_project_source() {
+        let fixture = Fixture::new();
+        let mut registry = fixture.read();
+        let source = fixture.path.parent().unwrap().join("ü-assets");
+        std::fs::create_dir(&source).unwrap();
+        registry.private_base = source.join("private");
+        registry.defaults.author = "Synthetic".into();
+        fixture.save(&registry);
+        let source_alias = fixture.path.parent().unwrap().join("Ü-assets");
+        let request = RegistryRequest {
+            action: RegistryAction::Add,
+            registry_path: Some(fixture.path.clone()),
+            project_path: Some(source_alias),
+            ..Default::default()
+        };
+        assert!(matches!(
+            run(&request, &Limits::default(), &AtomicBool::new(false)),
+            Err(Error::Input(_))
+        ));
+        assert!(!registry.private_base.join("keys").exists());
+        assert!(fixture.read().projects.is_empty());
+    }
 }
 
-// FVPROV1 49332 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiJjMmZiOWM5YjhiOGRjNTM4NmJjMmU4MGI3Y2Y5NDBlMjM5NjQ1ZDJiMWU5MDIxZTBkYTE5YjBjNTUwZjk2ODA1IiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL2NyYXRlcy9maWxldmVpbC1lbmdpbmUvc3JjL3Byb2plY3QvcmVnaXN0cnkucnMifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiI2ZjYxYmEwYTY2NjlmNmE3M2YzM2U0OGI1ODY1MTQ3Yzk5Njc0YmU0NGQ1Y2YzNzM4MDcwMTQwZDhjMTU1MjA4NWZmNTZiMGU4ODQxMTc4MWUwZTgwYmRkZDIwNmNkNTgwMzBlNTkxMjllYzIzNWY0NDM4MzMwNmMzNmNiOWQwNyJ9XX1d FVPROV1-END
+// FVPROV1 50413 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiI2NDI0YjNjYTk5MTE0YzcwNzdhM2EwMGEzNzllNTQ5ZDc3OTRhZTE0ZTc2Yzg3YjBjZGJkYzU1MDBiNzgxNGI0IiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL2NyYXRlcy9maWxldmVpbC1lbmdpbmUvc3JjL3Byb2plY3QvcmVnaXN0cnkucnMifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiI5MzA4NGM3YTY3ZTUxMjNmNGNiY2YyMTdlNTg4Yzk4YjA4ZWUyOWU2MDU0YjUxOGM1NGVjYTkwODJmZjQzNzc0YTI2YzM5OTZiZjkwMzdiZjRlNDcxZTAyZWViOTVmYWZhYjNkNzg4MDk2NWZjMTFlMDg3YzUwNjJlOWYyZjYwYiJ9XX1d FVPROV1-END

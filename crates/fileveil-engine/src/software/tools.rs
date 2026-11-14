@@ -73,6 +73,47 @@ pub(super) fn check_cancel(cancelled: &AtomicBool) -> Result<()> {
     }
 }
 
+pub(super) fn cmake(source: &Path, output: &Path) -> Result<PathBuf> {
+    if let Some(selected) = std::env::var_os("FILEVEIL_CMAKE") {
+        return locate_cmake(vec![PathBuf::from(selected)], &[]);
+    }
+    let mut candidates = Vec::new();
+    #[cfg(unix)]
+    candidates.extend([
+        PathBuf::from("/opt/homebrew/bin/cmake"),
+        PathBuf::from("/usr/local/bin/cmake"),
+        PathBuf::from("/usr/bin/cmake"),
+    ]);
+    #[cfg(windows)]
+    for variable in ["ProgramFiles", "ProgramFiles(x86)", "LOCALAPPDATA"] {
+        if let Some(directory) = std::env::var_os(variable) {
+            let directory = PathBuf::from(directory);
+            if directory.is_absolute() {
+                candidates.push(directory.join("CMake/bin/cmake.exe"));
+                candidates.push(directory.join("Programs/CMake/bin/cmake.exe"));
+            }
+        }
+    }
+    if let Some(paths) = std::env::var_os("PATH") {
+        candidates.extend(
+            std::env::split_paths(&paths)
+                .filter(|directory| directory.is_absolute())
+                .map(|directory| directory.join(format!("cmake{}", std::env::consts::EXE_SUFFIX))),
+        );
+    }
+    locate_cmake(candidates, &[source, output])
+}
+
+fn locate_cmake(candidates: Vec<PathBuf>, excluded: &[&Path]) -> Result<PathBuf> {
+    candidates
+        .into_iter()
+        .filter_map(|path| path.canonicalize().ok())
+        .find(|path| {
+            path.is_file() && !excluded.iter().any(|directory| path.starts_with(directory))
+        })
+        .ok_or_else(|| Error::Unsupported("A trusted local CMake executable is unavailable".into()))
+}
+
 fn read_log(file: &mut File) -> Result<Vec<u8>> {
     file.seek(SeekFrom::Start(0))
         .map_err(|_| Error::Io("Could not rewind software tool log".into()))?;
@@ -559,6 +600,45 @@ mod tests {
     use super::*;
 
     #[test]
+    fn cmake_candidates_cover_windows_installations_and_path_fallback() {
+        let work = tempfile::tempdir().unwrap();
+        let installation = work.path().join("Program Files/CMake/bin/cmake.exe");
+        fs::create_dir_all(installation.parent().unwrap()).unwrap();
+        fs::write(&installation, b"unexecuted installed tool fixture").unwrap();
+        let selected = locate_cmake(
+            vec![work.path().join("missing-cmake.exe"), installation.clone()],
+            &[],
+        )
+        .unwrap();
+        assert_eq!(selected, installation.canonicalize().unwrap());
+
+        let source = work.path().join("source");
+        let output = work.path().join("output");
+        let path_tool = work.path().join("host-bin/cmake");
+        for directory in [
+            source.as_path(),
+            output.as_path(),
+            path_tool.parent().unwrap(),
+        ] {
+            fs::create_dir_all(directory).unwrap();
+        }
+        let source_tool = source.join("cmake");
+        let output_tool = output.join("cmake");
+        for path in [&source_tool, &output_tool, &path_tool] {
+            fs::write(path, b"unexecuted PATH candidate fixture").unwrap();
+        }
+        let source = source.canonicalize().unwrap();
+        let output = output.canonicalize().unwrap();
+        let selected = locate_cmake(
+            vec![source_tool.clone(), output_tool.clone(), path_tool.clone()],
+            &[&source, &output],
+        )
+        .unwrap();
+        assert_eq!(selected, path_tool.canonicalize().unwrap());
+        assert!(locate_cmake(vec![source_tool, output_tool], &[&source, &output]).is_err());
+    }
+
+    #[test]
     fn plugin_metadata_defaults_to_plugin_and_selects_standalone_driver() {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("pass-fixture");
@@ -634,4 +714,4 @@ mod tests {
     }
 }
 
-// FVPROV1 20697 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiI5NGVhZTFiOTMyZTU1ZDJjMDEyNWMxOTYzYmQwMjQ2NTdlZTFkMjIzYTMyMDljNzIxMzdjMjYxOWIwNjBmNmIxIiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL2NyYXRlcy9maWxldmVpbC1lbmdpbmUvc3JjL3NvZnR3YXJlL3Rvb2xzLnJzIn0sInNpZ25hdHVyZXMiOlt7ImtleV9pZCI6Ijk5ZWE2M2VmY2NmZDBmZGJkNjhlMTZlZDhmMDNkMzM3ZjE1ZWMyZTRhNmEzZDY0ZTExZDcxNGVhMWU1NDI1MzMiLCJwdWJsaWNfa2V5X2hleCI6ImFkYjNlMTdjZDEyZjk1NmQwMDcwZTE2NjNmNTMxNTM3ZmNlZGY3MzA4ZDAxNjU4ZmVhNDU2ZmVlYThmN2ZiYzUiLCJzaWduYXR1cmVfaGV4IjoiMWUzNDhkNWE2ZTIxZmNkOGRkMWEzYWNlYjYwODlmYWNhODAzNWRkNDlhZmIwNjVkM2ViNWY4MjcwNjA1ODUyMDkyNmE0NmQ5MDQ0MjRjNGY2ODA2M2U5N2JiODc1ZWM0YTgxMzJmM2FkODRmOGMwMTFiOTg2NjYxZTlkOTA3MDgifV19XQ== FVPROV1-END
+// FVPROV1 23968 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiIwYjJjN2NkOWQyMjM2ZDg3MTZiMDJlMzVjN2M5ZmEyZWUwNTdlMGJiYzQ2YjljOTI3Mzk0NjRlOTRiNTc4N2NmIiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL2NyYXRlcy9maWxldmVpbC1lbmdpbmUvc3JjL3NvZnR3YXJlL3Rvb2xzLnJzIn0sInNpZ25hdHVyZXMiOlt7ImtleV9pZCI6Ijk5ZWE2M2VmY2NmZDBmZGJkNjhlMTZlZDhmMDNkMzM3ZjE1ZWMyZTRhNmEzZDY0ZTExZDcxNGVhMWU1NDI1MzMiLCJwdWJsaWNfa2V5X2hleCI6ImFkYjNlMTdjZDEyZjk1NmQwMDcwZTE2NjNmNTMxNTM3ZmNlZGY3MzA4ZDAxNjU4ZmVhNDU2ZmVlYThmN2ZiYzUiLCJzaWduYXR1cmVfaGV4IjoiMzlkMDZkZTBkMjY2OWRlZDAxZDlhYTU5YzkxOGNiZWI0OTMzY2JjZDRhZTgyNGYxMGYxOTY5ODQwODFkM2E4YzgwMjIyNDQ1M2E4NjkyZDczZDgzMThiMTBhMzZlZTQzMzYxNGQyZmNmNzc1NDE2NjczNWVmMWViMThlMjEwMGYifV19XQ== FVPROV1-END

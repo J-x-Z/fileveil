@@ -117,6 +117,13 @@ jobs:
           ref: ${{ inputs.engine-ref }}
           path: .fileveil-engine
           persist-credentials: false
+      - name: Read caller configuration at the selected commit
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.sha }}
+          path: .fileveil-caller
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
@@ -127,14 +134,25 @@ jobs:
           path: fileveil-build-transfer
       - name: Receive bounded compiler input
         run: python .fileveil-engine/tools/project-ci-stage.py receive fileveil-build-transfer/fileveil-build.zip fileveil-input
+      - name: Authorize compiler transfer before exposing the signing key
+        env:
+          FILEVEIL_CONFIG: ${{ inputs.config }}
+          FILEVEIL_POLICY: ${{ inputs.policy }}
+        shell: python {0}
+        run: |
+          import os, subprocess, sys
+          subprocess.run([sys.executable, '.fileveil-engine/tools/project-ci-authorize.py', '--caller-root', '.fileveil-caller', '--config', os.environ['FILEVEIL_CONFIG'], '--received-config', 'fileveil-input/ci-config.json', '--policy', os.environ['FILEVEIL_POLICY']], check=True)
       - name: Install fixed compiler SDK
-        run: python .fileveil-engine/tools/project-ci-llvm.py fileveil-llvm
+        run: python .fileveil-engine/tools/project-ci-llvm.py fileveil-llvm --pass-dependencies
       - name: Build trusted FileVeil CLI and compiler pass
         shell: python {0}
         run: |
-          import pathlib, runpy, subprocess
+          import os, pathlib, runpy, subprocess
           sdk = pathlib.Path('fileveil-llvm').resolve()
-          subprocess.run(['cmake', '-S', '.fileveil-engine/tools/software-watermark', '-B', 'fileveil-pass', '-DLLVM_DIR=' + str(sdk / 'lib/cmake/llvm'), '-DCMAKE_BUILD_TYPE=Release'], check=True)
+          configure = ['cmake', '-S', '.fileveil-engine/tools/software-watermark', '-B', 'fileveil-pass', '-DLLVM_DIR=' + str(sdk / 'lib/cmake/llvm'), '-DCMAKE_BUILD_TYPE=Release']
+          if os.name == 'nt':
+              configure += ['-DCMAKE_TOOLCHAIN_FILE=' + str(pathlib.Path(os.environ['FILEVEIL_CI_VCPKG_ROOT']) / 'scripts/buildsystems/vcpkg.cmake'), '-DVCPKG_TARGET_TRIPLET=x64-windows-static-md']
+          subprocess.run(configure, check=True)
           subprocess.run(['cmake', '--build', 'fileveil-pass', '--config', 'Release', '--parallel', '2'], check=True)
           compiler = runpy.run_path('.fileveil-engine/tools/project-ci-compiler.py')
           compiler['probe_built_pass'](pathlib.Path('fileveil-pass').resolve(), sdk)
@@ -142,6 +160,8 @@ jobs:
       - name: Sign and mark IR with the trusted pass
         env:
           FILEVEIL_SIGNING_KEY_BASE64: ${{ secrets.signing-key-base64 }}
+          FILEVEIL_CONFIG: ${{ inputs.config }}
+          FILEVEIL_POLICY: ${{ inputs.policy }}
         shell: python {0}
         run: |
           import os, pathlib, runpy, subprocess, sys
@@ -149,7 +169,7 @@ jobs:
           executable = root / 'target/release' / ('fileveil.exe' if os.name == 'nt' else 'fileveil')
           compiler = runpy.run_path(str(root / 'tools/project-ci-compiler.py'))
           artifact, kind = compiler['built_pass'](pathlib.Path('fileveil-pass'))
-          subprocess.run([sys.executable, str(root / 'tools/project-ci-compiler.py'), 'mark', '--input', 'fileveil-input', '--config', 'fileveil-input/ci-config.json', '--output', 'fileveil-marked.zip', '--fileveil', str(executable), '--llvm-directory', 'fileveil-llvm', '--plugin', str(artifact), '--version', os.environ['FILEVEIL_CI_VERSION']], check=True)
+          subprocess.run([sys.executable, str(root / 'tools/project-ci-compiler.py'), 'mark', '--input', 'fileveil-input', '--config', 'fileveil-input/ci-config.json', '--output', 'fileveil-marked.zip', '--fileveil', str(executable), '--llvm-directory', 'fileveil-llvm', '--plugin', str(artifact), '--version', os.environ['FILEVEIL_CI_VERSION'], '--authorized-root', '.fileveil-caller', '--authorized-config', os.environ['FILEVEIL_CONFIG'], '--authorized-policy', os.environ['FILEVEIL_POLICY']], check=True)
       - uses: actions/upload-artifact@v4
         with:
           name: fileveil-marked-${{ needs.build.outputs.namespace }}-${{ github.run_id }}-${{ github.run_attempt }}
@@ -219,6 +239,13 @@ jobs:
           ref: ${{ inputs.engine-ref }}
           path: .fileveil-engine
           persist-credentials: false
+      - name: Read caller configuration at the selected commit
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.sha }}
+          path: .fileveil-caller
+          persist-credentials: false
       - uses: actions/download-artifact@v4
         with:
           name: ${{ (inputs.policy == 'compiler_watermark' || inputs.policy == 'hybrid') && 'fileveil-compiled' || 'fileveil-build' }}-${{ needs.build.outputs.namespace }}-${{ github.run_id }}-${{ github.run_attempt }}
@@ -239,6 +266,14 @@ jobs:
               stream.write('FILEVEIL_ENGINE_REVISION=' + revision + '\n')
       - name: Receive original artifacts
         run: python .fileveil-engine/tools/project-ci-stage.py receive fileveil-build-transfer/fileveil-build.zip fileveil-input
+      - name: Authorize final transfer before exposing the signing key
+        env:
+          FILEVEIL_CONFIG: ${{ inputs.config }}
+          FILEVEIL_POLICY: ${{ inputs.policy }}
+        shell: python {0}
+        run: |
+          import os, subprocess, sys
+          subprocess.run([sys.executable, '.fileveil-engine/tools/project-ci-authorize.py', '--caller-root', '.fileveil-caller', '--config', os.environ['FILEVEIL_CONFIG'], '--received-config', 'fileveil-input/ci-config.json', '--policy', os.environ['FILEVEIL_POLICY']], check=True)
       - name: Locate retained signed history
         id: history
         env:
@@ -281,16 +316,28 @@ jobs:
       - name: Restore signed public history
         if: steps.history.outputs.artifact-id != ''
         run: python .fileveil-engine/tools/project-ci-stage.py receive fileveil-history-transfer/history.zip fileveil-input/copyright --history-only
+      - name: Bind retained history to its artifact producer
+        if: steps.history.outputs.artifact-id != ''
+        env:
+          FILEVEIL_CONFIG: ${{ inputs.config }}
+          FILEVEIL_POLICY: ${{ inputs.policy }}
+          FILEVEIL_HISTORY_PRODUCER_RUN_ID: ${{ steps.history.outputs.run-id }}
+        shell: python {0}
+        run: |
+          import os, subprocess, sys
+          subprocess.run([sys.executable, '.fileveil-engine/tools/project-ci-authorize.py', '--caller-root', '.fileveil-caller', '--config', os.environ['FILEVEIL_CONFIG'], '--received-config', 'fileveil-input/ci-config.json', '--policy', os.environ['FILEVEIL_POLICY'], '--history-directory', 'fileveil-input/copyright', '--history-producer-run-id', os.environ['FILEVEIL_HISTORY_PRODUCER_RUN_ID']], check=True)
       - name: Sync verify and export in isolated signing job
         env:
           FILEVEIL_SIGNING_KEY_BASE64: ${{ secrets.signing-key-base64 }}
           FILEVEIL_HISTORY_RESTORE_SCOPE: ${{ steps.history.outputs.artifact-id != '' && 'restored_signed_metadata' || 'no_retained_history_found' }}
+          FILEVEIL_CONFIG: ${{ inputs.config }}
+          FILEVEIL_POLICY: ${{ inputs.policy }}
         shell: python {0}
         run: |
           import os, pathlib, subprocess, sys
           root = pathlib.Path('.fileveil-engine')
           executable = root / 'target/release' / ('fileveil.exe' if os.name == 'nt' else 'fileveil')
-          arguments = [sys.executable, str(root / 'tools/project-postprocess.py'), '--fileveil', str(executable), '--config', 'fileveil-input/ci-config.json', '--after-build', '--build-context', 'fileveil-input/build-context.json', '--version', os.environ['FILEVEIL_CI_VERSION']]
+          arguments = [sys.executable, str(root / 'tools/project-postprocess.py'), '--fileveil', str(executable), '--config', 'fileveil-input/ci-config.json', '--after-build', '--build-context', 'fileveil-input/build-context.json', '--version', os.environ['FILEVEIL_CI_VERSION'], '--authorized-root', '.fileveil-caller', '--authorized-config', os.environ['FILEVEIL_CONFIG'], '--authorized-policy', os.environ['FILEVEIL_POLICY']]
           if pathlib.Path('fileveil-input/compiler-context.json').is_file():
               arguments += ['--compiler-context', 'fileveil-input/compiler-context.json']
           subprocess.run(arguments, check=True)
@@ -312,4 +359,4 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-# FVPROV1 15453 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiI2NWUyMDJhMWVjNGY0NWY0OGI5MzM2MjdiNWYyYzQyZmM5ZTg5NmEyZjc1MGI2NTg5NmRjMzY5ZWQyNzgxYmVhIiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlLy5naXRodWIvd29ya2Zsb3dzL3Byb2plY3QtcmVsZWFzZS55bWwifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiIzZjJkNTY1ODlhMGFiMDkzOTVkMjA2ZDRkYzE2NTdhODQxODk4NjNjNTlmODY2ZjMzM2Q3YTVjZGZkM2EwMTA1YWU2ODA5MGEzZDNlMjQwYTAwNDYzMGQzYjQ2NDIxMGQyY2VkZDA1NGE4YTYzMjZlYWIxYzM4NDE1OWE3NGIwMiJ9XX1d FVPROV1-END
+# FVPROV1 18622 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiJiN2ZlNTgxM2JmNDdlMGM1NzQ1NWE2ZTk4NmE1MTY1ZjAxODg5NDY1MTdjZTQ0ODljY2EwNmI4Y2UxNWZhZTBjIiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlLy5naXRodWIvd29ya2Zsb3dzL3Byb2plY3QtcmVsZWFzZS55bWwifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiJkOGI5YzllNDFlMWM1ZTdkOGUwZmYyNTA3YmMzZDc5ZDE0YTNmNWY1YjFiNzI0NjNhMGNhNmJkM2U3YTkzM2U0MGI4Y2NkODM1ZmRiM2ZhMTY2MGQ4NWZiNzk4YzQyYzI5MjEzMDIwMTBjYWM3ZjRiMTcwNTQwYTczMDdjMzkwYiJ9XX1d FVPROV1-END

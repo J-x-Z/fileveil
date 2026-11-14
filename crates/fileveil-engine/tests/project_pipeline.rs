@@ -76,6 +76,27 @@ impl Fixture {
             .join(details["project_id"].as_str().unwrap())
             .join(details["generation"].as_str().unwrap())
     }
+
+    fn assert_no_release_payload(&self) {
+        if !self.output.exists() {
+            return;
+        }
+        let config: ProjectConfig =
+            serde_json::from_slice(&fs::read(&self.config).unwrap()).unwrap();
+        let namespaces: Vec<_> = fs::read_dir(&self.output)
+            .unwrap()
+            .map(|entry| entry.unwrap().path())
+            .collect();
+        assert_eq!(namespaces, vec![self.output.join(config.project_id)]);
+        let contents: Vec<_> = fs::read_dir(&namespaces[0])
+            .unwrap()
+            .map(|entry| entry.unwrap().path())
+            .collect();
+        assert_eq!(contents, vec![namespaces[0].join(".lock")]);
+        let lock = fs::symlink_metadata(&contents[0]).unwrap();
+        assert!(lock.file_type().is_file());
+        assert_eq!(lock.len(), 0);
+    }
 }
 fn details(report: &fileveil_core::Report) -> &Value {
     &report.advanced.as_ref().unwrap()["project"]
@@ -176,7 +197,7 @@ fn watch_probe_is_stable_and_does_not_hash_or_sign_payloads() {
     let report = run(&request, &Limits::default(), &AtomicBool::new(false)).unwrap();
     assert_eq!(report.result, Outcome::NotAssessed);
     assert_eq!(details(&report)["source_sha256_assessed"], false);
-    assert!(!fixture.output.exists());
+    fixture.assert_no_release_payload();
     fs::write(fixture.source.join("main.rs"), b"changed length\n").unwrap();
     assert_ne!(
         first,
@@ -564,7 +585,7 @@ fn case_aliases_are_rejected_before_any_release_is_committed() {
         )
         .is_err()
     );
-    assert!(!fixture.output.exists());
+    fixture.assert_no_release_payload();
 }
 
 #[test]
@@ -776,7 +797,7 @@ fn expected_source_snapshots_are_fresh_commit_preconditions_and_never_publish_mi
         run(&request, &Limits::default(), &AtomicBool::new(false)),
         Err(fileveil_core::Error::Verification(_))
     ));
-    assert!(!fixture.output.exists());
+    fixture.assert_no_release_payload();
     request
         .options
         .expected_source_sha256
@@ -813,4 +834,148 @@ fn expected_source_snapshots_are_fresh_commit_preconditions_and_never_publish_mi
     assert!(run(&request, &Limits::default(), &AtomicBool::new(false)).is_err());
 }
 
-// FVPROV1 29870 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiJiZjU3NTMwNDc4YmU3ZGExNWRmZGZjMGY1ZDVhZmJkYjA5ODdmMGU2OThkNThhNmUzNGJlM2NjZmNlZjUxMmQ5IiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL2NyYXRlcy9maWxldmVpbC1lbmdpbmUvdGVzdHMvcHJvamVjdF9waXBlbGluZS5ycyJ9LCJzaWduYXR1cmVzIjpbeyJrZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwicHVibGljX2tleV9oZXgiOiJhZGIzZTE3Y2QxMmY5NTZkMDA3MGUxNjYzZjUzMTUzN2ZjZWRmNzMwOGQwMTY1OGZlYTQ1NmZlZWE4ZjdmYmM1Iiwic2lnbmF0dXJlX2hleCI6IjBhOTc5MjA4YWU4M2M1MDI1OGY5MjkwZTMxZmFjN2Q0ZTE0ZTkxM2ZjMGVlM2ZhODI3OTExMTVmNjczOWVmZGM4NTJmMTI0YzgyNDI0NGU3MDlhNzg3NGJiNmJiNzllODlkZjc0NTEyMTNjOGM1ZmFhYzYwY2Q0NjJmNzU4NzAyIn1dfV0= FVPROV1-END
+fn alternate_private_binding(fixture: &Fixture) -> ProjectRequest {
+    let public = fixture.source.parent().unwrap().join("alternate-config");
+    fs::create_dir(&public).unwrap();
+    let config: ProjectConfig =
+        serde_json::from_slice(&fs::read(&fixture.config).unwrap()).unwrap();
+    let mut request = fixture.request(ProjectAction::Init);
+    request.config_path = public.join("fileveil.project.json");
+    request.state_directory = Some(fixture.state.with_file_name("alternate-state"));
+    request.init = Some(config);
+    request.key = Some(ProjectKey::File {
+        path: fixture.key.clone(),
+    });
+    let report = run(&request, &Limits::default(), &AtomicBool::new(false)).unwrap();
+    assert!(matches!(
+        report.result,
+        Outcome::VerifiedWithinScope | Outcome::PartiallyVerified
+    ));
+    request.action = ProjectAction::Sync;
+    request.init = None;
+    request
+}
+
+#[test]
+fn shared_output_rebases_a_stale_private_checkpoint_without_forking_history() {
+    let fixture = Fixture::new();
+    fixture.init(|config| {
+        config.source_root = fixture.source.clone();
+        config.include = vec!["main.rs".into()];
+    });
+    let mut first = fixture.request(ProjectAction::Sync);
+    first.options.version = "v1".into();
+    run(&first, &Limits::default(), &AtomicBool::new(false)).unwrap();
+    let mut second = alternate_private_binding(&fixture);
+    second.options.version = "v2".into();
+    let report = run(&second, &Limits::default(), &AtomicBool::new(false)).unwrap();
+    let second_generation = details(&report)["generation"].as_str().unwrap().to_owned();
+    first.options.version = "v3".into();
+    let report = run(&first, &Limits::default(), &AtomicBool::new(false)).unwrap();
+    assert_eq!(report.result, Outcome::VerifiedWithinScope);
+    assert!(
+        details(&report)["generation"]
+            .as_str()
+            .unwrap()
+            .starts_with("000000000003-")
+    );
+    let manifest: Value = serde_json::from_slice(
+        &fs::read(fixture.generation(details(&report)).join("manifest.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(manifest["previous_generation"], second_generation);
+    for mut request in [first, second] {
+        request.action = ProjectAction::Verify;
+        assert_eq!(
+            run(&request, &Limits::default(), &AtomicBool::new(false))
+                .unwrap()
+                .result,
+            Outcome::VerifiedWithinScope
+        );
+    }
+}
+
+#[test]
+fn shared_output_transaction_lock_excludes_an_independent_private_state() {
+    let fixture = Fixture::new();
+    let initial = fixture.init(|config| {
+        config.source_root = fixture.source.clone();
+        config.include = vec!["main.rs".into()];
+    });
+    let second = alternate_private_binding(&fixture);
+    let lock_path = fixture
+        .output
+        .join(initial["project_id"].as_str().unwrap())
+        .join(".lock");
+    let mut options = fs::OpenOptions::new();
+    options.read(true).write(true);
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::OpenOptionsExt;
+        options.share_mode(0);
+    }
+    let held = options.open(&lock_path).unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::fd::AsRawFd;
+        assert_eq!(
+            unsafe { libc::flock(held.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) },
+            0
+        );
+    }
+    assert!(matches!(
+        run(&second, &Limits::default(), &AtomicBool::new(false)),
+        Err(fileveil_core::Error::Blocked(_))
+    ));
+    #[cfg(unix)]
+    {
+        use std::os::fd::AsRawFd;
+        assert_eq!(unsafe { libc::flock(held.as_raw_fd(), libc::LOCK_UN) }, 0);
+    }
+    drop(held);
+    assert_eq!(
+        run(&second, &Limits::default(), &AtomicBool::new(false))
+            .unwrap()
+            .result,
+        Outcome::VerifiedWithinScope
+    );
+}
+
+#[test]
+#[cfg(windows)]
+fn windows_case_alias_cannot_place_private_state_inside_project_sources() {
+    for (actual, alias) in [("assets", "ASSETS"), ("ü-assets", "Ü-assets")] {
+        let fixture = Fixture::new();
+        let source = fixture.source.join(actual);
+        fs::create_dir(&source).unwrap();
+        fs::write(source.join("asset.txt"), b"unmodified input").unwrap();
+        let public = fixture.source.parent().unwrap().join("public-config");
+        fs::create_dir(&public).unwrap();
+        let mut config = ProjectConfig {
+            work_id: "case-isolation".into(),
+            author: "Synthetic".into(),
+            copy_id: "copy".into(),
+            source_root: source.clone(),
+            output_directory: fixture.output.clone(),
+            copy_external_files: true,
+            ..Default::default()
+        };
+        config.exclude.push("**/.lock".into());
+        let mut request = fixture.request(ProjectAction::Init);
+        request.config_path = public.join("fileveil.project.json");
+        request.state_directory = Some(fixture.source.join(alias).join("private-state"));
+        request.init = Some(config);
+        request.key = Some(ProjectKey::File {
+            path: fixture.key.clone(),
+        });
+        assert!(matches!(
+            run(&request, &Limits::default(), &AtomicBool::new(false)),
+            Err(fileveil_core::Error::Input(_))
+        ));
+        assert!(!request.config_path.exists());
+        assert!(!source.join("private-state").exists());
+        assert!(!fixture.output.exists());
+    }
+}
+
+// FVPROV1 36080 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiI2NGZlMmZkYjY3ZjFlMjFlMWRjY2Y1Y2FjM2ViODI3ODE3ZmZiZWEzYzgzYjA4MGY1OWIwNWRmNmMxMzEyZTgyIiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL2NyYXRlcy9maWxldmVpbC1lbmdpbmUvdGVzdHMvcHJvamVjdF9waXBlbGluZS5ycyJ9LCJzaWduYXR1cmVzIjpbeyJrZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwicHVibGljX2tleV9oZXgiOiJhZGIzZTE3Y2QxMmY5NTZkMDA3MGUxNjYzZjUzMTUzN2ZjZWRmNzMwOGQwMTY1OGZlYTQ1NmZlZWE4ZjdmYmM1Iiwic2lnbmF0dXJlX2hleCI6IjE5MmVjZDg0ZjJhMzEyMzNiNWI2NzdiNzUxODA5YzhkMzA1YTY1MDIzNTk2MGEzODNlZjkxNjVhZTYwMGU1NWUzMjYxNjQ0ZmU5Zjg1OWI4MzA5NzUwNTQxODY1YWEyNGY1YzYyODhiNzU2ZTdjMjVhMTdjZjRjNGQ0NDcwMzA2In1dfV0= FVPROV1-END

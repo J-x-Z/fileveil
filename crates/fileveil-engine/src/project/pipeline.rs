@@ -380,7 +380,7 @@ impl Context {
         validate_config(&config, false)?;
         let source = files::absolute(&config.source_root, parent)?;
         let output = files::absolute(&config.output_directory, parent)?;
-        if source.starts_with(&output) {
+        if files::relative_to(&source, &output).is_some() {
             return Err(Error::Input(
                 "Project output must be outside or below its source directory".into(),
             ));
@@ -398,10 +398,10 @@ impl Context {
                 .unwrap_or_else(|| state_directory(&config.project_id))?,
             parent,
         )?;
-        if state.starts_with(parent)
-            || state.starts_with(&source)
-            || state.starts_with(&output)
-            || output.starts_with(&state)
+        if files::relative_to(&state, parent).is_some()
+            || files::relative_to(&state, &source).is_some()
+            || files::relative_to(&state, &output).is_some()
+            || files::relative_to(&output, &state).is_some()
         {
             return Err(Error::Input(
                 "Private project state must be outside project sources and distribution folders"
@@ -620,8 +620,8 @@ impl Context {
             let label = files::relative_name(&child_relative)?;
             if name == ".git"
                 || path == self.config_path
-                || path.starts_with(&self.output)
-                || path.starts_with(&self.state)
+                || files::relative_to(&path, &self.output).is_some()
+                || files::relative_to(&path, &self.state).is_some()
                 || self.exclude.iter().any(|pattern| {
                     matches(pattern, &label) || matches(pattern, &format!("{label}/"))
                 })
@@ -1003,6 +1003,31 @@ fn active_key(record: &SignedRecord) -> &str {
         .unwrap_or(&record.body.actor_key_id)
 }
 
+fn checkpoint_is_current(context: &Context, name: &str, revision: u64) -> Result<bool> {
+    let namespace = context
+        .access
+        .directory(&context.namespace(), false, false)?;
+    let mut committed = 0u64;
+    for candidate in namespace.list(context.budget.files.max(128))? {
+        let candidate = candidate
+            .to_str()
+            .ok_or_else(|| Error::Input("Invalid generation name".into()))?;
+        if candidate.starts_with('.')
+            || !namespace
+                .child_path(OsStr::new(candidate))?
+                .join("COMMITTED")
+                .exists()
+        {
+            continue;
+        }
+        committed += 1;
+        if candidate > name {
+            return Ok(false);
+        }
+    }
+    Ok(committed == revision)
+}
+
 fn current_history(context: &Context, state: Option<&State>, force_full: bool) -> Result<History> {
     if !force_full
         && let Some(state) = state
@@ -1022,6 +1047,7 @@ fn current_history(context: &Context, state: Option<&State>, force_full: bool) -
                     generation.manifest.revision,
                     &generation.manifest_sha256[..16]
                 )
+            && checkpoint_is_current(context, name, generation.manifest.revision)?
         {
             let count = usize::try_from(generation.manifest.revision)
                 .map_err(|_| files::blocked("Project revision exceeds this platform's capacity"))?;
@@ -1924,6 +1950,7 @@ fn configure(
     flag: &AtomicBool,
 ) -> Result<Report> {
     let _lock = context.access.lock(&context.state)?;
+    let _output_lock = context.access.lock(&context.namespace())?;
     let mut state = context.load_state()?;
     if request.action == ProjectAction::Init {
         if context.config_path.exists() || state.is_some() {
@@ -2254,6 +2281,7 @@ fn sync(
     flag: &AtomicBool,
 ) -> Result<Report> {
     let _lock = context.access.lock(&context.state)?;
+    let _output_lock = context.access.lock(&context.namespace())?;
     let mut state = context.load_state()?.ok_or_else(|| {
         files::blocked("Initialize a private project identity before synchronizing")
     })?;
@@ -2745,4 +2773,4 @@ fn sync(
     Ok(report)
 }
 
-// FVPROV1 100766 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiI0MmIzOTQxOWRiN2I2NzQyY2QyYmIyMjE4ZWZiNzQyZWQ4ZjgzNTU1MTMxMGNiYTBmZjU3YWJkYzBiZDYyNGE5IiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL2NyYXRlcy9maWxldmVpbC1lbmdpbmUvc3JjL3Byb2plY3QvcGlwZWxpbmUucnMifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiI1ZjYwZmZhZjQ0MWUwMTJiMDY1M2I2NTVjMWQ3ZWU5OTBjZDc4ZWQwMDc2YTQ0OGE4OGFiMjI1MDI1NGFhOWFhYTNhY2Q0OWEzOWY1YzQ2NTU4NGI0Yjk5OGIzNzUwMWI3MDlmMmJmOWE5MzFmOTViYjc3ZWEyMmUxM2NlOGQwYSJ9XX1d FVPROV1-END
+// FVPROV1 101891 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiJiMTY4NjhkNTY5ZjI4OTZjZmYyOGQ5MmNlODc4YWIxODBhOTFkODEyYWFiY2NlYmM1YWFlNmY0M2Q5NDI4NWRlIiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL2NyYXRlcy9maWxldmVpbC1lbmdpbmUvc3JjL3Byb2plY3QvcGlwZWxpbmUucnMifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiI4ZWFlYmIyYWQ3MTNjOGNhODk3MmNkNzU0NTVhYmFkYzMwNzY5NjE0M2EzODUxYTE0ZWQ2NjFjYTA3ODVmZmM3Y2NlM2NmMTM3M2M1NmYyNjA5YzJhYjdhNmY4ODIzNDUzZDhjMjMyY2I5MDc3OGY4NDIwOGEyZDY0YzhmYzEwNyJ9XX1d FVPROV1-END

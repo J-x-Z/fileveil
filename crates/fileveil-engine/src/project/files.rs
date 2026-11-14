@@ -89,20 +89,35 @@ pub(super) fn relative_name(path: &Path) -> Result<String> {
     Ok(value)
 }
 
-fn relative_to(path: &Path, root: &Path) -> Option<PathBuf> {
+pub(super) fn relative_to(path: &Path, root: &Path) -> Option<PathBuf> {
     #[cfg(not(windows))]
     {
         path.strip_prefix(root).ok().map(Path::to_path_buf)
     }
     #[cfg(windows)]
     {
+        use std::os::windows::ffi::OsStrExt;
+        use windows_sys::Win32::Globalization::{CSTR_EQUAL, CompareStringOrdinal};
         let path: Vec<_> = path.components().collect();
         let root: Vec<_> = root.components().collect();
         if path.len() < root.len()
             || !path.iter().zip(&root).all(|(left, right)| {
-                left.as_os_str()
-                    .to_string_lossy()
-                    .eq_ignore_ascii_case(&right.as_os_str().to_string_lossy())
+                let left: Vec<u16> = left.as_os_str().encode_wide().collect();
+                let right: Vec<u16> = right.as_os_str().encode_wide().collect();
+                let (Ok(left_length), Ok(right_length)) =
+                    (i32::try_from(left.len()), i32::try_from(right.len()))
+                else {
+                    return false;
+                };
+                unsafe {
+                    CompareStringOrdinal(
+                        left.as_ptr(),
+                        left_length,
+                        right.as_ptr(),
+                        right_length,
+                        1,
+                    ) == CSTR_EQUAL
+                }
             })
         {
             return None;
@@ -945,4 +960,4 @@ mod tests {
     }
 }
 
-// FVPROV1 33254 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiI2ZDNlYTUxNzNlYmQwMmIwNDI2Y2RmZWY1ZDVkODZjYmM2ZmNjMzViZDliZDU1MzBkODM1Y2ViNGRmNDljNGI2IiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL2NyYXRlcy9maWxldmVpbC1lbmdpbmUvc3JjL3Byb2plY3QvZmlsZXMucnMifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiJlYjZiMmJlNGM0NzAwYTVkMTIyYzg0OTkzNzcyY2E1NDA5ZjViZjQ1YTNiY2I2YmI3M2EzMzk1ZDU5ZDIwZmU1ZTc3Njg2YTY5NmM0ZTY2Mzk5ODgxNDhlMGI4NmMyNmIwZTI2M2ZjZWRmMTVlNzE5MzlkMjViMjQyNDBkOWMwYiJ9XX1d FVPROV1-END
+// FVPROV1 33913 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiIxNzZjNjQzOGI5NzkzMzMzZTUzMDA3NDNiNGVjODRjYzdmMzBiZDE2M2ZhYjUxNzgyMDM4M2ZhOTZhMjhhYTI1IiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL2NyYXRlcy9maWxldmVpbC1lbmdpbmUvc3JjL3Byb2plY3QvZmlsZXMucnMifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiJhMTRhNjEyY2Y0ZTcxNzhmMTAwOTdjZGM0ZjFhYmU4ZmJmYjQ0NzU3NDY2YTgyNmZhZTM3N2M2NDRmZTY4ODYzNGI2YmJjMTNiYzYyNjg2NTgzNzgyNDkxYzAyM2I4YTUwZjdmOGFhYTU5MTc5ZWQwN2Y5MmQwNzdmZjMyMDUwMyJ9XX1d FVPROV1-END

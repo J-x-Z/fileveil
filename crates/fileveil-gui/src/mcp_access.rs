@@ -1029,6 +1029,56 @@ fn normalized_absolute(path: &Path) -> Result<PathBuf> {
     }
     Ok(path.components().collect())
 }
+
+#[cfg(any(windows, test))]
+fn canonical_with_missing_suffix(path: &Path) -> Option<PathBuf> {
+    let mut existing = normalized_absolute(path).ok()?;
+    let mut suffix = Vec::new();
+    for _ in 0..512 {
+        match fs::symlink_metadata(&existing) {
+            Ok(metadata) => {
+                if metadata.file_type().is_symlink() {
+                    return None;
+                }
+                // Keep the existing namespace bound during canonicalization.
+                // The same no-reparse opens protect file inputs and 8.3 aliases.
+                let _namespace = if metadata.is_dir() {
+                    let (directory, mut parents) =
+                        platform::open_absolute_directory(&existing).ok()?;
+                    parents.push(directory);
+                    parents
+                } else if metadata.is_file() && suffix.is_empty() {
+                    let (parent, mut parents) =
+                        platform::open_absolute_directory(existing.parent()?).ok()?;
+                    let file =
+                        platform::open_input(&parent, existing.file_name()?, &existing).ok()?;
+                    parents.push(parent);
+                    parents.push(file);
+                    parents
+                } else {
+                    return None;
+                };
+                let mut canonical = fs::canonicalize(&existing).ok()?;
+                for name in suffix.into_iter().rev() {
+                    canonical.push(name);
+                }
+                return Some(canonical);
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                let Component::Normal(name) = existing.components().next_back()? else {
+                    return None;
+                };
+                suffix.push(name.to_os_string());
+                if !existing.pop() {
+                    return None;
+                }
+            }
+            Err(_) => return None,
+        }
+    }
+    None
+}
+
 fn home_root(identity: Identity) -> Result<bool> {
     let Some(home) = std::env::var_os(if cfg!(windows) { "USERPROFILE" } else { "HOME" }) else {
         return Ok(false);
@@ -1389,14 +1439,7 @@ mod platform {
         Ok(directory_path(parent, hint)?.join(name))
     }
     pub(super) fn relative(path: &Path, root: &Path) -> Option<PathBuf> {
-        let path = fs::canonicalize(path)
-            .or_else(|_| {
-                path.parent()
-                    .and_then(|parent| fs::canonicalize(parent).ok())
-                    .map(|parent| parent.join(path.file_name().unwrap_or_default()))
-                    .ok_or(std::io::Error::from(std::io::ErrorKind::NotFound))
-            })
-            .ok()?;
+        let path = canonical_with_missing_suffix(path)?;
         let path_parts: Vec<_> = path.components().collect();
         let root_parts: Vec<_> = root.components().collect();
         if path_parts.len() < root_parts.len()
@@ -1433,6 +1476,64 @@ mod tests {
     fn directory() -> tempfile::TempDir {
         tempfile::tempdir_in(std::env::temp_dir().canonicalize().unwrap()).unwrap()
     }
+
+    #[test]
+    fn missing_suffix_canonicalization_preserves_deep_outputs_and_regular_inputs() {
+        let source = directory();
+        let root = source.path().canonicalize().unwrap();
+        let existing = root.join("game");
+        fs::create_dir(&existing).unwrap();
+        let output = existing.join("dist").join("fileveil-release");
+        assert_eq!(canonical_with_missing_suffix(&output), Some(output.clone()));
+        assert!(!existing.join("dist").exists());
+        let input = existing.join("source.txt");
+        fs::write(&input, b"existing regular input").unwrap();
+        assert_eq!(
+            canonical_with_missing_suffix(&input),
+            Some(input.canonicalize().unwrap())
+        );
+        assert!(canonical_with_missing_suffix(&input.join("not-a-directory")).is_none());
+    }
+
+    #[test]
+    fn missing_suffix_canonicalization_rejects_traversal_and_existing_link_ancestors() {
+        let source = directory();
+        let mut traversal = source.path().as_os_str().to_os_string();
+        traversal.push(format!(
+            "{s}nested{s}..{s}outside",
+            s = std::path::MAIN_SEPARATOR
+        ));
+        assert!(canonical_with_missing_suffix(Path::new(&traversal)).is_none());
+        #[cfg(unix)]
+        {
+            let outside = directory();
+            let link = source.path().join("link");
+            std::os::unix::fs::symlink(outside.path(), &link).unwrap();
+            assert!(canonical_with_missing_suffix(&link.join("missing/deep")).is_none());
+            fs::write(outside.path().join("input.txt"), b"outside").unwrap();
+            assert!(canonical_with_missing_suffix(&link.join("input.txt")).is_none());
+        }
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn windows_deep_output_relative_stays_inside_its_existing_canonical_grant() {
+        let source = directory();
+        let root = Root::new(source.path()).unwrap();
+        let output = root.path.join("game/dist/fileveil-release");
+        assert_eq!(
+            platform::relative(&output, &root.path),
+            Some("game/dist/fileveil-release".into())
+        );
+        let outside = directory();
+        assert!(platform::relative(&outside.path().join("missing/deep"), &root.path).is_none());
+        let case_alias: PathBuf = root.path.to_string_lossy().to_ascii_uppercase().into();
+        assert_eq!(
+            platform::relative(&case_alias.join("game/dist/fileveil-release"), &root.path),
+            Some("game/dist/fileveil-release".into())
+        );
+    }
+
     fn config(read: &[&Path], write: &[&Path]) -> McpAccessConfig {
         McpAccessConfig {
             read_roots: read.iter().map(|path| path.to_path_buf()).collect(),
@@ -1827,4 +1928,4 @@ mod tests {
     }
 }
 
-// FVPROV1 72773 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiJlOTA5ZDRhMTQzZDJjZGY1NjI0OWUyMGFiMzBhNmZlN2VhZDgwMGI5OTM3ZWY3ZjVlYTMyYjRmMDRhNDAxYWJkIiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL2NyYXRlcy9maWxldmVpbC1ndWkvc3JjL21jcF9hY2Nlc3MucnMifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiI1NWY5MDFmOWQyNzVjNjZiZmI1NjM5NmJlZmMxMGE5Y2VlZjE0NzQyYzZiZWNjZGFmZDIzNTViZTcwOTEyYWM3ODgwYjM4YzQzOGQzN2IxMTNhZDY3NmJlNTJhMmI1NzE5ZjFkNDgzYTg0MmNiZThkMjBhNWRjMjljMjQzYmMwOCJ9XX1d FVPROV1-END
+// FVPROV1 76960 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiIzZDlkMTBlNjUzNGMyOWRhOGM3MmZiM2EzZWUzNTE5YjY0OWMxNWMwYjZmZmVjMzEwZWRjZjNlMmI4Y2RlOTgwIiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL2NyYXRlcy9maWxldmVpbC1ndWkvc3JjL21jcF9hY2Nlc3MucnMifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiI3NjQ4M2Y5MTUyYjA0ODY4ZjkxY2MxYTJhMzY2ZTk1ZGUxY2Q4YTg1NzU4Y2QwZGVhNGQ4MjUzZjMxMjgzYjE0ZmM3MTk5MDE4MmIxZjU2Mjk3OGZmMTJiYTZhMDRjMzRhNmQyZGRhMGNjOTE3Mzc1YjE4Zjc3NzBjNTMyOWMwMiJ9XX1d FVPROV1-END

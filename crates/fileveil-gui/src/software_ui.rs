@@ -147,6 +147,16 @@ impl SoftwarePanel {
         } else {
             t(language,"对 C/C++ 源码、LLVM IR 或独立构建产物植入可验证水印。编译和运行在本地隔离 worker 中执行。","Mark C/C++ source, LLVM IR or independently built artifacts. Compilation and execution use a local isolated worker.")
         });
+        if !forensics {
+            ui.small(t(language,
+                "编译与 IR 处理需要本机 LLVM SDK。构建 Pass 另需 CMake，操作时检查所选工具。",
+                "Compilation and IR processing require a local LLVM SDK. Building the pass also requires CMake. Selected tools are checked when the operation runs."));
+            if self.request.action == SoftwareAction::BuildPlugin {
+                ui.small(t(language,
+                    "默认使用安装包自带的 Pass 源码，也可选择其他源码目录。",
+                    "The default uses pass sources included in the installation. You can also select another source directory."));
+            }
+        }
         ui.add_enabled_ui(idle,|ui| {
             ui.horizontal_wrapped(|ui| {
                 ui.label(t(language,"操作","Operation"));
@@ -209,7 +219,7 @@ impl SoftwarePanel {
             egui::CollapsingHeader::new(if forensics {t(language,"分析工具与验证参数","Analysis tools and verification")}else{t(language,"编译工具与验证参数","Compiler tools and verification")}).show(ui,|ui| {
                 optional_path(ui,language,"LLVM 工具目录","LLVM tool directory",&mut self.request.llvm_directory,true);
                 if !forensics {
-                optional_path(ui,language,"LLVM 插件","LLVM pass plugin",&mut self.request.plugin_path,false);
+                optional_path(ui,language,"LLVM Pass（插件或驱动）","LLVM pass (plugin or driver)",&mut self.request.plugin_path,false);
                 ui.horizontal(|ui| {
                     ui.label(t(language,"优化级别","Optimization"));
                     egui::ComboBox::from_id_salt("software_optimization").selected_text(&self.request.optimization).show_ui(ui,|ui| {
@@ -332,7 +342,7 @@ fn action_label(language: Language, action: SoftwareAction) -> &'static str {
         SoftwareAction::Clean => t(language, "Clean 创建净化副本", "Clean into a new copy"),
         SoftwareAction::Verify => t(language, "Verify 验证来源", "Verify provenance"),
         SoftwareAction::Compare => t(language, "比较两个版本", "Compare two versions"),
-        SoftwareAction::BuildPlugin => t(language, "构建本机 LLVM 插件", "Build local LLVM plugin"),
+        SoftwareAction::BuildPlugin => t(language, "构建本机 LLVM Pass", "Build local LLVM pass"),
         SoftwareAction::Lab => t(
             language,
             "运行编译器攻防基准",
@@ -582,4 +592,4 @@ mod tests {
     }
 }
 
-// FVPROV1 26210 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiJjODY2OTQ4NGQ5ZGI3ODRjYThlMDk5YWU5MGVmZTQ2N2Q4ZmZkNjcyMmY4NWE3ZmFlNzA3ZWU0Zjc0ZjRjNTA4IiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL2NyYXRlcy9maWxldmVpbC1ndWkvc3JjL3NvZnR3YXJlX3VpLnJzIn0sInNpZ25hdHVyZXMiOlt7ImtleV9pZCI6Ijk5ZWE2M2VmY2NmZDBmZGJkNjhlMTZlZDhmMDNkMzM3ZjE1ZWMyZTRhNmEzZDY0ZTExZDcxNGVhMWU1NDI1MzMiLCJwdWJsaWNfa2V5X2hleCI6ImFkYjNlMTdjZDEyZjk1NmQwMDcwZTE2NjNmNTMxNTM3ZmNlZGY3MzA4ZDAxNjU4ZmVhNDU2ZmVlYThmN2ZiYzUiLCJzaWduYXR1cmVfaGV4IjoiNGQ1NDczNGNmMmUwNzg4M2U4ZjdhYWVjN2JmNDM4YTUxYWYxMmRmYzkzMWQ0YTUxYjRmNDFkNGVhOWJhM2MzNTkwNjZhNDY0MTdlYjQzMjFkODhhZTkzMGY4NWEyZTQxZDBjNDY2ZDIwNTkwYzJmMTQzMDZmMTQxZTRjOGM0MDMifV19XQ== FVPROV1-END
+// FVPROV1 26944 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiI3YTA5NGMzZGM3ZTc0MTg4NzdlZjQ3MTU5ZGNjZTFmM2M1YTllMjc5OTlkYjI3ODgyNDZmMzdjNDJjZjIxOGE4IiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL2NyYXRlcy9maWxldmVpbC1ndWkvc3JjL3NvZnR3YXJlX3VpLnJzIn0sInNpZ25hdHVyZXMiOlt7ImtleV9pZCI6Ijk5ZWE2M2VmY2NmZDBmZGJkNjhlMTZlZDhmMDNkMzM3ZjE1ZWMyZTRhNmEzZDY0ZTExZDcxNGVhMWU1NDI1MzMiLCJwdWJsaWNfa2V5X2hleCI6ImFkYjNlMTdjZDEyZjk1NmQwMDcwZTE2NjNmNTMxNTM3ZmNlZGY3MzA4ZDAxNjU4ZmVhNDU2ZmVlYThmN2ZiYzUiLCJzaWduYXR1cmVfaGV4IjoiZjkyYzc0MTU4ZDEzMDFiODlkNjAwOGQ5ZTFjZjVhZmRhN2Q4ZjFlYTI5OTQzYjQ1NjZjMjMwMDNiMjIzODBiODRhZDc2ZjI0MjU5Y2UwOTYyNDdkMjQ2ZmE5YjdiNjBmZjBhZDg5MTk3ZDU4Nzg5ZDZkNWNkNmUxMTg5YTFiMGUifV19XQ== FVPROV1-END

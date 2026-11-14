@@ -32,6 +32,44 @@ def sdk_archive():
 
 
 class ProjectCiLlvmTests(unittest.TestCase):
+    def test_windows_pass_dependencies_are_static_and_keep_secrets_out(self):
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name).resolve()
+            (root / "vcpkg.exe").touch()
+            (root / "scripts/buildsystems").mkdir(parents=True)
+            (root / "scripts/buildsystems/vcpkg.cmake").touch()
+            prefix = root / "installed/x64-windows-static-md"
+            (prefix / "include").mkdir(parents=True)
+            (prefix / "lib").mkdir()
+            (prefix / "include/zlib.h").touch()
+            (prefix / "lib/libzs.lib").touch()
+            environment = root / "environment"
+            with patch.dict(INSTALLER.os.environ, {"VCPKG_INSTALLATION_ROOT": str(root),
+                    "GITHUB_ENV": str(environment), "CMAKE_PREFIX_PATH": "existing-prefix",
+                    "FILEVEIL_SIGNING_KEY_BASE64": "test-secret"}), \
+                    patch.object(INSTALLER.subprocess, "run") as run:
+                INSTALLER.windows_pass_dependencies()
+                self.assertEqual(run.call_args.args[0], [str(root / "vcpkg.exe"), "install", "zlib:x64-windows-static-md"])
+                self.assertNotIn("FILEVEIL_SIGNING_KEY_BASE64", run.call_args.kwargs["env"])
+                self.assertEqual(INSTALLER.os.environ["CMAKE_PREFIX_PATH"],
+                                 str(prefix) + INSTALLER.os.pathsep + "existing-prefix")
+            self.assertIn("CMAKE_PREFIX_PATH=" + str(prefix) + INSTALLER.os.pathsep + "existing-prefix\n",
+                          environment.read_text())
+            self.assertIn("FILEVEIL_CI_VCPKG_ROOT=" + str(root) + "\n", environment.read_text())
+
+    def test_missing_windows_support_files_fail_before_environment_export(self):
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            (root / "vcpkg.exe").touch()
+            (root / "scripts/buildsystems").mkdir(parents=True)
+            (root / "scripts/buildsystems/vcpkg.cmake").touch()
+            environment = root / "environment"
+            with patch.dict(INSTALLER.os.environ, {"VCPKG_INSTALLATION_ROOT": str(root),
+                    "GITHUB_ENV": str(environment)}), patch.object(INSTALLER.subprocess, "run"):
+                with self.assertRaisesRegex(ValueError, "development files"):
+                    INSTALLER.windows_pass_dependencies()
+            self.assertFalse(environment.exists())
+
     def test_macos_does_not_override_system_cpp_runtime_search(self):
         with tempfile.TemporaryDirectory() as name:
             root = Path(name)
@@ -183,4 +221,4 @@ class ProjectCiLlvmTests(unittest.TestCase):
 if __name__ == "__main__":
     unittest.main()
 
-# FVPROV1 10213 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiI0YWM5MTEwODVjNDhlZmI0OTQwNjA0Mjk3YjAxOTA2NWVhNWRhZjUwZjdiNWYzYjk2MGExZjY4NGQxNjE3NmUwIiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL3Rlc3RzL3Rlc3RfcHJvamVjdF9jaV9sbHZtLnB5In0sInNpZ25hdHVyZXMiOlt7ImtleV9pZCI6Ijk5ZWE2M2VmY2NmZDBmZGJkNjhlMTZlZDhmMDNkMzM3ZjE1ZWMyZTRhNmEzZDY0ZTExZDcxNGVhMWU1NDI1MzMiLCJwdWJsaWNfa2V5X2hleCI6ImFkYjNlMTdjZDEyZjk1NmQwMDcwZTE2NjNmNTMxNTM3ZmNlZGY3MzA4ZDAxNjU4ZmVhNDU2ZmVlYThmN2ZiYzUiLCJzaWduYXR1cmVfaGV4IjoiNjExNjMxYThkOTEwY2Y5YmMyOGNkYWNkMjI5Y2VhMWZjY2JhYmVlNzcyMjkyZjkwMWEyMGYxYjg0NmQ5OTFlMWYxMTU1YWU4N2IzNTg1ZTU1ZGZmZGE4ZGFiYTQxMTNkZGI4YzUyYzQ0MTQwOTJlNmRhNmYwMjI5Mjk3OWY2MDMifV19XQ== FVPROV1-END
+# FVPROV1 12612 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiI1YmJiZDk5MGEwZTU0MTU5ZmJjMWU4OTcwZjUxNTRhYTg4ODg4OGMwYzg3ZmU0ZWU1ZGU4MTE4NTM5MmUyNTBkIiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL3Rlc3RzL3Rlc3RfcHJvamVjdF9jaV9sbHZtLnB5In0sInNpZ25hdHVyZXMiOlt7ImtleV9pZCI6Ijk5ZWE2M2VmY2NmZDBmZGJkNjhlMTZlZDhmMDNkMzM3ZjE1ZWMyZTRhNmEzZDY0ZTExZDcxNGVhMWU1NDI1MzMiLCJwdWJsaWNfa2V5X2hleCI6ImFkYjNlMTdjZDEyZjk1NmQwMDcwZTE2NjNmNTMxNTM3ZmNlZGY3MzA4ZDAxNjU4ZmVhNDU2ZmVlYThmN2ZiYzUiLCJzaWduYXR1cmVfaGV4IjoiMTE3MzMwOTlmYjZhYTc2OWJlMmU3OTY1Zjk0NWE5NjlkMGEzYjE0NmJjMjg0MzIyNTliMzYzODI3YzVmOTFmZDczNmE2OTg5ZDU0ZTE0YWYyNmVmY2FkMzQ1MjA2MDZhODM0YTVjMmEyZDk3YzQ4NTZkMDBkMjc4ZWM3MGU2MGMifV19XQ== FVPROV1-END

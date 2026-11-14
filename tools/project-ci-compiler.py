@@ -133,7 +133,15 @@ def stop(process):
         except ProcessLookupError:
             pass
     else:
-        process.kill()
+        taskkill = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32/taskkill.exe"
+        try:
+            result = subprocess.run([str(taskkill), "/PID", str(process.pid), "/T", "/F"],
+                stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
+            if result.returncode and process.poll() is None:
+                process.kill()
+        except (OSError, subprocess.TimeoutExpired):
+            if process.poll() is None:
+                process.kill()
     process.wait()
 
 
@@ -144,19 +152,24 @@ def execute(argv, directory, extra_environment=None, timeout=120):
     with tempfile.TemporaryFile() as stdout, tempfile.TemporaryFile() as stderr:
         process = subprocess.Popen([str(value) for value in argv], cwd=directory, env=environment,
             stdin=subprocess.DEVNULL, stdout=stdout, stderr=stderr, start_new_session=os.name == "posix")
-        deadline = time.monotonic() + timeout
-        while process.poll() is None:
-            if time.monotonic() > deadline or os.fstat(stdout.fileno()).st_size > 8 * 1024 * 1024 or os.fstat(stderr.fileno()).st_size > 8 * 1024 * 1024:
+        try:
+            deadline = time.monotonic() + timeout
+            while process.poll() is None:
+                if time.monotonic() > deadline or os.fstat(stdout.fileno()).st_size > 8 * 1024 * 1024 or os.fstat(stderr.fileno()).st_size > 8 * 1024 * 1024:
+                    raise ValueError("Compiler/test subprocess exceeded its time or output budget")
+                time.sleep(0.02)
+            stdout.seek(0)
+            stderr.seek(0)
+            output, errors = stdout.read(8 * 1024 * 1024 + 1), stderr.read(8 * 1024 * 1024 + 1)
+            if len(output) > 8 * 1024 * 1024 or len(errors) > 8 * 1024 * 1024:
+                raise ValueError("Compiler/test subprocess exceeded its output budget")
+            return {"returncode": process.returncode, "stdout_sha256": hashlib.sha256(output).hexdigest(),
+                    "stderr_sha256": hashlib.sha256(errors).hexdigest()}
+        finally:
+            # KeyboardInterrupt and I/O failures must reap the same owned tree
+            # as timeout/output-budget failures.
+            if process.poll() is None:
                 stop(process)
-                raise ValueError("Compiler/test subprocess exceeded its time or output budget")
-            time.sleep(0.02)
-        stdout.seek(0)
-        stderr.seek(0)
-        output, errors = stdout.read(8 * 1024 * 1024 + 1), stderr.read(8 * 1024 * 1024 + 1)
-        if len(output) > 8 * 1024 * 1024 or len(errors) > 8 * 1024 * 1024:
-            raise ValueError("Compiler/test subprocess exceeded its output budget")
-        return {"returncode": process.returncode, "stdout_sha256": hashlib.sha256(output).hexdigest(),
-                "stderr_sha256": hashlib.sha256(errors).hexdigest()}
 
 
 def checked(argv, directory, extra_environment=None, timeout=120):
@@ -302,6 +315,12 @@ def load_stage(args, expected):
 
 
 def mark(args):
+    authorization = [getattr(args, name, None) for name in
+                     ("authorized_root", "authorized_config", "authorized_policy")]
+    if any(value is not None for value in authorization):
+        if not all(value is not None for value in authorization):
+            raise ValueError("IR signing authorization requires root, config and policy together")
+        POST.authorize_transfer(authorization[0], authorization[1], args.input / "ci-config.json", authorization[2])
     config, stage = load_stage(args, "prepared")
     selected = POST.read_config(args.config)
     if declaration(selected) != declaration(config):
@@ -402,6 +421,9 @@ def main():
     parser.add_argument("--plugin", type=Path)
     parser.add_argument("--key", type=Path)
     parser.add_argument("--project-root", type=Path)
+    parser.add_argument("--authorized-root", type=Path)
+    parser.add_argument("--authorized-config")
+    parser.add_argument("--authorized-policy", choices=POST.POLICIES)
     parser.add_argument("--version", default="")
     parser.add_argument("--created-at", default="")
     args = parser.parse_args()
@@ -423,4 +445,4 @@ if __name__ == "__main__":
         print(f"FileVeil compiler stage failed ({error})", file=sys.stderr)
         sys.exit(1)
 
-# FVPROV1 23188 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiI5MDI1OWQ4MDVmM2NjOGQxMzVhNTRmYWY4OTJiMmEzMGMyNWE2ODQyM2Q2YmEwNzU2N2UxYTUxOThhZDBmOTE0IiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL3Rvb2xzL3Byb2plY3QtY2ktY29tcGlsZXIucHkifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiI3ZTM3ZTNjNTNhNjAxOGEwNGI4YmY2ZTYyOGYyNGE2ZWQwOGQwOTMyMmVhYzcwNjlhM2U0MDEzNGZhMTc4ZTc5MjM1NWNjNzYyZjIzMDU4MWQ3MmEyMjdlNGU0MTllZmIxOTg4MWExOWNiZWVlY2IwMGQyZDA4ZGIzN2YzZmMwMSJ9XX1d FVPROV1-END
+# FVPROV1 24588 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiJlOGQ4ZWRhNjc5OTcyYjQzNTg0YThhYjE0Y2JkOTE1YjgyNmU0YTM0YmMyMWIyN2MwN2NiNmRkZGYyNDUzNjY2IiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL3Rvb2xzL3Byb2plY3QtY2ktY29tcGlsZXIucHkifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiIyYTc1YTYyMDQ5ZmEyYzg0NmM2NjU2N2Y0YjVkZTJiZjM1YzhlNGI3NTQyODRmYTY2YWNhMTJiMDBiYzljZTg4NjY4MDg1ODU1MzQ4NDg1MGM3NjZjMzZhZTQzZDdmZTY5YjZkMGIwMjJlYWIxNzI4YWFhNTU3NTgyM2I4YzEwMiJ9XX1d FVPROV1-END

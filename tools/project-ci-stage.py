@@ -258,11 +258,19 @@ def history_bundle(root, output):
         if len(Path(directory).relative_to(root).parts) == 2:
             directories[:] = [name for name in directories if name not in ("files", "derived")]
         for name in files:
+            path = Path(directory) / name
+            relative = path.relative_to(root)
+            if (name == ".lock" and len(relative.parts) == 2
+                    and len(relative.parts[0]) == 32
+                    and all(character in "0123456789abcdef" for character in relative.parts[0])):
+                info = path.lstat()
+                if not VERIFIER.no_link(info) or not stat.S_ISREG(info.st_mode) or info.st_size or info.st_nlink != 1:
+                    raise ValueError("History contains an invalid runtime transaction lock")
+                continue
             if len(paths) >= MAX_FILES:
                 raise ValueError("History exceeds its retained metadata budget")
             if name not in ("manifest.json", "evidence.json", "COMMITTED"):
                 raise ValueError("CI history contains unexpected metadata files")
-            path = Path(directory) / name
             if path.is_symlink() or not path.is_file():
                 raise ValueError("History contains a non-regular file")
             size = path.stat().st_size
@@ -299,4 +307,4 @@ if __name__ == "__main__":
         print(f"FileVeil build transfer failed ({error})", file=sys.stderr)
         sys.exit(1)
 
-# FVPROV1 15153 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiJhMGU1OTAyNmYyZWFjYWY2MDRmMzgzMGU3ZjMxZmNmNGZkOWNkMGM0MTJhYTIyZGU4MjA0N2FhNTI5MDk4MTYwIiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL3Rvb2xzL3Byb2plY3QtY2ktc3RhZ2UucHkifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiI3MjFhYzRkNjQ2Yzg0NTE1OWJmNzExMmE4YjA3YWQzMTM3ZGFlOTlhZjVlZjFiNGQyZDU0N2VlYWJlZGUyY2Y1NmZmNWNhODllMmM2MTBhY2JmNzMwNzlmNWY5NmRkYzI2ZGRkMGMzZTgyOGVkMzE3Mzg4NmY5MjA5NDU2NmYwYyJ9XX1d FVPROV1-END
+# FVPROV1 15684 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiI5ZTc1ZGM4NDQ1ZDQ0M2RmMTM1OGRmYzJmN2E4ZjZhMjQ2MjRiOTg1YjM2NWJmYWU1ZmE4NmUwY2M2NDhiOGIxIiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL3Rvb2xzL3Byb2plY3QtY2ktc3RhZ2UucHkifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiI1OGE3ZGE3ZjRjODlmYTE1OTZmYWRmYzdlYmY4Yjc4MTZjMDIxOGVjY2Y0YWJmMjMxMWE2MDE1ODBiNGFkOTFkYmUwNTZjNDIzMTVjZjFkMmRhOWRmOWYyZjk3OWVhOGFhZTYwMTVmZDA2Y2M5M2M4ODUyZjA4NWIzNjZlZDcwNiJ9XX1d FVPROV1-END

@@ -1507,27 +1507,47 @@ fn decode_hex(value: &str) -> Result<Vec<u8>> {
         .collect()
 }
 
+fn pass_source_directory(
+    input: &Path,
+    configured: Option<std::ffi::OsString>,
+    executable: Option<PathBuf>,
+    development: PathBuf,
+) -> Result<PathBuf> {
+    let candidates = if !input.as_os_str().is_empty() {
+        vec![input.to_path_buf()]
+    } else if let Some(configured) = configured {
+        vec![PathBuf::from(configured)]
+    } else {
+        let mut candidates = Vec::new();
+        if let Some(executable) = executable
+            && let Some(parent) = executable.parent()
+        {
+            candidates.push(parent.join("resources/software-watermark"));
+            candidates.push(parent.join("../Resources/software-watermark"));
+        }
+        candidates.push(development);
+        candidates
+    };
+    candidates
+        .into_iter()
+        .filter_map(|candidate| candidate.canonicalize().ok())
+        .find(|candidate| candidate.join("CMakeLists.txt").is_file())
+        .ok_or_else(|| {
+            Error::Input("Software pass sources with CMakeLists.txt are unavailable".into())
+        })
+}
+
 fn build_plugin(
     request: &SoftwareRequest,
     duration: Duration,
     cancelled: &AtomicBool,
 ) -> Result<Report> {
-    let source = if request.input_path.as_os_str().is_empty() {
-        std::env::var_os("FILEVEIL_SOFTWARE_TOOLS")
-            .map(PathBuf::from)
-            .unwrap_or_else(|| {
-                Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tools/software-watermark")
-            })
-    } else {
-        request.input_path.clone()
-    };
-    let source = fs::canonicalize(source)
-        .map_err(|_| Error::Input("Software pass sources are unavailable".into()))?;
-    if !source.join("CMakeLists.txt").is_file() {
-        return Err(Error::Input(
-            "Software pass source directory has no CMakeLists.txt".into(),
-        ));
-    }
+    let source = pass_source_directory(
+        &request.input_path,
+        std::env::var_os("FILEVEIL_SOFTWARE_TOOLS"),
+        std::env::current_exe().ok(),
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tools/software-watermark"),
+    )?;
     let output = request.output_path.as_deref().ok_or_else(|| {
         Error::Input("BuildPlugin requires an explicit local build directory".into())
     })?;
@@ -1541,21 +1561,7 @@ fn build_plugin(
         ));
     }
     let chain = toolchain(request, &output, cancelled)?;
-    let cmake = std::env::var_os("FILEVEIL_CMAKE")
-        .map(PathBuf::from)
-        .or_else(|| {
-            [
-                "/opt/homebrew/bin/cmake",
-                "/usr/local/bin/cmake",
-                "/usr/bin/cmake",
-            ]
-            .into_iter()
-            .map(PathBuf::from)
-            .find(|value| value.is_file())
-        })
-        .ok_or_else(|| {
-            Error::Unsupported("A trusted local CMake executable is unavailable".into())
-        })?;
+    let cmake = tools::cmake(&source, &output)?;
     let arguments = vec![
         "-S".into(),
         source.as_os_str().into(),
@@ -2076,6 +2082,75 @@ mod tests {
     use crate::{heritage::signing::SigningKey, project::ProjectKey};
 
     #[test]
+    fn packaged_pass_sources_resolve_without_the_development_checkout() {
+        let directory = tempfile::tempdir().unwrap();
+        for (name, executable, relative_sources) in [
+            (
+                "portable",
+                "FileVeil/fileveil",
+                "FileVeil/resources/software-watermark",
+            ),
+            (
+                "macos",
+                "FileVeil.app/Contents/MacOS/FileVeil",
+                "FileVeil.app/Contents/Resources/software-watermark",
+            ),
+        ] {
+            let root = directory.path().join(name);
+            let executable = root.join(executable);
+            let sources = root.join(relative_sources);
+            fs::create_dir_all(executable.parent().unwrap()).unwrap();
+            fs::create_dir_all(&sources).unwrap();
+            fs::write(sources.join("CMakeLists.txt"), b"synthetic build recipe").unwrap();
+            let selected = pass_source_directory(
+                Path::new(""),
+                None,
+                Some(executable),
+                root.join("missing-ci-checkout"),
+            )
+            .unwrap();
+            assert_eq!(selected, sources.canonicalize().unwrap());
+        }
+    }
+
+    #[test]
+    fn explicit_pass_sources_and_environment_keep_priority() {
+        let directory = tempfile::tempdir().unwrap();
+        let input = directory.path().join("selected-source");
+        let configured = directory.path().join("configured-source");
+        let development = directory.path().join("development-source");
+        for source in [&input, &configured, &development] {
+            fs::create_dir_all(source).unwrap();
+            fs::write(source.join("CMakeLists.txt"), b"synthetic build recipe").unwrap();
+        }
+        let selected = pass_source_directory(
+            &input,
+            Some(configured.clone().into_os_string()),
+            None,
+            development.clone(),
+        )
+        .unwrap();
+        assert_eq!(selected, input.canonicalize().unwrap());
+        let selected = pass_source_directory(
+            Path::new(""),
+            Some(configured.clone().into_os_string()),
+            None,
+            development.clone(),
+        )
+        .unwrap();
+        assert_eq!(selected, configured.canonicalize().unwrap());
+        assert!(
+            pass_source_directory(
+                &directory.path().join("missing-selected-source"),
+                None,
+                None,
+                development,
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
     fn built_pass_discovery_requires_one_existing_release_artifact() {
         let directory = tempfile::tempdir().unwrap();
         let chain = tools::Toolchain {
@@ -2304,4 +2379,4 @@ int main(int argc,char **argv) {
     }
 }
 
-// FVPROV1 83498 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiJmNDViNzE1NzUzNGExOTVlZjI4MzkyZGM5MWVkOTcyZWNlNTdiYjBiNTMxMzVjYWE2Mjc3MTUyYmE4OTMxNDk0IiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL2NyYXRlcy9maWxldmVpbC1lbmdpbmUvc3JjL3NvZnR3YXJlL3BpcGVsaW5lLnJzIn0sInNpZ25hdHVyZXMiOlt7ImtleV9pZCI6Ijk5ZWE2M2VmY2NmZDBmZGJkNjhlMTZlZDhmMDNkMzM3ZjE1ZWMyZTRhNmEzZDY0ZTExZDcxNGVhMWU1NDI1MzMiLCJwdWJsaWNfa2V5X2hleCI6ImFkYjNlMTdjZDEyZjk1NmQwMDcwZTE2NjNmNTMxNTM3ZmNlZGY3MzA4ZDAxNjU4ZmVhNDU2ZmVlYThmN2ZiYzUiLCJzaWduYXR1cmVfaGV4IjoiYzk3YjVhYTQ3MmU2Y2Y1YWE4NmVlZTIwOGU1NTc1YmI2ZDMzY2NlYmJjNzA0NjRjMTVmZTQ3N2U2YjY2MGZjNTBlNTZjYmI2ODUxMDVmNmE1MDJlODdiZTYyZTZlNzdjNGY5ZWNkOGVmNDAwYjI5YmY1ZDVkZjU2YTMyZjE3MDcifV19XQ== FVPROV1-END
+// FVPROV1 86248 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiI2ZjljMjk5YjcwN2JmMGRlZjg3MjA1NjhjMDE3ZDA4MGRlZmE2NTI0NGI2YzJkNjA3NjY2ODk4Mzc3NTUzNmJjIiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL2NyYXRlcy9maWxldmVpbC1lbmdpbmUvc3JjL3NvZnR3YXJlL3BpcGVsaW5lLnJzIn0sInNpZ25hdHVyZXMiOlt7ImtleV9pZCI6Ijk5ZWE2M2VmY2NmZDBmZGJkNjhlMTZlZDhmMDNkMzM3ZjE1ZWMyZTRhNmEzZDY0ZTExZDcxNGVhMWU1NDI1MzMiLCJwdWJsaWNfa2V5X2hleCI6ImFkYjNlMTdjZDEyZjk1NmQwMDcwZTE2NjNmNTMxNTM3ZmNlZGY3MzA4ZDAxNjU4ZmVhNDU2ZmVlYThmN2ZiYzUiLCJzaWduYXR1cmVfaGV4IjoiOTY0NzdiNmMwMjNjODNhNzZiYWE3NDRiY2FlYmMzYjczZDk3Y2E3MjE5MDg4OWRhNzk0MWJmYjllNTI2MGExY2U4ZGI1Yjg4MmVlNTkyNmEwZDdlZGRjODdmNGM4NzliMTUxMmI1YmQwODNmM2RjMDE5OTE1ZWExYjUxM2E0MDUifV19XQ== FVPROV1-END

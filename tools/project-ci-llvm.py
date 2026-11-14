@@ -62,9 +62,37 @@ def install(destination):
     return destination
 
 
+def windows_pass_dependencies():
+    """Provide the static SDK's ZLIB import through the hosted runner's vcpkg."""
+    selected = os.getenv("VCPKG_INSTALLATION_ROOT") or os.getenv("VCPKG_ROOT")
+    if not selected:
+        raise ValueError("Building the Windows LLVM pass requires the runner's vcpkg installation")
+    root = Path(selected).resolve(strict=True)
+    executable = root / "vcpkg.exe"
+    if not executable.is_file() or not (root / "scripts/buildsystems/vcpkg.cmake").is_file():
+        raise ValueError("The configured vcpkg installation has no executable or CMake toolchain")
+    subprocess.run([str(executable), "install", "zlib:x64-windows-static-md"],
+                   check=True, timeout=600, env=POST.clean_environment())
+    prefix = root / "installed/x64-windows-static-md"
+    names = ("zlib.lib", "zlibstatic.lib", "libz.lib", "libzs.lib", "zs.lib", "z.lib")
+    if not (prefix / "include/zlib.h").is_file() or not any((prefix / "lib" / name).is_file() for name in names):
+        raise ValueError("vcpkg did not produce the required static ZLIB development files")
+    value = os.pathsep.join(part for part in (str(prefix), os.getenv("CMAKE_PREFIX_PATH", "")) if part)
+    if any(character in value for character in "\r\n\0"):
+        raise ValueError("CMake dependency paths must fit one environment record")
+    os.environ["CMAKE_PREFIX_PATH"] = value
+    os.environ["FILEVEIL_CI_VCPKG_ROOT"] = str(root)
+    if os.getenv("GITHUB_ENV"):
+        with Path(os.environ["GITHUB_ENV"]).open("a", encoding="utf-8") as stream:
+            stream.write("CMAKE_PREFIX_PATH=" + value + "\n")
+            stream.write("FILEVEIL_CI_VCPKG_ROOT=" + str(root) + "\n")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("destination", type=Path)
+    parser.add_argument("--pass-dependencies", action="store_true",
+                        help="Prepare static LLVM support libraries for building the pass")
     args = parser.parse_args()
     destination = args.destination.absolute()
     if any(character in str(destination) for character in "\r\n\0"):
@@ -91,6 +119,8 @@ def main():
         subprocess.run(["ldd", str(optimizer)], check=False, timeout=30)
     for name in ("opt", "clang"):
         subprocess.run([str(binary_directory / (name + suffix)), "--version"], check=True, timeout=30)
+    if args.pass_dependencies and sys.platform == "win32":
+        windows_pass_dependencies()
     print("Installed LLVM " + VERSION)
 
 
@@ -101,4 +131,4 @@ if __name__ == "__main__":
         print("FileVeil LLVM SDK setup failed (" + str(error) + ")", file=sys.stderr)
         sys.exit(1)
 
-# FVPROV1 4859 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiJmMzIxOTVlMjgwMTIwMjMwZTAzNmI1YTRlNDkwNDk5ZTgwZmEwMmMyNjdjNzA2YTViZWE0ZWUwN2RkMDY0MWUyIiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL3Rvb2xzL3Byb2plY3QtY2ktbGx2bS5weSJ9LCJzaWduYXR1cmVzIjpbeyJrZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwicHVibGljX2tleV9oZXgiOiJhZGIzZTE3Y2QxMmY5NTZkMDA3MGUxNjYzZjUzMTUzN2ZjZWRmNzMwOGQwMTY1OGZlYTQ1NmZlZWE4ZjdmYmM1Iiwic2lnbmF0dXJlX2hleCI6Ijg4MzE4N2QzYzlkNGM2YWE0NWE1MDRlNmRhYjlhOWFlNDlhYzllZTVhMzIxMTgxN2M4ZTE2ZmRkZWE3ZWI4NmM1MzIxZmRjYzkxOGNlNjVlNTU3OWMxNWFlYWQ0ZTRmYjgzMmE5OWVhYmFmYmNiYzMxMDZlMWZmM2RkN2Y0ZDA2In1dfV0= FVPROV1-END
+# FVPROV1 6798 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiJhZDlhOTBiMmVmMjk3ZDkxYjkyYmIyZGM0MjlkNDg1MDdlMWQ0M2M3ZjEyY2Q0ODg1NTk3ODZkNjM2YTc2NmUzIiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL3Rvb2xzL3Byb2plY3QtY2ktbGx2bS5weSJ9LCJzaWduYXR1cmVzIjpbeyJrZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwicHVibGljX2tleV9oZXgiOiJhZGIzZTE3Y2QxMmY5NTZkMDA3MGUxNjYzZjUzMTUzN2ZjZWRmNzMwOGQwMTY1OGZlYTQ1NmZlZWE4ZjdmYmM1Iiwic2lnbmF0dXJlX2hleCI6ImJmZDA2ZTRiODkwMDgxNmU0NDBhMTA2ZDZlZjVkZmFkZjY1N2U0MzRmZDcwYmUwZjcyNDg2YmI4Y2U2Y2NlYmY1MTFiZWIzNTg1MDBkNWUwMDc0Y2YxZDNhZDg5NmE3MDE3YjllNjAzNTE4NWI4ZjBmYmM3NjdlYzAzYzFkMzA0In1dfV0= FVPROV1-END
