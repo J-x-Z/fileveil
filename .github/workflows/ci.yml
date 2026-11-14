@@ -60,7 +60,7 @@ jobs:
       - name: Format
         run: cargo fmt --all --check
       - name: Verify signed source distribution
-        if: hashFiles('provenance/source-catalog.toml') != ''
+        if: startsWith(github.ref, 'refs/tags/') && hashFiles('provenance/source-catalog.toml') != ''
         run: python tools/verify-source-tree.py . --key-id 99ea63efccfd0fdbd68e16ed8f03d337f15ec2e4a6a3d64e11d714ea1e542533
       - name: Core and format tests
         run: cargo test --locked -p fileveil-core -p fileveil-formats
@@ -91,7 +91,7 @@ jobs:
       - name: Source provenance and independent verifier tests
         run: python -m unittest discover -s tests -p "test_source*.py" -v
       - name: Verify signed source distribution
-        if: hashFiles('provenance/source-catalog.toml') != ''
+        if: startsWith(github.ref, 'refs/tags/') && hashFiles('provenance/source-catalog.toml') != ''
         run: python tools/verify-source-tree.py . --key-id 99ea63efccfd0fdbd68e16ed8f03d337f15ec2e4a6a3d64e11d714ea1e542533
       - name: Validate workflow structure
         if: runner.os == 'Linux'
@@ -500,5 +500,3 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
           key: ${{ steps.cargo-cache.outputs.cache-primary-key }}
-
-# FVPROV1 29216 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiI4OGYxYjIzYzViNDJhN2U4ZmNkOTkwYmFiYmM3YTNhMWRjYzc3OWVhMTM2ODE0MmI4MjE0YWU0MjVhYWVlMzhhIiwiY29weV9pZCI6InYwLjUuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC41LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlLy5naXRodWIvd29ya2Zsb3dzL2NpLnltbCJ9LCJzaWduYXR1cmVzIjpbeyJrZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwicHVibGljX2tleV9oZXgiOiJhZGIzZTE3Y2QxMmY5NTZkMDA3MGUxNjYzZjUzMTUzN2ZjZWRmNzMwOGQwMTY1OGZlYTQ1NmZlZWE4ZjdmYmM1Iiwic2lnbmF0dXJlX2hleCI6IjYzZjI0NjkzYjU5NWM4NWMxN2Y5ZmU1ZGNmOTA4NThmMzQyMTE4OWM5ZmY4OGQyZjQyOGYwZGZiYWJkYWFiM2Q1MGU1ZGE3MTIyNzdkYzZjZGMwYzAxMjlmMjZjNmI2MDAyNDZiYjJlZGEwNWUxMGJmYTFhZjQzZTc4NmIzOTBlIn1dfV0= FVPROV1-END

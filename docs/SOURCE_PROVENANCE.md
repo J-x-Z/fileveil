@@ -24,7 +24,7 @@ fileveil trace crates/fileveil-core/src/lib.rs --json
 fileveil clean crates/fileveil-core/src/lib.rs -o lib.clean.rs --json
 ```
 
-Clean writes a new copy and restores the exact source bytes that preceded the provenance comment. Ordinary source comments, strings, SPDX identifiers and executable text are preserved. The marked files remain valid source input. The signed catalog binds the bytes distributed in the release.
+Clean writes a new copy and restores the exact source bytes that preceded the provenance comment. Ordinary source comments, strings, SPDX identifiers and executable text are preserved. The marked files remain valid source input. The signed catalog binds the bytes distributed in the release. The tag workflow verifies the published distribution. Day-to-day development runs formatting and functional tests.
 
 ## Prepare a source release
 
