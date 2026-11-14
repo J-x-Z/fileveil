@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: MPL-2.0 -->
 # Source provenance
 
-The Alpha source distribution carries FileVeil Ed25519 signatures. Project-owned Rust, Python, Swift, TOML and workflow sources contain a terminal ASCII comment with a signed content hash, file work identifier and release copy identifier. The source catalog covers the distributed files, including dependencies' license texts and fixtures under their existing licenses.
+The Alpha source distribution carries FileVeil Ed25519 signatures. Project-owned Rust, C/C++, Python, Swift, TOML and workflow sources contain a terminal ASCII comment with a signed content hash, file work identifier and release copy identifier. The source catalog covers the distributed files, including dependencies' license texts and fixtures under their existing licenses.
 
 ## Verify a distribution
 
@@ -34,7 +34,7 @@ The publisher keeps the signing key in a local owner-only file outside the track
 python3 tools/mark-source-tree.py \
   --executable target/release/fileveil \
   --key /path/to/private/release-signing.key \
-  --release v0.5.0-alpha.4 --created-at 2026-11-14
+  --release v0.6.0-alpha.1 --created-at 2026-11-14
 ```
 
 Add `--apply` to stage signatures, verify them, test byte-exact Clean roundtrips and update the project files. The tool also writes `provenance/source-catalog.toml` and `provenance/source-catalog.evidence.json`. Commit the verified tree before tagging a release. Editing published source requires a new signed distribution.
