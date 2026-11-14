@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "date": "2026-11-13",
-  "cargo_lock_sha256": "59995f4a9ddb109af3fa0f03061ff56bbcf221230f00e9936d4f80c9baeda2af",
+  "date": "2026-11-14",
+  "cargo_lock_sha256": "4acabdf8cfac91af52bdaf97fe84614e08b03b272438865943c5ee56cc876a86",
   "registry_packages": [
     {
       "name": "abnf",
@@ -376,6 +376,28 @@
           "path": "assets/licenses/adler2-2.0.1/LICENSE-MIT",
           "origin": "published_crate",
           "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        }
+      ]
+    },
+    {
+      "name": "aead",
+      "version": "0.6.1",
+      "license": "MIT OR Apache-2.0",
+      "authors": [
+        "RustCrypto Developers"
+      ],
+      "crate_url": "https://crates.io/crates/aead/0.6.1",
+      "repository": "https://github.com/RustCrypto/traits",
+      "files": [
+        {
+          "path": "assets/licenses/aead-0.6.1/LICENSE-APACHE",
+          "origin": "published_crate",
+          "sha256": "b1cf9a3333ca78152b859012cd4a804156e5243e9ca20ad1df7327ba5ea7405c"
+        },
+        {
+          "path": "assets/licenses/aead-0.6.1/LICENSE-MIT",
+          "origin": "published_crate",
+          "sha256": "33b32a251d445c5c03a634e64c53314c55540fc367fabdd45d9b6c8f260c028c"
         }
       ]
     },
@@ -2079,6 +2101,28 @@
         },
         {
           "path": "assets/licenses/chacha20-0.10.2/LICENSE-MIT",
+          "origin": "published_crate",
+          "sha256": "b8c6939380a400f53e11923d50fcc4dd2fa1ba8339fd9d04cda38a0251b6c9b0"
+        }
+      ]
+    },
+    {
+      "name": "chacha20poly1305",
+      "version": "0.11.0",
+      "license": "Apache-2.0 OR MIT",
+      "authors": [
+        "RustCrypto Developers"
+      ],
+      "crate_url": "https://crates.io/crates/chacha20poly1305/0.11.0",
+      "repository": "https://github.com/RustCrypto/AEADs",
+      "files": [
+        {
+          "path": "assets/licenses/chacha20poly1305-0.11.0/LICENSE-APACHE",
+          "origin": "published_crate",
+          "sha256": "a9040321c3712d8fd0b09cf52b17445de04a23a10165049ae187cd39e5c86be5"
+        },
+        {
+          "path": "assets/licenses/chacha20poly1305-0.11.0/LICENSE-MIT",
           "origin": "published_crate",
           "sha256": "b8c6939380a400f53e11923d50fcc4dd2fa1ba8339fd9d04cda38a0251b6c9b0"
         }
@@ -4962,6 +5006,28 @@
           "path": "assets/licenses/glutin_wgl_sys-0.6.1/LICENSE",
           "origin": "published_crate",
           "sha256": "a4445427440043e8ce6fadf7a43fb906cb0d7f6c573a560a9f142cf9f9bf8ff4"
+        }
+      ]
+    },
+    {
+      "name": "goblin",
+      "version": "0.10.7",
+      "license": "MIT",
+      "authors": [
+        "m4b <m4b.github.io@gmail.com>",
+        "seu <seu@panopticon.re>",
+        "Will Glynn <will@willglynn.com>",
+        "Philip Craig <philipjcraig@gmail.com>",
+        "Lzu Tao <taolzu@gmail.com>",
+        "Kento <hrn832@gmail.com>"
+      ],
+      "crate_url": "https://crates.io/crates/goblin/0.10.7",
+      "repository": "https://github.com/m4b/goblin",
+      "files": [
+        {
+          "path": "assets/licenses/goblin-0.10.7/LICENSE",
+          "origin": "published_crate",
+          "sha256": "655e3ee7a4c27430774962e62a6d37d7348e5f2f292010ad674ce1bebefd24bc"
         }
       ]
     },
@@ -8471,6 +8537,28 @@
       ]
     },
     {
+      "name": "poly1305",
+      "version": "0.9.1",
+      "license": "Apache-2.0 OR MIT",
+      "authors": [
+        "RustCrypto Developers"
+      ],
+      "crate_url": "https://crates.io/crates/poly1305/0.9.1",
+      "repository": "https://github.com/RustCrypto/universal-hashes",
+      "files": [
+        {
+          "path": "assets/licenses/poly1305-0.9.1/LICENSE-APACHE",
+          "origin": "published_crate",
+          "sha256": "a9040321c3712d8fd0b09cf52b17445de04a23a10165049ae187cd39e5c86be5"
+        },
+        {
+          "path": "assets/licenses/poly1305-0.9.1/LICENSE-MIT",
+          "origin": "published_crate",
+          "sha256": "b67acfaaf787b346e1d3bf7654b4fabfd20360fdeb4351cc5e9d624147824527"
+        }
+      ]
+    },
+    {
       "name": "polycool",
       "version": "0.4.0",
       "license": "MIT OR Apache-2.0",
@@ -10005,6 +10093,43 @@
           "path": "assets/licenses/scopeguard-1.2.0/LICENSE-MIT",
           "origin": "published_crate",
           "sha256": "fb77f0a9c53e473abe5103c8632ef9f0f2874d4fb3f17cb2d8c661aab9cee9d7"
+        }
+      ]
+    },
+    {
+      "name": "scroll",
+      "version": "0.13.0",
+      "license": "MIT",
+      "authors": [
+        "m4b <m4b.github.io@gmail.com>",
+        "Ted Mielczarek <ted@mielczarek.org>"
+      ],
+      "crate_url": "https://crates.io/crates/scroll/0.13.0",
+      "repository": "https://github.com/m4b/scroll",
+      "files": [
+        {
+          "path": "assets/licenses/scroll-0.13.0/LICENSE",
+          "origin": "published_crate",
+          "sha256": "6e24b7455f0b9afefdf4f3efd59a56ce76a3020c2dc4371937e281fc5e587fd7"
+        }
+      ]
+    },
+    {
+      "name": "scroll_derive",
+      "version": "0.13.2",
+      "license": "MIT",
+      "authors": [
+        "m4b <m4b.github.io@gmail.com>",
+        "Ted Mielczarek <ted@mielczarek.org>",
+        "Systemcluster <me@systemcluster.me>"
+      ],
+      "crate_url": "https://crates.io/crates/scroll_derive/0.13.2",
+      "repository": "https://github.com/m4b/scroll",
+      "files": [
+        {
+          "path": "assets/licenses/scroll_derive-0.13.2/LICENSE",
+          "origin": "published_crate",
+          "sha256": "afb11426e09da40a1ae4f8fa17ddcc6b6a52d14df04c29bc5bcd06eb8730624d"
         }
       ]
     },
@@ -11898,6 +12023,28 @@
           "path": "assets/licenses/unicode-width-0.2.3/LICENSE-MIT",
           "origin": "published_crate",
           "sha256": "7b63ecd5f1902af1b63729947373683c32745c16a10e8e6292e2e2dcd7e90ae0"
+        }
+      ]
+    },
+    {
+      "name": "universal-hash",
+      "version": "0.6.1",
+      "license": "MIT OR Apache-2.0",
+      "authors": [
+        "RustCrypto Developers"
+      ],
+      "crate_url": "https://crates.io/crates/universal-hash/0.6.1",
+      "repository": "https://github.com/RustCrypto/traits",
+      "files": [
+        {
+          "path": "assets/licenses/universal-hash-0.6.1/LICENSE-APACHE",
+          "origin": "published_crate",
+          "sha256": "a9040321c3712d8fd0b09cf52b17445de04a23a10165049ae187cd39e5c86be5"
+        },
+        {
+          "path": "assets/licenses/universal-hash-0.6.1/LICENSE-MIT",
+          "origin": "published_crate",
+          "sha256": "efa52eb70a774b62c50cf50f5e57e2625c29d375d09b91132f4f020e47b9944e"
         }
       ]
     },

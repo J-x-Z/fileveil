@@ -4,8 +4,8 @@ This inventory covers registry packages in Cargo.lock across build and target co
 The accompanying assets/licenses directory preserves published license and attribution texts.
 Supplemental upstream texts record their exact retrieval source in assets/licenses/index.json.
 
-Cargo.lock SHA-256 59995f4a9ddb109af3fa0f03061ff56bbcf221230f00e9936d4f80c9baeda2af
-Registry package count 640
+Cargo.lock SHA-256 4acabdf8cfac91af52bdaf97fe84614e08b03b272438865943c5ee56cc876a86
+Registry package count 647
 
 Font notices
 assets/fonts/Inter-OFL.txt
@@ -134,6 +134,14 @@ Attribution Jonas Schievink <jonasschievink@gmail.com>, oyvindln <oyvindln@users
 License text assets/licenses/adler2-2.0.1/LICENSE-0BSD
 License text assets/licenses/adler2-2.0.1/LICENSE-APACHE
 License text assets/licenses/adler2-2.0.1/LICENSE-MIT
+
+aead 0.6.1
+Declared license MIT OR Apache-2.0
+Package source https://crates.io/crates/aead/0.6.1
+Upstream source https://github.com/RustCrypto/traits
+Attribution RustCrypto Developers
+License text assets/licenses/aead-0.6.1/LICENSE-APACHE
+License text assets/licenses/aead-0.6.1/LICENSE-MIT
 
 aes 0.9.4
 Declared license MIT OR Apache-2.0
@@ -562,7 +570,6 @@ Upstream source https://github.com/timothee-haudebourg/btree-range-map
 Attribution Timothée Haudebourg <author@haudebourg.net>
 License text assets/licenses/btree-range-map-0.7.2/LICENSE-APACHE
 License text assets/licenses/btree-range-map-0.7.2/LICENSE-MIT
-Supplemental source ref main
 
 btree-slab 0.6.1
 Declared license MIT/Apache-2.0
@@ -736,6 +743,14 @@ Upstream source https://github.com/RustCrypto/stream-ciphers
 Attribution RustCrypto Developers
 License text assets/licenses/chacha20-0.10.2/LICENSE-APACHE
 License text assets/licenses/chacha20-0.10.2/LICENSE-MIT
+
+chacha20poly1305 0.11.0
+Declared license Apache-2.0 OR MIT
+Package source https://crates.io/crates/chacha20poly1305/0.11.0
+Upstream source https://github.com/RustCrypto/AEADs
+Attribution RustCrypto Developers
+License text assets/licenses/chacha20poly1305-0.11.0/LICENSE-APACHE
+License text assets/licenses/chacha20poly1305-0.11.0/LICENSE-MIT
 
 chrono 0.4.45
 Declared license MIT OR Apache-2.0
@@ -1138,6 +1153,14 @@ Attribution Jacob Pratt <jacob@jhpratt.dev>
 License text assets/licenses/deranged-0.5.9/LICENSE-Apache
 License text assets/licenses/deranged-0.5.9/LICENSE-MIT
 
+des 0.9.0
+Declared license MIT OR Apache-2.0
+Package source https://crates.io/crates/des/0.9.0
+Upstream source https://github.com/RustCrypto/block-ciphers
+Attribution RustCrypto Developers
+License text assets/licenses/des-0.9.0/LICENSE-APACHE
+License text assets/licenses/des-0.9.0/LICENSE-MIT
+
 digest 0.10.7
 Declared license MIT OR Apache-2.0
 Package source https://crates.io/crates/digest/0.10.7
@@ -1238,7 +1261,6 @@ Upstream source https://github.com/emilk/egui
 Attribution Emil Ernerfeldt <emil.ernerfeldt@gmail.com>, Andreas Reich <reichandreas@gmx.de>
 License text assets/licenses/ecolor-0.37.0/LICENSE-APACHE
 License text assets/licenses/ecolor-0.37.0/LICENSE-MIT
-Supplemental source ref 0.37.0
 
 ed25519 2.2.3
 Declared license Apache-2.0 OR MIT
@@ -1285,7 +1307,6 @@ Upstream source https://github.com/emilk/egui
 Attribution Emil Ernerfeldt <emil.ernerfeldt@gmail.com>
 License text assets/licenses/egui-0.37.0/LICENSE-APACHE
 License text assets/licenses/egui-0.37.0/LICENSE-MIT
-Supplemental source ref 0.37.0
 
 egui-wgpu 0.37.0
 Declared license MIT OR Apache-2.0
@@ -1294,7 +1315,6 @@ Upstream source https://github.com/emilk/egui/tree/main/crates/egui-wgpu
 Attribution Nils Hasenbanck <nils@hasenbanck.de>, embotech <opensource@embotech.com>, Emil Ernerfeldt <emil.ernerfeldt@gmail.com>
 License text assets/licenses/egui-wgpu-0.37.0/LICENSE-APACHE
 License text assets/licenses/egui-wgpu-0.37.0/LICENSE-MIT
-Supplemental source ref 0.37.0
 
 egui-winit 0.37.0
 Declared license MIT OR Apache-2.0
@@ -1303,7 +1323,6 @@ Upstream source https://github.com/emilk/egui/tree/main/crates/egui-winit
 Attribution Emil Ernerfeldt <emil.ernerfeldt@gmail.com>
 License text assets/licenses/egui-winit-0.37.0/LICENSE-APACHE
 License text assets/licenses/egui-winit-0.37.0/LICENSE-MIT
-Supplemental source ref 0.37.0
 
 egui_glow 0.37.0
 Declared license MIT OR Apache-2.0
@@ -1312,7 +1331,6 @@ Upstream source https://github.com/emilk/egui/tree/main/crates/egui_glow
 Attribution Emil Ernerfeldt <emil.ernerfeldt@gmail.com>
 License text assets/licenses/egui_glow-0.37.0/LICENSE-APACHE
 License text assets/licenses/egui_glow-0.37.0/LICENSE-MIT
-Supplemental source ref 0.37.0
 
 either 1.19.0
 Declared license MIT OR Apache-2.0
@@ -1336,7 +1354,6 @@ Upstream source https://github.com/emilk/egui/tree/main/crates/emath
 Attribution Emil Ernerfeldt <emil.ernerfeldt@gmail.com>
 License text assets/licenses/emath-0.37.0/LICENSE-APACHE
 License text assets/licenses/emath-0.37.0/LICENSE-MIT
-Supplemental source ref 0.37.0
 
 encoding_rs 0.8.42
 Declared license (Apache-2.0 OR MIT) AND BSD-3-Clause
@@ -1378,7 +1395,6 @@ Upstream source https://github.com/emilk/egui/tree/main/crates/epaint
 Attribution Emil Ernerfeldt <emil.ernerfeldt@gmail.com>
 License text assets/licenses/epaint-0.37.0/LICENSE-APACHE
 License text assets/licenses/epaint-0.37.0/LICENSE-MIT
-Supplemental source ref 0.37.0
 
 epaint_default_fonts 0.37.0
 Declared license (MIT OR Apache-2.0) AND OFL-1.1 AND Ubuntu-font-1.0
@@ -1736,6 +1752,13 @@ Package source https://crates.io/crates/glutin_wgl_sys/0.6.1
 Upstream source https://github.com/rust-windowing/glutin
 Attribution Kirill Chibisov <contact@kchibisov.com>
 License text assets/licenses/glutin_wgl_sys-0.6.1/LICENSE
+
+goblin 0.10.7
+Declared license MIT
+Package source https://crates.io/crates/goblin/0.10.7
+Upstream source https://github.com/m4b/goblin
+Attribution m4b <m4b.github.io@gmail.com>, seu <seu@panopticon.re>, Will Glynn <will@willglynn.com>, Philip Craig <philipjcraig@gmail.com>, Lzu Tao <taolzu@gmail.com>, Kento <hrn832@gmail.com>
+License text assets/licenses/goblin-0.10.7/LICENSE
 
 group 0.14.0
 Declared license MIT/Apache-2.0
@@ -2938,6 +2961,14 @@ Attribution Joshua Barretto <joshua@jsbarretto.com>
 License text assets/licenses/pollster-1.0.1/LICENSE-APACHE
 License text assets/licenses/pollster-1.0.1/LICENSE-MIT
 
+poly1305 0.9.1
+Declared license Apache-2.0 OR MIT
+Package source https://crates.io/crates/poly1305/0.9.1
+Upstream source https://github.com/RustCrypto/universal-hashes
+Attribution RustCrypto Developers
+License text assets/licenses/poly1305-0.9.1/LICENSE-APACHE
+License text assets/licenses/poly1305-0.9.1/LICENSE-MIT
+
 polycool 0.4.0
 Declared license MIT OR Apache-2.0
 Package source https://crates.io/crates/polycool/0.4.0
@@ -3187,7 +3218,6 @@ Upstream source https://github.com/timothee-haudebourg/range-traits
 Attribution Timothée Haudebourg <author@haudebourg.net>
 License text assets/licenses/range-traits-0.3.2/README.md
 License text assets/licenses/range-traits-0.3.2/LICENSE-APACHE-2.0.txt
-Selected distribution license Apache-2.0
 
 rangemap 1.8.0
 Declared license MIT/Apache-2.0
@@ -3475,6 +3505,20 @@ Upstream source https://github.com/bluss/scopeguard
 Attribution bluss
 License text assets/licenses/scopeguard-1.2.0/LICENSE-APACHE
 License text assets/licenses/scopeguard-1.2.0/LICENSE-MIT
+
+scroll 0.13.0
+Declared license MIT
+Package source https://crates.io/crates/scroll/0.13.0
+Upstream source https://github.com/m4b/scroll
+Attribution m4b <m4b.github.io@gmail.com>, Ted Mielczarek <ted@mielczarek.org>
+License text assets/licenses/scroll-0.13.0/LICENSE
+
+scroll_derive 0.13.2
+Declared license MIT
+Package source https://crates.io/crates/scroll_derive/0.13.2
+Upstream source https://github.com/m4b/scroll
+Attribution m4b <m4b.github.io@gmail.com>, Ted Mielczarek <ted@mielczarek.org>, Systemcluster <me@systemcluster.me>
+License text assets/licenses/scroll_derive-0.13.2/LICENSE
 
 sec1 0.8.1
 Declared license Apache-2.0 OR MIT
@@ -3809,7 +3853,6 @@ Upstream source https://github.com/timothee-haudebourg/static-regular-grammar
 Attribution Timothée Haudebourg <author@haudebourg.net>
 License text assets/licenses/static-regular-grammar-2.0.2/README.md
 License text assets/licenses/static-regular-grammar-2.0.2/LICENSE-APACHE-2.0.txt
-Selected distribution license Apache-2.0
 
 static_assertions 1.1.0
 Declared license MIT OR Apache-2.0
@@ -4154,6 +4197,14 @@ Attribution kwantam <kwantam@gmail.com>, Manish Goregaokar <manishsmail@gmail.co
 License text assets/licenses/unicode-width-0.2.3/COPYRIGHT
 License text assets/licenses/unicode-width-0.2.3/LICENSE-APACHE
 License text assets/licenses/unicode-width-0.2.3/LICENSE-MIT
+
+universal-hash 0.6.1
+Declared license MIT OR Apache-2.0
+Package source https://crates.io/crates/universal-hash/0.6.1
+Upstream source https://github.com/RustCrypto/traits
+Attribution RustCrypto Developers
+License text assets/licenses/universal-hash-0.6.1/LICENSE-APACHE
+License text assets/licenses/universal-hash-0.6.1/LICENSE-MIT
 
 url 2.5.8
 Declared license MIT OR Apache-2.0
@@ -4957,12 +5008,3 @@ Package source https://crates.io/crates/zvariant_utils/4.2.0
 Upstream source https://github.com/z-galaxy/zbus/
 Attribution Zeeshan Ali Khan <zeeshanak@gnome.org>, turbocooler <turbocooler@cocaine.ninja>
 License text assets/licenses/zvariant_utils-4.2.0/LICENSE
-
-
-des 0.9.0
-Declared license MIT OR Apache-2.0
-Package source https://crates.io/crates/des/0.9.0
-Upstream source https://github.com/RustCrypto/block-ciphers
-Attribution RustCrypto Developers
-License text assets/licenses/des-0.9.0/LICENSE-APACHE
-License text assets/licenses/des-0.9.0/LICENSE-MIT
