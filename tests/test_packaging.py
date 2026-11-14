@@ -35,6 +35,10 @@ class PackagingTests(unittest.TestCase):
         "docs/GUI.md": "Synthetic GUI instructions\n",
         "assets/fonts/LICENSE.txt": "Synthetic font notice\n",
         "assets/licenses/dependency/COPYRIGHT.txt": "Synthetic dependency notice\n",
+        "provenance/release-key.json": '{"public_key_hex":"synthetic-public-key"}\n',
+        "provenance/source-catalog.toml": 'schema = "synthetic-source-catalog"\n',
+        "provenance/source-catalog.evidence.json": '{"records":[]}\n',
+        "provenance/history-map.json": '{"entries":[]}\n',
         "THIRD_PARTY_NOTICES.txt": "Synthetic third-party notices\n",
     }
 
@@ -128,6 +132,24 @@ class PackagingTests(unittest.TestCase):
         (self.root / "LICENSE").unlink()
         with self.assertRaisesRegex(packaging.PackagingError, "Project LICENSE"):
             packaging.copy_resources(self.temporary / "resources")
+
+    def test_source_zip_includes_public_provenance_and_filters_its_private_keys(self) -> None:
+        private_name = "provenance/operator.key"
+        (self.root / private_name).write_bytes(
+            b"FILEVEIL-ED25519-KEY-V1\n" + bytes(range(32))
+        )
+        destination = self.temporary / "provenance-resources"
+        with mock.patch.object(packaging.subprocess, "run", side_effect=FileNotFoundError):
+            packaging.copy_resources(destination)
+        with zipfile.ZipFile(destination / "FileVeil-source.zip") as archive:
+            for name in (
+                "provenance/release-key.json",
+                "provenance/source-catalog.toml",
+                "provenance/source-catalog.evidence.json",
+                "provenance/history-map.json",
+            ):
+                self.assertEqual(archive.read(name), (self.root / name).read_bytes())
+            self.assertNotIn(private_name, archive.namelist())
 
     def test_portable_package_contains_gui_cli_sources_and_licenses(self) -> None:
         binary = self.temporary / "build" / "fileveil-gui"
@@ -279,5 +301,3 @@ class PackagingTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
-# FVPROV1 15269 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiI2MDcyMDc4MGU4NzBlNzFlMTM1YzM3YjY5MzI1NTc3Y2QyMTc2ZGU0MzcwNTVjN2MxZGRiMzhhZmU0ZWI5NGE5IiwiY29weV9pZCI6InYwLjUuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC41LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL3Rlc3RzL3Rlc3RfcGFja2FnaW5nLnB5In0sInNpZ25hdHVyZXMiOlt7ImtleV9pZCI6Ijk5ZWE2M2VmY2NmZDBmZGJkNjhlMTZlZDhmMDNkMzM3ZjE1ZWMyZTRhNmEzZDY0ZTExZDcxNGVhMWU1NDI1MzMiLCJwdWJsaWNfa2V5X2hleCI6ImFkYjNlMTdjZDEyZjk1NmQwMDcwZTE2NjNmNTMxNTM3ZmNlZGY3MzA4ZDAxNjU4ZmVhNDU2ZmVlYThmN2ZiYzUiLCJzaWduYXR1cmVfaGV4IjoiNTk5N2M5MDA3N2M1OGM4YzAxMTUxNTJjYWE0ZmVlMjNkOTBlZWE4ZWNjNDJhNzY1ZjI2NjkyZWI4MTlkODBjYTM4MzM4OTJjNDIxODEwZDc1MWFhNjE5YWNkYWZlMGNkZDAxNGQxMTkxZmQyYjhlMGUzOTYwMmRiZTdjMzNjMGYifV19XQ== FVPROV1-END
