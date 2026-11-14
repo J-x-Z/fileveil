@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import errno
 import hashlib
 import json
 import os
@@ -14,7 +15,9 @@ import struct
 import subprocess
 import sys
 import tempfile
+import time
 import tomllib
+from itertools import islice
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -22,6 +25,27 @@ ROOT = Path(__file__).resolve().parents[1]
 def digest(path: Path) -> str:
     with path.open("rb") as stream:
         return hashlib.file_digest(stream, "sha256").hexdigest()
+
+
+def remove_empty_install_directory(path: Path, timeout: float = 30) -> None:
+    # Inno's uninstaller can finish its registered-file removal before the
+    # temporary helper has deleted the original uninstaller executable.
+    deadline = time.monotonic() + timeout
+    while True:
+        try:
+            path.rmdir()
+            return
+        except FileNotFoundError:
+            return
+        except OSError as error:
+            transient = error.errno in (errno.ENOTEMPTY, errno.EBUSY, errno.EACCES)
+            transient = transient or getattr(error, "winerror", None) in (5, 32, 145)
+            if not transient:
+                raise
+            if time.monotonic() >= deadline:
+                remaining = [str(entry.relative_to(path)) for entry in islice(path.rglob("*"), 20)]
+                raise RuntimeError(f"Installer directory cleanup timed out. Remaining entries {remaining}") from error
+            time.sleep(0.1)
 
 
 def run(arguments: list[str], *, timeout: int = 180, env: dict | None = None) -> str:
@@ -146,7 +170,7 @@ def windows(installer: Path, version: str, temporary: Path) -> dict:
         assert not (installed / "fileveil.exe").exists()
         assert sentinel.read_text(encoding="utf-8") == "Preserve unrelated user data\n"
         sentinel.unlink()
-        installed.rmdir()
+        remove_empty_install_directory(installed)
         try:
             with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key):
                 raise AssertionError("Uninstall registry entry remains")
@@ -246,4 +270,4 @@ if __name__ == "__main__":
         print(f"FileVeil installer acceptance failed. {error}", file=sys.stderr)
         raise SystemExit(1)
 
-# FVPROV1 12659 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiJhNDRlNGVlZjkwYTRkMzI0NjE4ODIxNzViZTc0NDZmMjY5MTNiN2Y2ZjRlMzQzOTdiZjY0MWZiNmEwM2I3ZDYzIiwiY29weV9pZCI6InYwLjUuMC1hbHBoYS4zIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC41LjAtYWxwaGEuMyIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL3Rvb2xzL2NoZWNrLWluc3RhbGxlcnMucHkifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiI3N2NmMmMxMTJkYThkYTU0MzRiODA3ZWRjZGYyZmNlZWZiYTM5YTExNTBkM2M2ZGY2MzRiNDAyNjA1YTg5NzZhMzUwOGM2NDJiYmEwMTg3NDQ2NDI1NzhkMjFmNDA1ZGRjYTI1OWY0NmEwN2ExNmMwY2RlZmI5NWNlM2YzMzAwNiJ9XX1d FVPROV1-END
+# FVPROV1 13678 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiI3NWQ2OTAyODRlN2I5ZjQyMjgxMWVmYTljZDc5NDE4YWY5Y2Y0OTdhNDEzZmRiMjY2ZWM1ZmQ2MDQ4N2NmNTVkIiwiY29weV9pZCI6InYwLjUuMC1hbHBoYS40IiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC41LjAtYWxwaGEuNCIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL3Rvb2xzL2NoZWNrLWluc3RhbGxlcnMucHkifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiJiMDUyYTBlYmY5Mjc2NjNmNGIzZTQ4OTIyZjdjMGYwN2ZlNjYyMmMyZDMwNjU1MzJiZmY1OGQ1ZThlYmZkZjA0NWY3NzU0NzFlMzk5NzFjYTAyYzc5ZTRjMTViYWY2Y2Q4ZWUzMzE1NzE0YzllZGU2YjQzOGEyYjRkZmVhY2EwNyJ9XX1d FVPROV1-END

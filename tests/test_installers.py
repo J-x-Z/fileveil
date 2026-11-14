@@ -9,6 +9,8 @@ import os
 from pathlib import Path
 import plistlib
 import tempfile
+import threading
+import time
 import unittest
 from unittest import mock
 import zipfile
@@ -18,6 +20,10 @@ SPEC = importlib.util.spec_from_file_location("fileveil_installers", SCRIPT)
 assert SPEC is not None and SPEC.loader is not None
 installers = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(installers)
+
+CHECK_SPEC = importlib.util.spec_from_file_location("fileveil_installer_acceptance", SCRIPT.with_name("check-installers.py"))
+acceptance = importlib.util.module_from_spec(CHECK_SPEC)
+CHECK_SPEC.loader.exec_module(acceptance)
 
 
 class InstallerTests(unittest.TestCase):
@@ -39,6 +45,35 @@ class InstallerTests(unittest.TestCase):
 
     def save_manifest(self):
         (self.package / "fileveil-package.json").write_text(json.dumps(self.manifest), encoding="utf-8")
+
+    def test_deferred_uninstaller_cleanup_is_observed(self):
+        deferred = self.package / "unins000.exe"
+        deferred.write_bytes(b"synthetic deferred uninstaller")
+        for name in self.package.iterdir():
+            if name != deferred:
+                name.unlink()
+
+        def complete_cleanup():
+            time.sleep(0.02)
+            deferred.unlink()
+
+        helper = threading.Thread(target=complete_cleanup)
+        helper.start()
+        try:
+            acceptance.remove_empty_install_directory(self.package, timeout=2)
+        finally:
+            helper.join(timeout=2)
+        self.assertFalse(self.package.exists())
+
+    def test_cleanup_does_not_remove_unknown_files(self):
+        user_file = self.package / "user-file.txt"
+        user_file.write_bytes(b"preserved user data")
+        with self.assertRaisesRegex(RuntimeError, "Remaining entries"):
+            acceptance.remove_empty_install_directory(self.package, timeout=0)
+        self.assertEqual(user_file.read_bytes(), b"preserved user data")
+
+    def test_cleanup_accepts_an_already_removed_directory(self):
+        acceptance.remove_empty_install_directory(self.root / "already-removed")
 
     def test_version_formats_preserve_prerelease_ordering(self):
         self.assertEqual(installers.debian_version("0.5.0-alpha.2"), "0.5.0~alpha.2")
@@ -184,4 +219,4 @@ class InstallerTests(unittest.TestCase):
 if __name__ == "__main__":
     unittest.main()
 
-# FVPROV1 9978 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiIyYmVhMjllYjdkNDY4YmQ1MGEyM2M4ZWYwOGRmM2Y2ZTViNGI1MDFkNjU0MGJmYmFiZGZmYmMzOTY3ZmFhMTcyIiwiY29weV9pZCI6InYwLjUuMC1hbHBoYS4zIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC41LjAtYWxwaGEuMyIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL3Rlc3RzL3Rlc3RfaW5zdGFsbGVycy5weSJ9LCJzaWduYXR1cmVzIjpbeyJrZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwicHVibGljX2tleV9oZXgiOiJhZGIzZTE3Y2QxMmY5NTZkMDA3MGUxNjYzZjUzMTUzN2ZjZWRmNzMwOGQwMTY1OGZlYTQ1NmZlZWE4ZjdmYmM1Iiwic2lnbmF0dXJlX2hleCI6IjgyOTZlOTQ5ZTI2OWFiOTJiYjQ1MTgyMzg4ZWU5YWM0ZjA0NmRiMjgzOTRlZGY3OGIzYzM0YTYwODQxYTE4MjZiMjNiY2U3NGEzYzIzMDc4OTNjMjM3N2Y4ODUwM2VlOTg0ZjY2Nzc2NmU2ZGVkNjIyYjAzOWNiMGYxYTVlYTA4In1dfV0= FVPROV1-END
+# FVPROV1 11417 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiIyN2UyMWI1ODljZDNiODFlNTQwODRiNWJiNjZkZDRiYjIwOTY4OWY3M2VjODQ3ZjBiNTRkZDU1NzUwNzljYTk0IiwiY29weV9pZCI6InYwLjUuMC1hbHBoYS40IiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC41LjAtYWxwaGEuNCIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL3Rlc3RzL3Rlc3RfaW5zdGFsbGVycy5weSJ9LCJzaWduYXR1cmVzIjpbeyJrZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwicHVibGljX2tleV9oZXgiOiJhZGIzZTE3Y2QxMmY5NTZkMDA3MGUxNjYzZjUzMTUzN2ZjZWRmNzMwOGQwMTY1OGZlYTQ1NmZlZWE4ZjdmYmM1Iiwic2lnbmF0dXJlX2hleCI6ImM3MGM4Zjc4ZWIwNmRhZmJmYTlkN2ZlYjQ1MmU2YjY1MDhiZmZjN2M5Yzk5YzExNzFjZjVkZTRmMDY4Y2E4MzhiOTAzOTVkNWNlODQ4N2I5ZmI3MGViNWVhMmFjOGViNjc2YTgwNDRjMWJjMjI1ZDQwOWI5ZDljNTY0ODg2YTAxIn1dfV0= FVPROV1-END

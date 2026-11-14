@@ -43,7 +43,7 @@ Some formats support inspection but not every kind of cleanup. See the [format-b
 
 ## Download and run
 
-Download the [v0.5.0-alpha.3 Alpha packages](https://github.com/J-x-Z/fileveil/releases/tag/v0.5.0-alpha.3) for Windows, macOS, and Linux.
+Download the [v0.5.0-alpha.4 Alpha packages](https://github.com/J-x-Z/fileveil/releases/tag/v0.5.0-alpha.4) for Windows, macOS, and Linux.
 
 - **macOS Apple Silicon** — `.dmg` with drag-to-Applications installation, or `.zip`.
 - **Windows x64** — `.exe` installer or portable `.zip`.
