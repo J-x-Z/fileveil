@@ -6,6 +6,12 @@ use fileveil_core::{
 };
 use fileveil_engine::heritage::{HeritageAction, HeritageRequest};
 use fileveil_engine::worker::{WorkerGuard, configure_command};
+mod project_cli;
+mod registry_cli;
+mod software_cli;
+use project_cli::ProjectCommand;
+use registry_cli::RegistryCommand;
+use software_cli::SoftwareCommand;
 use std::{
     path::PathBuf,
     process::{Command as Process, ExitCode, Stdio},
@@ -36,6 +42,21 @@ struct Cli {
 }
 #[derive(Subcommand, Debug)]
 enum Command {
+    /// Manage the unified local project registry
+    Registry {
+        #[command(subcommand)]
+        command: RegistryCommand,
+    },
+    /// Inspect, mark and verify compiled software using explicit local experiments
+    Software {
+        #[command(subcommand)]
+        command: SoftwareCommand,
+    },
+    /// Configure and maintain signed project release generations
+    Project {
+        #[command(subcommand)]
+        command: ProjectCommand,
+    },
     #[command(flatten)]
     Watermarks(WatermarkCommand),
     /// Read-only audit of one explicitly selected regular file
@@ -683,6 +704,67 @@ fn print_report(report: &Report, json: bool) {
         }
     }
     if let Some(advanced) = &report.advanced {
+        if let Some(project) = advanced.get("project") {
+            println!(
+                "  Project revision {} · added {} · modified {} · renamed {} · deleted {} · unchanged {}",
+                project["revision"],
+                project["added"],
+                project["modified"],
+                project["renamed"],
+                project["deleted"],
+                project["unchanged"]
+            );
+            println!(
+                "  Integrity {} · signature {} · trust {} · history {}",
+                project["integrity"].as_str().unwrap_or("not_assessed"),
+                project["signature"].as_str().unwrap_or("not_assessed"),
+                project["trust"].as_str().unwrap_or("not_assessed"),
+                project["history"].as_str().unwrap_or("not_assessed")
+            );
+        }
+        if let Some(registry) = advanced.get("registry") {
+            println!(
+                "  Registered projects · {}",
+                registry["registered_projects"]
+            );
+            if let Some(projects) = registry["projects"].as_array() {
+                for project in projects {
+                    println!(
+                        "  {} · {} · {}",
+                        project["project_id"].as_str().unwrap_or_default(),
+                        project["name"].as_str().unwrap_or_default(),
+                        project["result"]
+                            .as_str()
+                            .or_else(|| project["effective_policy"].as_str())
+                            .unwrap_or("not_assessed")
+                    );
+                }
+            }
+        }
+        if let Some(software) = advanced.get("software") {
+            println!(
+                "  Software {} · mode {}",
+                software["action"].as_str().unwrap_or_default(),
+                software["mode"].as_str().unwrap_or_default()
+            );
+            if let Some(packets) = software["binary"]["packets"].as_array() {
+                println!("  Recognized packets · {}", packets.len());
+                for packet in packets {
+                    println!(
+                        "  Signature {} · decoded {}",
+                        packet["signature"].as_str().unwrap_or("not_assessed"),
+                        packet["decoded"].as_bool().unwrap_or(false)
+                    );
+                }
+            }
+            if let Some(packet) = software.get("packet") {
+                println!(
+                    "  Signature {} · decoded {}",
+                    packet["signature"].as_str().unwrap_or("not_assessed"),
+                    packet["decoded"].as_bool().unwrap_or(false)
+                );
+            }
+        }
         if let Some(heritage) = advanced.get("heritage") {
             if let Some(action) = heritage["action"].as_str() {
                 println!("  Heritage {action}");
@@ -736,6 +818,9 @@ fn print_error(error: &Error, json: bool, operation: &str) {
 }
 fn operation(command: &Command) -> &'static str {
     match command {
+        Command::Project { .. } => "project",
+        Command::Registry { .. } => "registry",
+        Command::Software { .. } => "software",
         Command::Watermarks(_) => "heritage",
         Command::Scan { .. } => "scan",
         Command::Sanitize { .. } | Command::ProcessImage { .. } => "sanitize",
@@ -750,6 +835,11 @@ fn operation(command: &Command) -> &'static str {
 }
 fn execute(cli: &Cli, limits: &Limits) -> Result<i32> {
     let report = match &cli.command {
+        Command::Project { .. } | Command::Registry { .. } | Command::Software { .. } => {
+            return Err(Error::Input(
+                "Project command requires its project dispatcher".into(),
+            ));
+        }
         Command::Watermarks(WatermarkCommand::KeyStore { action, key, id }) => {
             use fileveil_engine::heritage::{key_store, signing::SigningKey};
             let (reference, public) = match action {
@@ -932,6 +1022,19 @@ fn execute(cli: &Cli, limits: &Limits) -> Result<i32> {
     Ok(code)
 }
 fn supervise(cli: &Cli) -> Result<i32> {
+    let cancelled = cancellation_flag()?;
+    supervise_with_cancellation(cli, &cancelled)
+}
+fn cancellation_flag() -> Result<Arc<AtomicBool>> {
+    let cancelled = Arc::new(AtomicBool::new(false));
+    let signal = Arc::clone(&cancelled);
+    ctrlc::set_handler(move || {
+        signal.store(true, Ordering::SeqCst);
+    })
+    .map_err(|_| Error::Io("Could not install cancellation handler".into()))?;
+    Ok(cancelled)
+}
+fn supervise_with_cancellation(cli: &Cli, cancelled: &AtomicBool) -> Result<i32> {
     if let Command::Heritage {
         action,
         output,
@@ -960,12 +1063,6 @@ fn supervise(cli: &Cli) -> Result<i32> {
     } else {
         None
     };
-    let cancelled = Arc::new(AtomicBool::new(false));
-    let signal = Arc::clone(&cancelled);
-    ctrlc::set_handler(move || {
-        signal.store(true, Ordering::SeqCst);
-    })
-    .map_err(|_| Error::Io("Could not install cancellation handler".into()))?;
     let mut command = Process::new(
         std::env::current_exe().map_err(|_| Error::Io("Could not locate CLI worker".into()))?,
     );
@@ -974,6 +1071,8 @@ fn supervise(cli: &Cli) -> Result<i32> {
         .arg("--json")
         .arg("--max-file-mib")
         .arg(cli.max_file_mib.to_string())
+        .arg("--timeout-seconds")
+        .arg(cli.timeout_seconds.to_string())
         .env("FILEVEIL_PDF_STAGING", scratch.path())
         .env("FILEVEIL_WORKER_HANDSHAKE", "1")
         .stdin(Stdio::piped())
@@ -982,6 +1081,15 @@ fn supervise(cli: &Cli) -> Result<i32> {
         .as_ref()
         .map(|directory| directory.path().join("verified-artifact.png"));
     match &cli.command {
+        Command::Project { .. } => {
+            command.arg("project").arg("__run");
+        }
+        Command::Registry { .. } => {
+            command.arg("registry").arg("__run");
+        }
+        Command::Software { .. } => {
+            command.arg("software").arg("__run");
+        }
         Command::Watermarks(_) => {
             return Err(Error::Input(
                 "Public watermark command was not normalized".into(),
@@ -1109,13 +1217,25 @@ fn supervise(cli: &Cli) -> Result<i32> {
     )?;
     {
         use std::io::Write;
-        child
+        let mut stdin = child
             .child
             .stdin
             .take()
-            .ok_or_else(|| Error::Io("Worker startup pipe unavailable".into()))?
+            .ok_or_else(|| Error::Io("Worker startup pipe unavailable".into()))?;
+        stdin
             .write_all(b"FILEVEIL_START\n")
             .map_err(|_| Error::Io("Could not start confined worker".into()))?;
+        let payload = match &cli.command {
+            Command::Project { command } => Some(project_cli::worker_payload(command)?),
+            Command::Registry { command } => Some(registry_cli::worker_payload(command)?),
+            Command::Software { command } => Some(software_cli::worker_payload(command)?),
+            _ => None,
+        };
+        if let Some(payload) = payload {
+            stdin
+                .write_all(&payload)
+                .map_err(|_| Error::Io("Could not send operation worker request".into()))?;
+        }
     }
     let stdout = child
         .child
@@ -1258,11 +1378,18 @@ fn main() -> ExitCode {
         max_file_bytes: cli.max_file_mib * 1024 * 1024,
         ..Limits::default()
     };
-    let result = if cli.worker
+    let result = if let Command::Project { command } = &cli.command {
+        project_cli::run(command, &cli, &limits)
+    } else if let Command::Registry { command } = &cli.command {
+        registry_cli::run(command, &cli, &limits)
+    } else if let Command::Software { command } = &cli.command {
+        software_cli::run(command, &cli, &limits)
+    } else if cli.worker
         || matches!(
             cli.command,
             Command::Capabilities | Command::Watermarks(WatermarkCommand::KeyStore { .. })
-        ) {
+        )
+    {
         execute(&cli, &limits)
     } else {
         supervise(&cli)
@@ -1276,5 +1403,3 @@ fn main() -> ExitCode {
     };
     ExitCode::from(code as u8)
 }
-
-// FVPROV1 45754 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiJlNDVkYzllZTU5YmY5YTA5MGNjMjU0Zjk1NmYxNDRlMjI2YzUxOTQxMGFlYmM2ZDM5NWViOWM1NGJlZjYyNjEyIiwiY29weV9pZCI6InYwLjUuMC1hbHBoYS4zIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC41LjAtYWxwaGEuMyIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL2NyYXRlcy9maWxldmVpbC1jbGkvc3JjL21haW4ucnMifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiIxM2UxMjE0NzZmYzJlZjYxMDdmMjhkMTk4OGQzN2JlMmExNzEyNDYxZTAwODM1NTY4YzM1MmYyYTdlMDFiYmI2NTljYjJiNWEyMmUxNWQxYzVjMjNiNTY3NjdiMDQwZWFmNTYzYzZiOGQxNzUyYmZlMmNkNWQ3MzZjYzg2MmMwZCJ9XX1d FVPROV1-END

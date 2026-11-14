@@ -172,8 +172,223 @@ impl AccessPolicy {
             request,
             inputs: Vec::new(),
             output: None,
+            project_roots: Vec::new(),
         };
         match job.request.kind.clone() {
+            JobKind::Project { mut request, after } => {
+                use fileveil_engine::project::ProjectAction;
+                if after.is_some() {
+                    return Err(denied(
+                        "MCP project operations cannot execute build commands",
+                    ));
+                }
+                if !matches!(
+                    request.action,
+                    ProjectAction::Sync | ProjectAction::Status | ProjectAction::Verify
+                ) {
+                    return Err(denied(
+                        "MCP project configuration must be created through the GUI or CLI",
+                    ));
+                }
+                if request.state_directory.is_none() {
+                    return Err(denied(
+                        "Project operations require an explicit authorized state directory",
+                    ));
+                }
+                request.scope = Some(self.project_scope(&mut job)?);
+                let plan = fileveil_engine::project::access_plan(&request, &job.request.limits)?;
+                for path in plan.read_paths.iter().chain(&plan.source_files) {
+                    check_sensitive(path)?;
+                    let (root, _) = root_for(&self.read, path).ok_or_else(|| {
+                        denied("A project input is outside the authorized read directories")
+                    })?;
+                    root.check_namespace()?;
+                }
+                for path in &plan.write_directories {
+                    check_sensitive(path)?;
+                    let (root, _) = root_for(&self.write, path).ok_or_else(|| denied("A project output or private state path is outside the authorized write directories"))?;
+                    root.check_namespace()?;
+                }
+                let mut metadata_paths = vec![plan.config_path.clone()];
+                metadata_paths.extend(plan.signing_paths.iter().cloned());
+                metadata_paths.sort();
+                metadata_paths.dedup();
+                for path in metadata_paths {
+                    let mut bound = self.input(&path)?;
+                    if plan.signing_paths.contains(&path)
+                        && !self
+                            .signers
+                            .iter()
+                            .any(|key| key.identity == bound.identity)
+                    {
+                        return Err(denied(
+                            "A project signing key is not explicitly authorized for MCP signing",
+                        ));
+                    }
+                    // Project configuration uses its original directory to
+                    // resolve relative paths. Bind these original names to the
+                    // already-open objects consumed by the shared core.
+                    bound.alias = bound.original.clone();
+                    job.inputs.push(bound);
+                }
+                if plan
+                    .signing_key_refs
+                    .iter()
+                    .any(|id| !self.key_refs.contains(id))
+                {
+                    return Err(denied(
+                        "A project system key is not explicitly authorized for MCP signing",
+                    ));
+                }
+                job.request.kind = JobKind::Project {
+                    request,
+                    after: None,
+                };
+            }
+            JobKind::Registry { mut request } => {
+                use fileveil_engine::project::registry::RegistryAction;
+                if request.registry_path.is_none() {
+                    return Err(denied(
+                        "MCP registry operations require an explicit registry path",
+                    ));
+                }
+                if request.action == RegistryAction::Init && request.state_directory.is_none() {
+                    return Err(denied(
+                        "MCP registry initialization requires an explicit authorized private state directory",
+                    ));
+                }
+                if request.compiler.is_some() {
+                    return Err(denied(
+                        "MCP cannot configure executable compiler experiments",
+                    ));
+                }
+                request.scope = Some(self.project_scope(&mut job)?);
+                let plan =
+                    fileveil_engine::project::registry::access_plan(&request, &job.request.limits)?;
+                for path in &plan.read_paths {
+                    check_sensitive(path)?;
+                    let (root, _) = root_for(&self.read, path).ok_or_else(|| {
+                        denied("A registry input is outside the authorized read directories")
+                    })?;
+                    root.check_namespace()?;
+                }
+                for path in &plan.write_directories {
+                    check_sensitive(path)?;
+                    let (root, _) = root_for(&self.write, path).ok_or_else(|| {
+                        denied("A registry output is outside the authorized write directories")
+                    })?;
+                    root.check_namespace()?;
+                }
+                let mut metadata_paths = plan.signing_paths.clone();
+                if matches!(
+                    request.action,
+                    RegistryAction::List | RegistryAction::Status | RegistryAction::Verify
+                ) && plan.registry_path.is_file()
+                {
+                    metadata_paths.push(plan.registry_path.clone());
+                }
+                metadata_paths.sort();
+                metadata_paths.dedup();
+                for path in metadata_paths {
+                    let mut bound = self.input(&path)?;
+                    if plan.signing_paths.contains(&path)
+                        && !self
+                            .signers
+                            .iter()
+                            .any(|key| key.identity == bound.identity)
+                    {
+                        return Err(denied(
+                            "A registry signing key is not explicitly authorized for MCP signing",
+                        ));
+                    }
+                    bound.alias = bound.original.clone();
+                    job.inputs.push(bound);
+                }
+                if plan
+                    .signing_key_refs
+                    .iter()
+                    .any(|id| !self.key_refs.contains(id))
+                {
+                    return Err(denied(
+                        "A registry system key is not explicitly authorized for MCP signing",
+                    ));
+                }
+                job.request.kind = JobKind::Registry { request };
+            }
+            JobKind::Software { mut request } => {
+                use fileveil_engine::software::{SoftwareAction, SoftwareMode};
+                if request.allow_execution
+                    || request.llvm_directory.is_some()
+                    || request.plugin_path.is_some()
+                    || !request.compiler_arguments.is_empty()
+                    || !request.test_arguments.is_empty()
+                    || request.target_triple.is_some()
+                    || matches!(
+                        request.action,
+                        SoftwareAction::Mark | SoftwareAction::BuildPlugin | SoftwareAction::Lab
+                    )
+                    || (request.action == SoftwareAction::Clean
+                        && request.mode != SoftwareMode::Structure)
+                {
+                    return Err(denied(
+                        "MCP software operations cannot compile, execute programs or select toolchains",
+                    ));
+                }
+                // Read-only actions always inspect bytes. The caller's mode
+                // cannot turn container inspection into compiler execution.
+                request.mode = SoftwareMode::Structure;
+                match &mut request.key {
+                    Some(fileveil_engine::project::ProjectKey::File { path }) => {
+                        let bound = self.input(path)?;
+                        if !self
+                            .signers
+                            .iter()
+                            .any(|signer| signer.identity == bound.identity)
+                        {
+                            return Err(denied(
+                                "Software decoding key is not explicitly authorized for MCP",
+                            ));
+                        }
+                        *path = bound.alias.clone();
+                        job.inputs.push(bound);
+                    }
+                    Some(fileveil_engine::project::ProjectKey::System { key_id })
+                        if !self.key_refs.contains(key_id) =>
+                    {
+                        return Err(denied(
+                            "Software system decoding key is not explicitly authorized for MCP",
+                        ));
+                    }
+                    Some(fileveil_engine::project::ProjectKey::System { .. }) | None => {}
+                }
+                let input = self.input(&request.input_path)?;
+                let destination = if request.action == SoftwareAction::Clean {
+                    if request.output_path.is_none() {
+                        return Err(denied(
+                            "Software clean requires an explicit new output path",
+                        ));
+                    }
+                    Some(self.output(&input.original, request.output_path.as_deref())?)
+                } else {
+                    if request.output_path.is_some() {
+                        return Err(denied(
+                            "Read-only software operations do not accept output paths",
+                        ));
+                    }
+                    None
+                };
+                request.input_path = input.alias.clone();
+                job.inputs.push(input);
+                if let Some(reference) = &mut request.reference_path {
+                    let bound = self.input(reference)?;
+                    *reference = bound.alias.clone();
+                    job.inputs.push(bound);
+                }
+                request.output_path = destination.as_ref().and_then(|value| value.alias.clone());
+                request.timeout_seconds = request.timeout_seconds.min(job.request.timeout_seconds);
+                job.request.kind = JobKind::Software { request };
+                job.output = destination;
+            }
             JobKind::HeritageKeygen { .. } | JobKind::SystemKeygen => {
                 return Err(denied("MCP cannot generate or write private signing keys"));
             }
@@ -367,6 +582,40 @@ impl AccessPolicy {
         }
         Ok(job)
     }
+    fn project_scope(
+        &self,
+        job: &mut AuthorizedJob,
+    ) -> Result<fileveil_engine::project::ProjectScope> {
+        use fileveil_engine::project::{ProjectRootIdentity, ProjectScope};
+        for root in self.read.iter().chain(&self.write) {
+            root.check_namespace()?;
+            let held = Root::new(&root.path)?;
+            if held.identity != root.identity {
+                return Err(denied("An authorized root changed identity"));
+            }
+            job.project_roots.push(held);
+        }
+        Ok(ProjectScope {
+            read_roots: self.read.iter().map(|root| root.path.clone()).collect(),
+            write_roots: self.write.iter().map(|root| root.path.clone()).collect(),
+            key_paths: self
+                .signers
+                .iter()
+                .map(|key| key.original.clone())
+                .collect(),
+            key_refs: self.key_refs.clone(),
+            root_identities: self
+                .read
+                .iter()
+                .chain(&self.write)
+                .map(|root| ProjectRootIdentity {
+                    path: root.path.clone(),
+                    device: root.identity.device,
+                    file: root.identity.file,
+                })
+                .collect(),
+        })
+    }
     fn input(&self, path: &Path) -> Result<BoundInput> {
         let path = normalized_absolute(path)?;
         check_sensitive(&path)?;
@@ -470,6 +719,7 @@ pub(crate) struct AuthorizedJob {
     pub(crate) request: JobRequest,
     inputs: Vec<BoundInput>,
     output: Option<BoundOutput>,
+    project_roots: Vec<Root>,
 }
 impl AuthorizedJob {
     pub(crate) fn bindings(&self) -> Result<Vec<(PathBuf, File)>> {
@@ -492,6 +742,9 @@ impl AuthorizedJob {
         }
     }
     pub(crate) fn revalidate(&self) -> Result<()> {
+        for root in &self.project_roots {
+            root.check_namespace()?;
+        }
         for input in &self.inputs {
             let (root, _) = platform::open_absolute_directory(&input.root_path)?;
             if platform::identity(&root)? != input.root_identity {
@@ -710,7 +963,7 @@ pub(crate) fn worker_bindings() -> Result<Vec<(PathBuf, File)>> {
         use std::os::fd::FromRawFd;
         let bindings: InheritedBindings = serde_json::from_slice(encoded.as_encoded_bytes())
             .map_err(|_| denied("Invalid inherited input descriptor map"))?;
-        if bindings.inputs.len() > 8 {
+        if bindings.inputs.len() > MAX_AUTHORIZED_ROOTS {
             return Err(denied("Too many inherited input descriptors"));
         }
         if let Some(descriptor) = bindings.staging_descriptor
@@ -1573,5 +1826,3 @@ mod tests {
         );
     }
 }
-
-// FVPROV1 60810 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiIwNjQ1YjIxMDlhNmNlMjc1MjVkNzAwNTRmNmQyYjhmYTYwNDJlNzg3YzVlYmZkNmEzNGRhNjI2OTg1NDdkNWUzIiwiY29weV9pZCI6InYwLjUuMC1hbHBoYS4zIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC41LjAtYWxwaGEuMyIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL2NyYXRlcy9maWxldmVpbC1ndWkvc3JjL21jcF9hY2Nlc3MucnMifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiJkNTJhMzRlN2JhMzJmZDIxZjU2Mjk4MjJhODY0NzRlZDcyZDhhZDU3YWUxZDA0ZGYwZmZhOWJmODU0ZWYxMWE4NTcwNzUzYWMyYWE1ODUwNmI3OWFhZjc2NDBjNDYwNmRlMWJjMzE4NWMzN2Y5NTM1ODBiMDUwYWU2N2IwNjcwMCJ9XX1d FVPROV1-END

@@ -100,7 +100,10 @@ fn catalog() -> &'static std::collections::BTreeMap<String, [String; 7]> {
         let findings: std::collections::BTreeMap<String, [String; 7]> =
             serde_json::from_str(include_str!("../locales/findings.json"))
                 .expect("bundled finding translations");
-        for (key, translations) in long.into_iter().chain(findings) {
+        let project: std::collections::BTreeMap<String, [String; 7]> =
+            serde_json::from_str(include_str!("../locales/project.json"))
+                .expect("bundled project translations");
+        for (key, translations) in long.into_iter().chain(findings).chain(project) {
             assert!(
                 entries.insert(key, translations).is_none(),
                 "duplicate translation key"
@@ -127,6 +130,15 @@ pub fn tr(language: Language, english: &str) -> &str {
             .unwrap_or(english);
     }
     match english {
+        "Open or create a project first" => "请先打开或创建项目",
+        "Trusted keys must be a JSON array of public keys" => "信任密钥须为公钥 JSON 数组",
+        "Build command must be a JSON array of arguments" => "构建命令须为参数 JSON 数组",
+        "Compiler arguments must be a JSON array of strings" => "编译参数须为字符串 JSON 数组",
+        "Test arguments must be a JSON array of arrays" => "测试参数须为 JSON 二维数组",
+        "Could not create new CI bundle folder" => "无法创建新的 CI 配置目录",
+        "Could not create CI workflow folder" => "无法创建 CI 工作流目录",
+        "Could not create a new CI bundle file" => "无法新建 CI 配置文件",
+        "Could not write the CI bundle" => "无法写入 CI 配置包",
         "Valid" => "有效",
         "Invalid" => "无效",
         "Trusted" => "受信任",
@@ -1250,5 +1262,3 @@ mod tests {
         assert!(finding_summary(Language::English, &finding).contains("verified removal"));
     }
 }
-
-// FVPROV1 71017 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiIxNjAzN2ViZTAxZGNjZDY1NWVhNmFjNzQ5NGU0MzJjZThlZGU1OWE0ZWE0M2E2ODk0ODQ5MmE0ZGZlY2RjMTMxIiwiY29weV9pZCI6InYwLjUuMC1hbHBoYS4zIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC41LjAtYWxwaGEuMyIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL2NyYXRlcy9maWxldmVpbC1ndWkvc3JjL2kxOG4ucnMifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiJhZDFhYzZjOGVlYmRkOThjMTI1NDc1MmI3NmNiZGU5ZTU0NDBlODUwMGEwZjE3NTg2ZTIyOWFiYTBjOWNhMTk0N2ZkMDFkYjhlMjNmNjYyMmJmN2NhOWEzZDVhODExMWUxYmU3M2Y4OTMwYzZkMzJlMGIwM2RhNDEwMjRiM2IwOCJ9XX1d FVPROV1-END

@@ -1,0 +1,740 @@
+{
+  "New project": [
+    "新しいプロジェクト",
+    "새 프로젝트",
+    "Nuevo proyecto",
+    "Nouveau projet",
+    "Neues Projekt",
+    "Novo projeto",
+    "Новый проект"
+  ],
+  "Maintain incremental manifests, signatures and version links for a project.": [
+    "プロジェクトの増分マニフェスト、署名、バージョンの関連付けを管理します。",
+    "프로젝트의 증분 목록, 서명 및 버전 연결을 관리합니다.",
+    "Mantén manifiestos incrementales, firmas y vínculos entre versiones del proyecto.",
+    "Gérez les manifestes incrémentaux, les signatures et les liens entre versions du projet.",
+    "Inkrementelle Manifeste, Signaturen und Versionsverknüpfungen eines Projekts verwalten.",
+    "Mantenha manifestos incrementais, assinaturas e vínculos entre versões do projeto.",
+    "Ведите инкрементальные манифесты, подписи и связи между версиями проекта."
+  ],
+  "Open project": [
+    "プロジェクトを開く",
+    "프로젝트 열기",
+    "Abrir proyecto",
+    "Ouvrir un projet",
+    "Projekt öffnen",
+    "Abrir projeto",
+    "Открыть проект"
+  ],
+  "Project source folder": [
+    "プロジェクトの入力フォルダー",
+    "프로젝트 원본 폴더",
+    "Carpeta de origen del proyecto",
+    "Dossier source du projet",
+    "Projekt-Quellordner",
+    "Pasta de origem do projeto",
+    "Исходная папка проекта"
+  ],
+  "Project release folder": [
+    "プロジェクトの出力フォルダー",
+    "프로젝트 릴리스 폴더",
+    "Carpeta de publicación del proyecto",
+    "Dossier de publication du projet",
+    "Projekt-Ausgabeordner",
+    "Pasta de publicação do projeto",
+    "Папка выпусков проекта"
+  ],
+  "Trigger": [
+    "実行タイミング",
+    "실행 방식",
+    "Activador",
+    "Déclencheur",
+    "Auslöser",
+    "Acionamento",
+    "Условие запуска"
+  ],
+  "Project signing key": [
+    "プロジェクトの署名鍵",
+    "프로젝트 서명 키",
+    "Clave de firma del proyecto",
+    "Clé de signature du projet",
+    "Projekt-Signierschlüssel",
+    "Chave de assinatura do projeto",
+    "Ключ подписи проекта"
+  ],
+  "File selection and processing rules": [
+    "ファイルの選択と処理ルール",
+    "파일 선택 및 처리 규칙",
+    "Selección de archivos y reglas de procesamiento",
+    "Sélection des fichiers et règles de traitement",
+    "Dateiauswahl und Verarbeitungsregeln",
+    "Seleção de arquivos e regras de processamento",
+    "Выбор файлов и правила обработки"
+  ],
+  "Include patterns, one per line": [
+    "含めるパターン、1 行に 1 つ",
+    "포함 패턴, 한 줄에 하나",
+    "Patrones de inclusión, uno por línea",
+    "Motifs d’inclusion, un par ligne",
+    "Einschlussmuster, eines pro Zeile",
+    "Padrões de inclusão, um por linha",
+    "Шаблоны включения, по одному в строке"
+  ],
+  "Exclude patterns, one per line": [
+    "除外するパターン、1 行に 1 つ",
+    "제외 패턴, 한 줄에 하나",
+    "Patrones de exclusión, uno por línea",
+    "Motifs d’exclusion, un par ligne",
+    "Ausschlussmuster, eines pro Zeile",
+    "Padrões de exclusão, um por linha",
+    "Шаблоны исключения, по одному в строке"
+  ],
+  "Also copy files covered by external manifests": [
+    "外部マニフェストの対象ファイルもコピー",
+    "외부 목록에 포함된 파일도 복사",
+    "Copiar también los archivos de los manifiestos externos",
+    "Copier aussi les fichiers couverts par les manifestes externes",
+    "Auch die durch externe Manifeste erfassten Dateien kopieren",
+    "Copiar também os arquivos dos manifestos externos",
+    "Также копировать файлы, охваченные внешними манифестами"
+  ],
+  "Source code, executables and installers use external signed manifests by default. Embedding rules create marked copies in the release folder.": [
+    "ソースコード、実行ファイル、インストーラーは既定で外部の署名付きマニフェストに結び付けます。埋め込みルールは出力フォルダーに透かし付きコピーを作成します。",
+    "소스 코드, 실행 파일 및 설치 프로그램은 기본적으로 서명된 외부 목록으로 연결됩니다. 삽입 규칙은 릴리스 폴더에 표시된 사본을 생성합니다.",
+    "El código, los ejecutables y los instaladores usan manifiestos externos firmados de forma predeterminada. Las reglas de inserción crean copias marcadas en la carpeta de publicación.",
+    "Le code, les exécutables et les installateurs utilisent par défaut des manifestes externes signés. Les règles d’intégration créent des copies marquées dans le dossier de publication.",
+    "Quellcode, Programme und Installationsdateien verwenden standardmäßig extern signierte Manifeste. Einbettungsregeln erzeugen markierte Kopien im Ausgabeordner.",
+    "Código-fonte, executáveis e instaladores usam manifestos externos assinados por padrão. As regras de incorporação criam cópias marcadas na pasta de publicação.",
+    "Исходный код, исполняемые файлы и установщики по умолчанию связываются с подписанными внешними манифестами. Правила внедрения создают отмеченные копии в папке выпуска."
+  ],
+  "Debounce (milliseconds)": [
+    "変更待機時間（ミリ秒）",
+    "변경 안정 대기 시간(밀리초)",
+    "Espera de estabilización (milisegundos)",
+    "Délai de stabilisation (millisecondes)",
+    "Entprellzeit (Millisekunden)",
+    "Espera de estabilização (milissegundos)",
+    "Задержка стабилизации (мс)"
+  ],
+  "Polling interval (milliseconds)": [
+    "確認間隔（ミリ秒）",
+    "검사 간격(밀리초)",
+    "Intervalo de comprobación (milisegundos)",
+    "Intervalle de vérification (millisecondes)",
+    "Prüfintervall (Millisekunden)",
+    "Intervalo de verificação (milissegundos)",
+    "Интервал проверки (мс)"
+  ],
+  "Renewal and trust settings": [
+    "再署名と信頼の設定",
+    "재서명 및 신뢰 설정",
+    "Renovación y confianza",
+    "Renouvellement et confiance",
+    "Erneuerung und Vertrauen",
+    "Renovação e confiança",
+    "Продление подписей и доверие"
+  ],
+  "Version, empty for automatic": [
+    "バージョン、空欄で自動生成",
+    "버전, 비우면 자동 생성",
+    "Versión, vacía para generar automáticamente",
+    "Version, vide pour une génération automatique",
+    "Version, leer für automatische Vergabe",
+    "Versão, em branco para gerar automaticamente",
+    "Версия, пустое поле для автоматической"
+  ],
+  "Time claim, empty for system time": [
+    "日時の申告、空欄でシステム時刻",
+    "시간 선언, 비우면 시스템 시간",
+    "Fecha declarada, vacía para usar la hora del sistema",
+    "Date déclarée, vide pour utiliser l’heure système",
+    "Zeitangabe, leer für Systemzeit",
+    "Data declarada, em branco para usar a hora do sistema",
+    "Заявленное время, пустое поле для системного"
+  ],
+  "Git commit or tag": [
+    "Git コミットまたはタグ",
+    "Git 커밋 또는 태그",
+    "Commit o etiqueta de Git",
+    "Commit ou tag Git",
+    "Git-Commit oder Tag",
+    "Commit ou tag do Git",
+    "Коммит или тег Git"
+  ],
+  "Offline time is a user assertion. Integrity, signatures, trust and history continuity are verified separately.": [
+    "オフラインの日時は利用者の申告です。整合性、署名、信頼、履歴の連続性を個別に検証します。",
+    "오프라인 시간은 사용자의 선언입니다. 무결성, 서명, 신뢰 및 기록 연속성은 각각 검증됩니다.",
+    "La fecha sin conexión es una declaración del usuario. La integridad, las firmas, la confianza y la continuidad del historial se verifican por separado.",
+    "La date hors ligne est une déclaration de l’utilisateur. L’intégrité, les signatures, la confiance et la continuité de l’historique sont vérifiées séparément.",
+    "Offline-Zeitangaben sind Benutzererklärungen. Integrität, Signaturen, Vertrauen und Verlaufskontinuität werden getrennt geprüft.",
+    "A data offline é uma declaração do usuário. Integridade, assinaturas, confiança e continuidade do histórico são verificadas separadamente.",
+    "Автономное время является заявлением пользователя. Целостность, подписи, доверие и непрерывность истории проверяются отдельно."
+  ],
+  "New signing key for rotation": [
+    "ローテーション後の署名鍵",
+    "교체할 새 서명 키",
+    "Nueva clave de firma para rotación",
+    "Nouvelle clé de signature pour rotation",
+    "Neuer Signierschlüssel für den Wechsel",
+    "Nova chave de assinatura para rotação",
+    "Новый ключ подписи для ротации"
+  ],
+  "Allow explicit work migration": [
+    "明示的な作品移行を許可",
+    "명시적 작품 이전 허용",
+    "Permitir migración explícita de la obra",
+    "Autoriser la migration explicite de l’œuvre",
+    "Ausdrückliche Werkmigration erlauben",
+    "Permitir migração explícita da obra",
+    "Разрешить явный перенос произведения"
+  ],
+  "External trusted public keys JSON": [
+    "外部の信頼済み公開鍵 JSON",
+    "외부에서 신뢰한 공개 키 JSON",
+    "Claves públicas externas de confianza en JSON",
+    "Clés publiques externes de confiance JSON",
+    "Extern vertrauenswürdige öffentliche Schlüssel als JSON",
+    "Chaves públicas externas confiáveis em JSON",
+    "Внешние доверенные открытые ключи в JSON"
+  ],
+  "Private state folder": [
+    "非公開状態フォルダー",
+    "비공개 상태 폴더",
+    "Carpeta de estado privado",
+    "Dossier d’état privé",
+    "Ordner für privaten Zustand",
+    "Pasta de estado privado",
+    "Папка закрытого состояния"
+  ],
+  "System managed": [
+    "システム管理",
+    "시스템 관리",
+    "Gestionado por el sistema",
+    "Géré par le système",
+    "Vom System verwaltet",
+    "Gerenciado pelo sistema",
+    "Управляется системой"
+  ],
+  "Use default": [
+    "既定値を使用",
+    "기본값 사용",
+    "Usar valor predeterminado",
+    "Utiliser la valeur par défaut",
+    "Standard verwenden",
+    "Usar padrão",
+    "Использовать значение по умолчанию"
+  ],
+  "Project resource budgets": [
+    "プロジェクトのリソース上限",
+    "프로젝트 리소스 한도",
+    "Límites de recursos del proyecto",
+    "Limites de ressources du projet",
+    "Ressourcenbudgets des Projekts",
+    "Limites de recursos do projeto",
+    "Лимиты ресурсов проекта"
+  ],
+  "External manifests use streaming budgets. Image and document embedding also obey the global parser budgets.": [
+    "外部マニフェストにはストリーミング処理の上限を適用します。画像と文書への埋め込みには全体の解析上限も適用します。",
+    "외부 목록에는 스트리밍 한도가 적용됩니다. 이미지와 문서 삽입에는 전역 파서 한도도 적용됩니다.",
+    "Los manifiestos externos usan límites de procesamiento en flujo. La inserción en imágenes y documentos también respeta los límites generales de análisis.",
+    "Les manifestes externes utilisent des limites de traitement en flux. L’intégration aux images et documents respecte aussi les limites globales d’analyse.",
+    "Externe Manifeste verwenden Streaming-Budgets. Für die Einbettung in Bilder und Dokumente gelten zusätzlich die globalen Parser-Budgets.",
+    "Os manifestos externos usam limites de processamento em fluxo. A incorporação em imagens e documentos também respeita os limites globais de análise.",
+    "Для внешних манифестов применяются лимиты потоковой обработки. Внедрение в изображения и документы также ограничено общими лимитами анализа."
+  ],
+  "Project file limit (MiB)": [
+    "プロジェクトの 1 ファイル上限（MiB）",
+    "프로젝트 파일 크기 한도(MiB)",
+    "Límite por archivo del proyecto (MiB)",
+    "Limite par fichier du projet (MiB)",
+    "Projekt-Dateigrößenlimit (MiB)",
+    "Limite por arquivo do projeto (MiB)",
+    "Лимит файла проекта (МиБ)"
+  ],
+  "Project total limit (MiB)": [
+    "プロジェクトの合計上限（MiB）",
+    "프로젝트 총 크기 한도(MiB)",
+    "Límite total del proyecto (MiB)",
+    "Limite totale du projet (MiB)",
+    "Projekt-Gesamtlimit (MiB)",
+    "Limite total do projeto (MiB)",
+    "Общий лимит проекта (МиБ)"
+  ],
+  "Project file-count limit": [
+    "プロジェクトのファイル数上限",
+    "프로젝트 파일 수 한도",
+    "Límite de archivos del proyecto",
+    "Nombre maximal de fichiers du projet",
+    "Maximale Projekt-Dateianzahl",
+    "Número máximo de arquivos do projeto",
+    "Лимит числа файлов проекта"
+  ],
+  "Full hash recheck interval (minutes)": [
+    "完全ハッシュ再確認間隔（分）",
+    "전체 해시 재검사 간격(분)",
+    "Intervalo de revisión completa de hashes (minutos)",
+    "Intervalle de contrôle complet des empreintes (minutes)",
+    "Intervall der vollständigen Hashprüfung (Minuten)",
+    "Intervalo de revisão completa de hashes (minutos)",
+    "Интервал полной проверки хешей (мин)"
+  ],
+  "Build command JSON argument array": [
+    "ビルドコマンドの JSON 引数配列",
+    "빌드 명령 JSON 인수 배열",
+    "Argumentos del comando de compilación en JSON",
+    "Arguments JSON de la commande de compilation",
+    "Build-Befehl als JSON-Argumentliste",
+    "Argumentos JSON do comando de compilação",
+    "Аргументы команды сборки в JSON"
+  ],
+  "Clicking runs this command. Release files are synced only after exit code zero.": [
+    "クリックするとこのコマンドを実行します。終了コードが 0 の場合にのみ出力ファイルを同期します。",
+    "클릭하면 이 명령을 실행합니다. 종료 코드가 0일 때만 릴리스 파일을 동기화합니다.",
+    "Al pulsar se ejecuta este comando. Los archivos se sincronizan solo si el código de salida es cero.",
+    "Un clic exécute cette commande. Les fichiers sont synchronisés uniquement après un code de sortie nul.",
+    "Ein Klick führt diesen Befehl aus. Die Dateien werden nur bei Exit-Code null synchronisiert.",
+    "O clique executa este comando. Os arquivos são sincronizados somente se o código de saída for zero.",
+    "Нажатие запускает эту команду. Файлы выпуска синхронизируются только при нулевом коде завершения."
+  ],
+  "Create project configuration": [
+    "プロジェクト設定を作成",
+    "프로젝트 설정 만들기",
+    "Crear configuración del proyecto",
+    "Créer la configuration du projet",
+    "Projektkonfiguration erstellen",
+    "Criar configuração do projeto",
+    "Создать конфигурацию проекта"
+  ],
+  "Save project settings": [
+    "プロジェクト設定を保存",
+    "프로젝트 설정 저장",
+    "Guardar ajustes del proyecto",
+    "Enregistrer les paramètres du projet",
+    "Projekteinstellungen speichern",
+    "Salvar configurações do projeto",
+    "Сохранить настройки проекта"
+  ],
+  "Save project settings before syncing or starting automation.": [
+    "同期または自動実行の前にプロジェクト設定を保存してください。",
+    "동기화하거나 자동 실행을 시작하기 전에 프로젝트 설정을 저장하세요.",
+    "Guarda los ajustes del proyecto antes de sincronizar o iniciar la automatización.",
+    "Enregistrez les paramètres du projet avant de synchroniser ou de lancer l’automatisation.",
+    "Speichern Sie die Projekteinstellungen vor der Synchronisierung oder Automatisierung.",
+    "Salve as configurações do projeto antes de sincronizar ou iniciar a automação.",
+    "Сохраните настройки проекта перед синхронизацией или автоматическим запуском."
+  ],
+  "Sync project and verify": [
+    "プロジェクトを同期して検証",
+    "프로젝트 동기화 및 검증",
+    "Sincronizar y verificar proyecto",
+    "Synchroniser et vérifier le projet",
+    "Projekt synchronisieren und prüfen",
+    "Sincronizar e verificar projeto",
+    "Синхронизировать и проверить проект"
+  ],
+  "Verify project": [
+    "プロジェクトを検証",
+    "프로젝트 검증",
+    "Verificar proyecto",
+    "Vérifier le projet",
+    "Projekt prüfen",
+    "Verificar projeto",
+    "Проверить проект"
+  ],
+  "Refresh project status": [
+    "プロジェクト状態を更新",
+    "프로젝트 상태 새로 고침",
+    "Actualizar estado del proyecto",
+    "Actualiser l’état du projet",
+    "Projektstatus aktualisieren",
+    "Atualizar estado do projeto",
+    "Обновить состояние проекта"
+  ],
+  "Stop watching": [
+    "監視を停止",
+    "감시 중지",
+    "Detener supervisión",
+    "Arrêter la surveillance",
+    "Überwachung stoppen",
+    "Parar monitoramento",
+    "Остановить наблюдение"
+  ],
+  "Start watching": [
+    "監視を開始",
+    "감시 시작",
+    "Iniciar supervisión",
+    "Démarrer la surveillance",
+    "Überwachung starten",
+    "Iniciar monitoramento",
+    "Начать наблюдение"
+  ],
+  "Watching the project. Stable changes renew signatures and run verification for each generation.": [
+    "プロジェクトを監視しています。変更の安定後に再署名し、各バージョンを検証します。",
+    "프로젝트를 감시 중입니다. 변경이 안정되면 서명을 갱신하고 각 버전을 검증합니다.",
+    "Supervisando el proyecto. Los cambios estables renuevan las firmas y verifican cada versión.",
+    "Surveillance du projet en cours. Les modifications stables renouvellent les signatures et vérifient chaque version.",
+    "Das Projekt wird überwacht. Stabile Änderungen erneuern die Signaturen und prüfen jede Version.",
+    "Monitorando o projeto. Alterações estáveis renovam as assinaturas e verificam cada versão.",
+    "Проект отслеживается. После стабилизации изменений подписи обновляются, а каждый выпуск проверяется."
+  ],
+  "Build then sync": [
+    "ビルド後に同期",
+    "빌드 성공 후 동기화",
+    "Compilar y sincronizar",
+    "Compiler puis synchroniser",
+    "Erstellen und synchronisieren",
+    "Compilar e sincronizar",
+    "Собрать и синхронизировать"
+  ],
+  "Release generation": [
+    "出力バージョン",
+    "릴리스 버전",
+    "Versión publicada",
+    "Version de publication",
+    "Ausgabeversion",
+    "Versão de publicação",
+    "Версия выпуска"
+  ],
+  "This generation was published": [
+    "この出力バージョンを確定しました",
+    "이번 릴리스 버전을 저장했습니다",
+    "Esta versión se ha publicado",
+    "Cette version a été publiée",
+    "Diese Version wurde veröffentlicht",
+    "Esta versão foi publicada",
+    "Этот выпуск опубликован"
+  ],
+  "This run did not publish a new generation": [
+    "今回は新しい出力バージョンを作成していません",
+    "이번 실행에서는 새 릴리스 버전을 생성하지 않았습니다",
+    "Esta ejecución no ha publicado una nueva versión",
+    "Cette exécution n’a pas publié de nouvelle version",
+    "Dieser Lauf hat keine neue Version veröffentlicht",
+    "Esta execução não publicou uma nova versão",
+    "В этом запуске новый выпуск не публиковался"
+  ],
+  "Signed manifest digest": [
+    "署名付きマニフェストのハッシュ",
+    "서명된 목록 해시",
+    "Hash del manifiesto firmado",
+    "Empreinte du manifeste signé",
+    "Hash des signierten Manifests",
+    "Hash do manifesto assinado",
+    "Хеш подписанного манифеста"
+  ],
+  "Key file": [
+    "鍵ファイル",
+    "키 파일",
+    "Archivo de clave",
+    "Fichier de clé",
+    "Schlüsseldatei",
+    "Arquivo de chave",
+    "Файл ключа"
+  ],
+  "System key": [
+    "システムの鍵",
+    "시스템 키",
+    "Clave del sistema",
+    "Clé système",
+    "Systemschlüssel",
+    "Chave do sistema",
+    "Системный ключ"
+  ],
+  "Public-key SHA-256 identifier": [
+    "公開鍵の SHA-256 識別子",
+    "공개 키 SHA-256 식별자",
+    "Identificador SHA-256 de la clave pública",
+    "Identifiant SHA-256 de la clé publique",
+    "SHA-256-Kennung des öffentlichen Schlüssels",
+    "Identificador SHA-256 da chave pública",
+    "Идентификатор SHA-256 открытого ключа"
+  ],
+  "Choose signing key": [
+    "署名鍵を選択",
+    "서명 키 선택",
+    "Elegir clave de firma",
+    "Choisir une clé de signature",
+    "Signierschlüssel auswählen",
+    "Escolher chave de assinatura",
+    "Выбрать ключ подписи"
+  ],
+  "Build / Release": [
+    "ビルド / リリース",
+    "빌드 / 릴리스",
+    "Compilación / Publicación",
+    "Compilation / Publication",
+    "Build / Veröffentlichung",
+    "Compilação / Publicação",
+    "Сборка / Выпуск"
+  ],
+  "Watch files": [
+    "ファイル監視",
+    "파일 감시",
+    "Supervisar archivos",
+    "Surveiller les fichiers",
+    "Dateien überwachen",
+    "Monitorar arquivos",
+    "Наблюдение за файлами"
+  ],
+  "Manual sync": [
+    "手動同期",
+    "수동 동기화",
+    "Sincronización manual",
+    "Synchronisation manuelle",
+    "Manuelle Synchronisierung",
+    "Sincronização manual",
+    "Ручная синхронизация"
+  ],
+  "Project integrity": [
+    "プロジェクトの整合性",
+    "프로젝트 무결성",
+    "Integridad del proyecto",
+    "Intégrité du projet",
+    "Projektintegrität",
+    "Integridade do projeto",
+    "Целостность проекта"
+  ],
+  "Project signature": [
+    "プロジェクトの署名",
+    "프로젝트 서명",
+    "Firma del proyecto",
+    "Signature du projet",
+    "Projektsignatur",
+    "Assinatura do projeto",
+    "Подпись проекта"
+  ],
+  "Publisher trust": [
+    "発行者への信頼",
+    "발행자 신뢰",
+    "Confianza en el editor",
+    "Confiance dans l’éditeur",
+    "Vertrauen in den Herausgeber",
+    "Confiança no publicador",
+    "Доверие к издателю"
+  ],
+  "History continuity": [
+    "履歴の連続性",
+    "기록 연속성",
+    "Continuidad del historial",
+    "Continuité de l’historique",
+    "Verlaufskontinuität",
+    "Continuidade do histórico",
+    "Непрерывность истории"
+  ],
+  "Added": [
+    "追加",
+    "추가",
+    "Añadidos",
+    "Ajoutés",
+    "Hinzugefügt",
+    "Adicionados",
+    "Добавлено"
+  ],
+  "Modified": [
+    "変更",
+    "수정",
+    "Modificados",
+    "Modifiés",
+    "Geändert",
+    "Modificados",
+    "Изменено"
+  ],
+  "Deleted": [
+    "削除",
+    "삭제",
+    "Eliminados",
+    "Supprimés",
+    "Gelöscht",
+    "Excluídos",
+    "Удалено"
+  ],
+  "Renamed": [
+    "名前変更",
+    "이름 변경",
+    "Renombrados",
+    "Renommés",
+    "Umbenannt",
+    "Renomeados",
+    "Переименовано"
+  ],
+  "Unchanged files skipped": [
+    "未変更ファイルをスキップ",
+    "변경 없는 파일 건너뜀",
+    "Archivos sin cambios omitidos",
+    "Fichiers inchangés ignorés",
+    "Unveränderte Dateien übersprungen",
+    "Arquivos sem alterações ignorados",
+    "Неизменённые файлы пропущены"
+  ],
+  "Projects": [
+    "プロジェクト",
+    "프로젝트",
+    "Proyectos",
+    "Projets",
+    "Projekte",
+    "Projetos",
+    "Проекты"
+  ],
+  "Open or create a project first": [
+    "先にプロジェクトを開くか作成してください",
+    "먼저 프로젝트를 열거나 만드세요",
+    "Abre o crea un proyecto primero",
+    "Ouvrez ou créez d’abord un projet",
+    "Zuerst ein Projekt öffnen oder erstellen",
+    "Abra ou crie um projeto primeiro",
+    "Сначала откройте или создайте проект"
+  ],
+  "Trusted keys must be a JSON array of public keys": [
+    "信頼する鍵は公開鍵の JSON 配列で指定してください",
+    "신뢰 키는 공개 키 JSON 배열이어야 합니다",
+    "Las claves de confianza deben ser un arreglo JSON de claves públicas",
+    "Les clés de confiance doivent être un tableau JSON de clés publiques",
+    "Vertrauensschlüssel müssen ein JSON-Array öffentlicher Schlüssel sein",
+    "As chaves confiáveis devem ser um array JSON de chaves públicas",
+    "Доверенные ключи должны быть массивом JSON открытых ключей"
+  ],
+  "Build command must be a JSON array of arguments": [
+    "ビルドコマンドは引数の JSON 配列で指定してください",
+    "빌드 명령은 인수 JSON 배열이어야 합니다",
+    "El comando de compilación debe ser un arreglo JSON de argumentos",
+    "La commande de compilation doit être un tableau JSON d’arguments",
+    "Der Build-Befehl muss ein JSON-Array von Argumenten sein",
+    "O comando de compilação deve ser um array JSON de argumentos",
+    "Команда сборки должна быть массивом JSON аргументов"
+  ],
+  "File pattern": [
+    "ファイルのパターン",
+    "파일 패턴",
+    "Patrón de archivo",
+    "Motif de fichier",
+    "Dateimuster",
+    "Padrão de arquivo",
+    "Шаблон файла"
+  ],
+  "Move rule up": [
+    "ルールを上へ移動",
+    "규칙 위로 이동",
+    "Subir regla",
+    "Monter la règle",
+    "Regel nach oben",
+    "Mover regra para cima",
+    "Переместить правило выше"
+  ],
+  "Remove rule": [
+    "ルールを削除",
+    "규칙 제거",
+    "Eliminar regla",
+    "Supprimer la règle",
+    "Regel entfernen",
+    "Remover regra",
+    "Удалить правило"
+  ],
+  "Add file rule": [
+    "ファイルルールを追加",
+    "파일 규칙 추가",
+    "Añadir regla de archivo",
+    "Ajouter une règle de fichier",
+    "Dateiregel hinzufügen",
+    "Adicionar regra de arquivo",
+    "Добавить правило файла"
+  ],
+  "External signed manifest": [
+    "外部の署名付きマニフェスト",
+    "서명된 외부 목록",
+    "Manifiesto externo firmado",
+    "Manifeste externe signé",
+    "Extern signiertes Manifest",
+    "Manifesto externo assinado",
+    "Внешний подписанный манифест"
+  ],
+  "Structural mark": [
+    "構造マーク",
+    "구조 표시",
+    "Marca estructural",
+    "Marquage structurel",
+    "Strukturmarkierung",
+    "Marca estrutural",
+    "Структурная метка"
+  ],
+  "Invisible watermark": [
+    "不可視の電子透かし",
+    "비가시성 워터마크",
+    "Marca de agua invisible",
+    "Filigrane invisible",
+    "Unsichtbares Wasserzeichen",
+    "Marca-d’água invisível",
+    "Невидимый водяной знак"
+  ],
+  "FileVeil project": [
+    "FileVeil プロジェクト",
+    "FileVeil 프로젝트",
+    "Proyecto de FileVeil",
+    "Projet FileVeil",
+    "FileVeil-Projekt",
+    "Projeto FileVeil",
+    "Проект FileVeil"
+  ],
+  "Keep key files and private state outside the source and release folders. An empty runtime key uses the saved binding.": [
+    "鍵ファイルと非公開状態は入力・出力フォルダーの外に保存してください。実行時の鍵を空欄にすると保存済みの設定を使用します。",
+    "키 파일과 비공개 상태는 원본 및 릴리스 폴더 외부에 보관하세요. 실행 키를 비워 두면 저장된 키 설정을 사용합니다.",
+    "Guarda las claves y el estado privado fuera de las carpetas de origen y publicación. Si la clave está vacía, se usa la selección guardada.",
+    "Conservez les clés et l’état privé hors des dossiers source et de publication. Sans clé d’exécution, la sélection enregistrée est utilisée.",
+    "Schlüsseldateien und privaten Zustand außerhalb der Quell- und Ausgabeordner speichern. Ohne Laufzeitschlüssel wird die gespeicherte Zuordnung verwendet.",
+    "Mantenha as chaves e o estado privado fora das pastas de origem e publicação. Sem chave de execução, é usada a seleção salva.",
+    "Храните файлы ключей и закрытое состояние вне исходной папки и папки выпуска. Если ключ запуска не указан, используется сохранённая привязка."
+  ],
+  "Later matching rules take precedence.": [
+    "後に一致したルールを優先します。",
+    "나중에 일치하는 규칙이 우선합니다.",
+    "Las reglas coincidentes posteriores tienen prioridad.",
+    "Les règles correspondantes suivantes sont prioritaires.",
+    "Spätere passende Regeln haben Vorrang.",
+    "As regras correspondentes posteriores têm prioridade.",
+    "Приоритет имеют более поздние подходящие правила."
+  ],
+  "Latest generation files": [
+    "最新の出力バージョンのファイル",
+    "최근 릴리스 버전의 파일",
+    "Archivos de la última versión",
+    "Fichiers de la dernière version",
+    "Dateien der letzten Ausgabeversion",
+    "Arquivos da última versão",
+    "Файлы последнего выпуска"
+  ],
+  "Open signed manifest": [
+    "署名付きマニフェストを開く",
+    "서명된 목록 열기",
+    "Abrir manifiesto firmado",
+    "Ouvrir le manifeste signé",
+    "Signiertes Manifest öffnen",
+    "Abrir manifesto assinado",
+    "Открыть подписанный манифест"
+  ],
+  "Build working folder": [
+    "ビルドの作業フォルダー",
+    "빌드 작업 폴더",
+    "Carpeta de trabajo de compilación",
+    "Dossier de travail de compilation",
+    "Build-Arbeitsordner",
+    "Pasta de trabalho da compilação",
+    "Рабочая папка сборки"
+  ],
+  "Fresh SHA-256 reads": [
+    "今回読み取った SHA-256",
+    "이번에 새로 읽은 SHA-256",
+    "Lecturas nuevas de SHA-256",
+    "Nouvelles lectures SHA-256",
+    "Neue SHA-256-Lesevorgänge",
+    "Novas leituras de SHA-256",
+    "Новые чтения SHA-256"
+  ],
+  "Reused SHA-256 cache": [
+    "再利用した SHA-256 キャッシュ",
+    "재사용한 SHA-256 캐시",
+    "Caché SHA-256 reutilizada",
+    "Cache SHA-256 réutilisé",
+    "Wiederverwendeter SHA-256-Cache",
+    "Cache SHA-256 reutilizado",
+    "Повторно использованный кеш SHA-256"
+  ]
+}

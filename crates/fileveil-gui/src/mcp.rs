@@ -354,6 +354,11 @@ impl Server {
     }
     fn tool_error(&mut self, id: Value, name: &str, message: &str) -> io::Result<()> {
         let operation = match name {
+            name if name.starts_with("fileveil_registry_") => "registry",
+            name if name.starts_with("fileveil_software_") => "software",
+            "fileveil_project_sync" | "fileveil_project_status" | "fileveil_project_verify" => {
+                "project"
+            }
             "fileveil_detect_watermark" => "detect_watermark",
             "fileveil_lab" => "lab",
             "fileveil_provenance" => "provenance",
@@ -375,6 +380,11 @@ impl Server {
     }
     fn permission_error(&mut self, id: Value, name: &str, message: &str) -> io::Result<()> {
         let operation = match name {
+            name if name.starts_with("fileveil_registry_") => "registry",
+            name if name.starts_with("fileveil_software_") => "software",
+            "fileveil_project_sync" | "fileveil_project_status" | "fileveil_project_verify" => {
+                "project"
+            }
             "fileveil_detect_watermark" => "detect_watermark",
             "fileveil_lab" => "lab",
             "fileveil_provenance" => "provenance",
@@ -423,6 +433,167 @@ fn path(arguments: &Map<String, Value>, name: &str) -> PathBuf {
     PathBuf::from(arguments[name].as_str().expect("validated path parameter"))
 }
 fn job_kind(name: &str, arguments: &Map<String, Value>) -> Result<JobKind, String> {
+    if name.starts_with("fileveil_registry_") {
+        use fileveil_engine::project::{
+            ProjectKey, SyncOptions,
+            registry::{RegistryAction, RegistryRequest},
+        };
+        let action = match name {
+            "fileveil_registry_init" => RegistryAction::Init,
+            "fileveil_registry_configure" => RegistryAction::Configure,
+            "fileveil_registry_add" => RegistryAction::Add,
+            "fileveil_registry_update" => RegistryAction::Update,
+            "fileveil_registry_remove" => RegistryAction::Remove,
+            "fileveil_registry_migrate" => RegistryAction::Migrate,
+            "fileveil_registry_list" => RegistryAction::List,
+            "fileveil_registry_status" => RegistryAction::Status,
+            "fileveil_registry_sync" => RegistryAction::Sync,
+            "fileveil_registry_verify" => RegistryAction::Verify,
+            _ => return Err("Unknown registry operation".into()),
+        };
+        if arguments.contains_key("key") && arguments.contains_key("key_ref") {
+            return Err("Choose a file key or a system key reference".into());
+        }
+        let key = arguments
+            .get("key")
+            .map(|_| ProjectKey::File {
+                path: path(arguments, "key"),
+            })
+            .or_else(|| {
+                arguments
+                    .get("key_ref")
+                    .and_then(Value::as_str)
+                    .map(|id| ProjectKey::System { key_id: id.into() })
+            });
+        let options = arguments
+            .get("options_json")
+            .and_then(Value::as_str)
+            .map(serde_json::from_str::<SyncOptions>)
+            .transpose()
+            .map_err(|_| "Invalid registry sync options JSON")?
+            .unwrap_or_default();
+        let defaults = arguments
+            .get("defaults_json")
+            .and_then(Value::as_str)
+            .map(serde_json::from_str)
+            .transpose()
+            .map_err(|_| "Invalid registry defaults JSON")?;
+        let overrides = arguments
+            .get("overrides_json")
+            .and_then(Value::as_str)
+            .map(serde_json::from_str)
+            .transpose()
+            .map_err(|_| "Invalid project overrides JSON")?;
+        return Ok(JobKind::Registry {
+            request: Box::new(RegistryRequest {
+                action,
+                registry_path: Some(path(arguments, "registry")),
+                state_directory: arguments
+                    .get("state_directory")
+                    .map(|_| path(arguments, "state_directory")),
+                project_id: arguments
+                    .get("project_id")
+                    .and_then(Value::as_str)
+                    .map(str::to_owned),
+                project_path: arguments
+                    .get("project_path")
+                    .map(|_| path(arguments, "project_path")),
+                config_path: arguments.get("config").map(|_| path(arguments, "config")),
+                legacy_state_directory: arguments
+                    .get("legacy_state_directory")
+                    .map(|_| path(arguments, "legacy_state_directory")),
+                name: arguments
+                    .get("name")
+                    .and_then(Value::as_str)
+                    .map(str::to_owned),
+                all: arguments
+                    .get("all")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false),
+                key,
+                options,
+                defaults,
+                overrides,
+                ..Default::default()
+            }),
+        });
+    }
+    if name.starts_with("fileveil_software_") {
+        use fileveil_engine::software::{SoftwareAction, SoftwareMode, SoftwareRequest};
+        let mut request: SoftwareRequest = arguments
+            .get("options_json")
+            .and_then(Value::as_str)
+            .map(serde_json::from_str)
+            .transpose()
+            .map_err(|_| "Invalid software options JSON")?
+            .unwrap_or_default();
+        request.action = match name {
+            "fileveil_software_inspect" => SoftwareAction::Inspect,
+            "fileveil_software_detect" => SoftwareAction::Detect,
+            "fileveil_software_verify" => SoftwareAction::Verify,
+            "fileveil_software_compare" => SoftwareAction::Compare,
+            "fileveil_software_clean" => SoftwareAction::Clean,
+            _ => return Err("Unknown software operation".into()),
+        };
+        let explicit_mode = arguments
+            .get("options_json")
+            .and_then(Value::as_str)
+            .and_then(|encoded| serde_json::from_str::<Value>(encoded).ok())
+            .is_some_and(|options| options.get("mode").is_some());
+        if request.action == SoftwareAction::Clean && !explicit_mode {
+            request.mode = SoftwareMode::Structure;
+        }
+        request.input_path = path(arguments, "path");
+        request.output_path = arguments.get("output").map(|_| path(arguments, "output"));
+        request.reference_path = arguments
+            .get("reference")
+            .map(|_| path(arguments, "reference"));
+        return Ok(JobKind::Software {
+            request: Box::new(request),
+        });
+    }
+    if matches!(
+        name,
+        "fileveil_project_sync" | "fileveil_project_status" | "fileveil_project_verify"
+    ) {
+        use fileveil_engine::project::{ProjectAction, ProjectKey, ProjectRequest, SyncOptions};
+        if arguments.contains_key("key") && arguments.contains_key("key_ref") {
+            return Err("Choose a file key or a system key reference".into());
+        }
+        let key = arguments
+            .get("key")
+            .map(|_| ProjectKey::File {
+                path: path(arguments, "key"),
+            })
+            .or_else(|| {
+                arguments
+                    .get("key_ref")
+                    .and_then(Value::as_str)
+                    .map(|id| ProjectKey::System { key_id: id.into() })
+            });
+        let options = arguments
+            .get("options_json")
+            .and_then(Value::as_str)
+            .map(serde_json::from_str::<SyncOptions>)
+            .transpose()
+            .map_err(|_| "Invalid project sync options JSON")?
+            .unwrap_or_default();
+        return Ok(JobKind::Project {
+            request: Box::new(ProjectRequest {
+                action: match name {
+                    "fileveil_project_sync" => ProjectAction::Sync,
+                    "fileveil_project_status" => ProjectAction::Status,
+                    _ => ProjectAction::Verify,
+                },
+                config_path: path(arguments, "config"),
+                state_directory: Some(path(arguments, "state_directory")),
+                key,
+                options,
+                ..Default::default()
+            }),
+            after: None,
+        });
+    }
     if matches!(
         name,
         "fileveil_heritage"
@@ -596,6 +767,7 @@ fn validate_arguments(arguments: &Map<String, Value>, schema: &Value) -> Result<
             return Err(format!("Unknown argument ({name})"));
         };
         let valid = match rule["type"].as_str() {
+            Some("boolean") => value.is_boolean(),
             Some("string") => value
                 .as_str()
                 .is_some_and(|text| !text.is_empty() && !text.contains('\0')),
@@ -721,6 +893,105 @@ fn tools() -> Vec<Value> {
     }
     definitions.push(("fileveil_evidence","Trace evidence","Export and verify signed evidence, dual-party transfers, checkpoints and RFC3161 files offline.",
         json!({"path":file,"action":{"type":"string","enum":["checkpoint","evidence_export","evidence_verify","timestamp_query","timestamp_verify","transfer_prepare","transfer_accept"]},"output":file,"options_json":{"type":"string"}}),vec!["path","action"],false));
+    for (name, title, read_only) in [
+        ("fileveil_project_sync", "Sync project", false),
+        ("fileveil_project_status", "Project status", true),
+        ("fileveil_project_verify", "Verify project", true),
+    ] {
+        definitions.push((name,title,"Offline project manifests and watermark generations. All input, output, private state and signing-key paths require existing MCP grants. Build commands are unavailable through MCP.",
+            json!({"config":file,"state_directory":file,"key":file,"key_ref":{"type":"string","pattern":"^[a-f0-9]{64}$"},"options_json":{"type":"string","description":"SyncOptions JSON including version, copy_id, trusted public keys and explicitly authorized key rotation."}}),vec!["config","state_directory"],read_only));
+    }
+    for (name, title, read_only, required) in [
+        (
+            "fileveil_registry_init",
+            "Initialize project registry",
+            false,
+            vec!["registry", "state_directory", "defaults_json"],
+        ),
+        (
+            "fileveil_registry_configure",
+            "Configure registry defaults",
+            false,
+            vec!["registry", "defaults_json"],
+        ),
+        (
+            "fileveil_registry_add",
+            "Register project",
+            false,
+            vec!["registry", "project_path"],
+        ),
+        (
+            "fileveil_registry_update",
+            "Update registered project",
+            false,
+            vec!["registry", "project_id", "overrides_json"],
+        ),
+        (
+            "fileveil_registry_remove",
+            "Unregister project",
+            false,
+            vec!["registry", "project_id"],
+        ),
+        (
+            "fileveil_registry_migrate",
+            "Migrate project references",
+            false,
+            vec!["registry", "config"],
+        ),
+        (
+            "fileveil_registry_list",
+            "List registered projects",
+            true,
+            vec!["registry"],
+        ),
+        (
+            "fileveil_registry_status",
+            "Registered project status",
+            true,
+            vec!["registry"],
+        ),
+        (
+            "fileveil_registry_sync",
+            "Synchronize registered projects",
+            false,
+            vec!["registry"],
+        ),
+        (
+            "fileveil_registry_verify",
+            "Verify registered projects",
+            true,
+            vec!["registry"],
+        ),
+    ] {
+        definitions.push((name,title,"Central offline project references and signed release generations. Existing directory and signing grants apply to every project. Compiler execution and build commands are unavailable through MCP.",
+            json!({"registry":file,"state_directory":file,"project_path":file,"project_id":{"type":"string"},"name":{"type":"string"},"config":file,"legacy_state_directory":file,"key":file,"key_ref":{"type":"string"},"all":{"type":"boolean"},"defaults_json":{"type":"string"},"overrides_json":{"type":"string"},"options_json":{"type":"string"}}),required,read_only));
+    }
+    for (name, title, read_only) in [
+        (
+            "fileveil_software_inspect",
+            "Inspect software container",
+            true,
+        ),
+        (
+            "fileveil_software_detect",
+            "Detect software watermarks",
+            true,
+        ),
+        ("fileveil_software_verify", "Verify software evidence", true),
+        (
+            "fileveil_software_compare",
+            "Compare software containers",
+            true,
+        ),
+        (
+            "fileveil_software_clean",
+            "Clean known nonexecuting carrier",
+            false,
+        ),
+    ] {
+        definitions.push((name,title,"Bounded binary inspection and known nonexecuting structural-carrier cleaning. Programs, compilers and input code are never executed by MCP.",
+            json!({"path":file,"output":file,"reference":file,"options_json":{"type":"string","description":"SoftwareRequest JSON limited to local byte inspection, trusted public keys and structure cleaning. Toolchain overrides, compiler arguments and execution are rejected."}}),vec!["path"],read_only));
+    }
     definitions.into_iter().map(|(name, title, description, mut properties, required, read_only)| {
         if name != "fileveil_capabilities" {
             properties.as_object_mut().expect("tool properties").extend(limits.as_object().expect("limit properties").clone());
@@ -762,6 +1033,36 @@ mod tests {
         }
     }
     #[test]
+    fn registry_batch_selection_requires_a_json_boolean() {
+        let definition = tools()
+            .into_iter()
+            .find(|tool| tool["name"] == "fileveil_registry_sync")
+            .unwrap();
+        let schema = &definition["inputSchema"];
+        for all in [json!(true), json!(false)] {
+            assert!(
+                validate_arguments(
+                    json!({"registry":"registry.json","all":all})
+                        .as_object()
+                        .unwrap(),
+                    schema
+                )
+                .is_ok()
+            );
+        }
+        for all in [json!("true"), json!(1), json!(null), json!([])] {
+            assert!(
+                validate_arguments(
+                    json!({"registry":"registry.json","all":all})
+                        .as_object()
+                        .unwrap(),
+                    schema
+                )
+                .is_err()
+            );
+        }
+    }
+    #[test]
     fn transport_rejects_oversized_messages_without_growing_the_buffer() {
         let mut reader = io::Cursor::new(vec![b'x'; MAX_MESSAGE_BYTES + 1]);
         assert_eq!(
@@ -770,5 +1071,3 @@ mod tests {
         );
     }
 }
-
-// FVPROV1 31275 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiIxMjY3MjA2NDhkYmYyZmFhYTU1YjI2YjlkNzgxODU0ODVmMzU0MTJkMjdlZTFmMThiNTJiYWUyZDJiNzI0NjVlIiwiY29weV9pZCI6InYwLjUuMC1hbHBoYS4zIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC41LjAtYWxwaGEuMyIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL2NyYXRlcy9maWxldmVpbC1ndWkvc3JjL21jcC5ycyJ9LCJzaWduYXR1cmVzIjpbeyJrZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwicHVibGljX2tleV9oZXgiOiJhZGIzZTE3Y2QxMmY5NTZkMDA3MGUxNjYzZjUzMTUzN2ZjZWRmNzMwOGQwMTY1OGZlYTQ1NmZlZWE4ZjdmYmM1Iiwic2lnbmF0dXJlX2hleCI6IjNiMzRkZDViM2E1MGYzMzViZmQ4N2JkNTMzZmM0MWU2MDZhY2U4NmI1NWRmN2VlOTRiMmZhZDIxOGJkYjVhYWM1YjI4NDJiMGQ0NmJjZDQxOTU5ZjkwNzk2OTY1NDcxYjUxMmM4MjU3ZjBiNjk5YzYwZTgxZWE2N2YwMWU3MDBjIn1dfV0= FVPROV1-END

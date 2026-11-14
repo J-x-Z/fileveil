@@ -3,6 +3,7 @@
 use crate::{
     i18n::{Language, outcome},
     jobs::{JobHandle, JobKind, JobRequest, JobResult},
+    project_ui::ProjectPanel,
     session::Session,
 };
 use eframe::egui;
@@ -23,6 +24,7 @@ pub enum Workspace {
     Provenance,
     Tasks,
     Heritage,
+    Projects,
 }
 impl Workspace {
     pub fn label(self, language: Language) -> &'static str {
@@ -34,6 +36,7 @@ impl Workspace {
             Self::Provenance => t(language, "Verify 来源", "Verify provenance"),
             Self::Tasks => t(language, "Clean 批量", "Clean batch"),
             Self::Heritage => t(language, "Mark / Trace", "Mark / Trace"),
+            Self::Projects => t(language, "项目", "Projects"),
         }
     }
 }
@@ -54,6 +57,12 @@ pub struct Workspaces {
     notice: Option<String>,
     preview_textures: HashMap<String, egui::TextureHandle>,
     heritage_panel: crate::heritage_ui::HeritagePanel,
+    project_panel: ProjectPanel,
+    registry_panel: crate::registry_ui::RegistryPanel,
+    software_panel: crate::software_ui::SoftwarePanel,
+    forensics_panel: crate::software_ui::SoftwarePanel,
+    lab_section: u8,
+    registry_section: bool,
 }
 impl Default for Workspaces {
     fn default() -> Self {
@@ -76,14 +85,24 @@ impl Default for Workspaces {
             notice: None,
             preview_textures: HashMap::new(),
             heritage_panel: Default::default(),
+            project_panel: Default::default(),
+            registry_panel: Default::default(),
+            software_panel: Default::default(),
+            forensics_panel: Default::default(),
+            lab_section: 0,
+            registry_section: false,
         }
     }
 }
 impl Workspaces {
-    pub fn poll(&mut self, context: &egui::Context) {
+    pub fn poll(&mut self, context: &egui::Context, session: &Session) {
         if let Some(result) = self.active.as_ref().and_then(JobHandle::try_recv) {
             self.record_result(result);
             self.active = None;
+        }
+        let idle = self.idle(session);
+        if let Some(job) = self.project_panel.watch_job(context, idle) {
+            self.start(job, session, context);
         }
         if self.active.is_some() {
             context.request_repaint_after(std::time::Duration::from_millis(100));
@@ -92,7 +111,8 @@ impl Workspaces {
     pub fn busy(&self) -> bool {
         self.active.is_some()
     }
-    pub fn cancel(&self) {
+    pub fn cancel(&mut self) {
+        self.project_panel.stop_watching();
         if let Some(active) = &self.active {
             active.cancel();
         }
@@ -101,6 +121,25 @@ impl Workspaces {
         !self.busy() && session.active.is_none() && session.pending.is_empty()
     }
     fn record_result(&mut self, result: JobResult) {
+        self.registry_panel.record_result(&result.report);
+        let project = self.project_panel.pending();
+        let probe = self.project_panel.pending_probe();
+        if project {
+            self.project_panel.record_result(&result.report);
+        }
+        if probe
+            && !matches!(
+                result.report.result,
+                fileveil_core::Outcome::Failed
+                    | fileveil_core::Outcome::Blocked
+                    | fileveil_core::Outcome::Unsupported
+            )
+        {
+            return;
+        }
+        if project {
+            self.result_workspace = Workspace::Projects;
+        }
         self.preview_textures.clear();
         if self.result_workspace == Workspace::Deep && result.report.operation == "sanitize" {
             self.last_output = result.output_path.clone();
@@ -135,6 +174,7 @@ impl Workspaces {
                 Workspace::Provenance,
                 Workspace::Tasks,
                 Workspace::Heritage,
+                Workspace::Projects,
             ] {
                 let response =
                     ui.selectable_value(&mut self.selected, workspace, workspace.label(language));
@@ -144,7 +184,12 @@ impl Workspaces {
                 if workspace == Workspace::Heritage {
                     crate::smoke::target(&response, "heritage_tab");
                 }
-                if self.busy() && self.result_workspace == workspace {
+                let active_workspace = if self.project_panel.pending() {
+                    Workspace::Projects
+                } else {
+                    self.result_workspace
+                };
+                if self.busy() && active_workspace == workspace {
                     ui.spinner();
                 }
             }
@@ -166,25 +211,37 @@ impl Workspaces {
         if !self.idle(session) {
             return;
         }
-        self.result_workspace = self.selected;
-        self.result_samples = match &kind {
-            JobKind::Lab { paths } | JobKind::LabGrouped { paths, .. } => paths.clone(),
-            _ => Vec::new(),
-        };
-        self.result_input = match &kind {
-            JobKind::SanitizeAdvanced { input, .. }
-            | JobKind::Sanitize { input, .. }
-            | JobKind::ProcessImage { input, .. } => Some(input.clone()),
-            JobKind::VerifyAdvanced { original, .. }
-            | JobKind::Verify { original, .. }
-            | JobKind::VerifyImage { original, .. } => Some(original.clone()),
-            JobKind::Provenance { path, .. }
-            | JobKind::DetectWatermark { path }
-            | JobKind::Scan { path }
-            | JobKind::Heritage { path, .. } => Some(path.clone()),
-            JobKind::HeritageKeygen { .. } | JobKind::SystemKeygen => None,
-            JobKind::Lab { .. } | JobKind::LabGrouped { .. } => None,
-        };
+        let probe = matches!(&kind, JobKind::Project { request, .. } if request.action == fileveil_engine::project::ProjectAction::WatchProbe);
+        if !probe {
+            self.result_workspace = if matches!(&kind, JobKind::Project { .. }) {
+                Workspace::Projects
+            } else {
+                self.selected
+            };
+            self.result_samples = match &kind {
+                JobKind::Lab { paths } | JobKind::LabGrouped { paths, .. } => paths.clone(),
+                _ => Vec::new(),
+            };
+            self.result_input = match &kind {
+                JobKind::SanitizeAdvanced { input, .. }
+                | JobKind::Sanitize { input, .. }
+                | JobKind::ProcessImage { input, .. } => Some(input.clone()),
+                JobKind::VerifyAdvanced { original, .. }
+                | JobKind::Verify { original, .. }
+                | JobKind::VerifyImage { original, .. } => Some(original.clone()),
+                JobKind::Provenance { path, .. }
+                | JobKind::DetectWatermark { path }
+                | JobKind::Scan { path }
+                | JobKind::Heritage { path, .. } => Some(path.clone()),
+                JobKind::HeritageKeygen { .. } | JobKind::SystemKeygen => None,
+                JobKind::Project { request, .. } => Some(request.config_path.clone()),
+                JobKind::Registry { request } => request.project_path.clone(),
+                JobKind::Software { request } => {
+                    (!request.input_path.as_os_str().is_empty()).then(|| request.input_path.clone())
+                }
+                JobKind::Lab { .. } | JobKind::LabGrouped { .. } => None,
+            };
+        }
         if matches!(kind, JobKind::SanitizeAdvanced { .. }) {
             self.last_output = None;
         }
@@ -196,9 +253,11 @@ impl Workspaces {
             request,
             Arc::new(move || notify.request_repaint()),
         ));
-        self.result = None;
-        self.preview_textures.clear();
-        self.notice = None;
+        if !probe {
+            self.result = None;
+            self.preview_textures.clear();
+            self.notice = None;
+        }
     }
     /// Returns true when the existing Research parameter dialog should open.
     pub fn ui(&mut self, ui: &mut egui::Ui, language: Language, session: &mut Session) -> bool {
@@ -206,7 +265,9 @@ impl Workspaces {
         let path = session.selected_item().map(|item| item.path.clone());
         let idle = self.idle(session);
         ui.heading(self.selected.label(language));
-        if let Some(path) = &path {
+        if let Some(path) = &path
+            && self.selected != Workspace::Projects
+        {
             ui.label(
                 path.file_name()
                     .unwrap_or(path.as_os_str())
@@ -373,7 +434,41 @@ impl Workspaces {
                     ));
                 }
             }
-            Workspace::Lab => self.lab(ui, language, session, idle),
+            Workspace::Lab => {
+                ui.horizontal_wrapped(|ui| {
+                    ui.selectable_value(
+                        &mut self.lab_section,
+                        0,
+                        t(language, "图像差异", "Image comparison"),
+                    );
+                    ui.selectable_value(
+                        &mut self.lab_section,
+                        1,
+                        t(language, "软件水印", "Software watermarks"),
+                    );
+                    ui.selectable_value(
+                        &mut self.lab_section,
+                        2,
+                        t(language, "二进制取证", "Binary forensics"),
+                    );
+                });
+                ui.add_space(8.0);
+                let job = match self.lab_section {
+                    1 => self
+                        .software_panel
+                        .ui(ui, language, idle, path.as_deref(), false),
+                    2 => self
+                        .forensics_panel
+                        .ui(ui, language, idle, path.as_deref(), true),
+                    _ => {
+                        self.lab(ui, language, session, idle);
+                        None
+                    }
+                };
+                if let Some(job) = job {
+                    self.start(job, session, ui.ctx());
+                }
+            }
             Workspace::Provenance => {
                 ui.label(t(language,"离线验证 C2PA 签名、文件绑定和公开图像水印。可选择本地 PEM 信任根，检测证据与个人身份关联分别记录。","Validate C2PA signatures, asset binding and public image watermarks offline. Choose optional local PEM trust roots. Detection evidence and personal identity links have separate results."));
                 ui.horizontal(|ui| {
@@ -484,6 +579,36 @@ impl Workspaces {
                     self.start(job, session, ui.ctx());
                 }
             }
+            Workspace::Projects => {
+                ui.horizontal_wrapped(|ui| {
+                    ui.selectable_value(
+                        &mut self.registry_section,
+                        false,
+                        t(language, "项目配置", "Project configuration"),
+                    );
+                    ui.selectable_value(
+                        &mut self.registry_section,
+                        true,
+                        t(language, "项目注册表", "Project registry"),
+                    );
+                });
+                ui.add_space(8.0);
+                let job = if self.registry_section {
+                    self.registry_panel.ui(ui, language, idle)
+                } else {
+                    self.project_panel.ui(ui, language, idle)
+                };
+                if let Some(job) = job {
+                    self.start(job, session, ui.ctx());
+                }
+                if self.project_panel.take_clear_results_requested() {
+                    self.result = None;
+                    self.notice = None;
+                }
+                if self.project_panel.take_cancel_requested() {
+                    self.cancel();
+                }
+            }
             Workspace::Files => {}
         }
         if let Some(active) = &self.active {
@@ -496,6 +621,7 @@ impl Workspaces {
                 ));
                 if ui.button(t(language, "取消", "Cancel")).clicked() {
                     active.cancel();
+                    self.project_panel.stop_watching();
                 }
             });
         }
@@ -838,6 +964,22 @@ impl Workspaces {
             ui.label(t(language,"本次未取得可读取的 C2PA 来源凭据，未知 AI 水印仍未评估。","This run obtained no readable C2PA credentials. Unknown AI watermarks remain unassessed."));
         }
         if let Some(details) = &result.report.advanced {
+            if let Some(registry) = details.get("registry") {
+                crate::registry_ui::report_ui(ui, language, registry);
+            }
+            if let Some(software) = details.get("software") {
+                crate::software_ui::report_ui(ui, language, software);
+            }
+            if let Some(project) = details.get("project") {
+                crate::project_ui::report_ui(ui, language, project);
+                if let Some(path) = self.project_panel.manifest_path(project)
+                    && ui
+                        .button(t(language, "打开签名清单", "Open signed manifest"))
+                        .clicked()
+                {
+                    crate::app::reveal_output(&path);
+                }
+            }
             if let Some(heritage) = details.get("heritage") {
                 heritage_report_ui(ui, language, heritage);
             }
@@ -2440,5 +2582,3 @@ mod tests {
         }
     }
 }
-
-// FVPROV1 110396 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiJmOWJhNjdkOTE4ZGRjMzA5YmI2NzQ5MDcyNjExMGZiNjUwOGUzZjNlNzkyODg0NTFmZDA4YjUyYmFmODlmZTU1IiwiY29weV9pZCI6InYwLjUuMC1hbHBoYS4zIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC41LjAtYWxwaGEuMyIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL2NyYXRlcy9maWxldmVpbC1ndWkvc3JjL3dvcmtzcGFjZXMucnMifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiJlNmQzYzhlYjZhNGE0ODcwNDM0YThjZWM1NmZlNmVhNGRjZDRmNWEyNjVhMTZjZGQwNWM3ZjhmOWU4ODMyODA1ZDMzZTE1MDQxMjMyMWNhYzI5MGIwZGUyMDFjNGVkZGY2OWViMzkyYmJmYTdjMDY1NzNlYzhhOWZlOTAzNmYwYiJ9XX1d FVPROV1-END

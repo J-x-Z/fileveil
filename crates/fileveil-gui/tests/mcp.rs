@@ -308,7 +308,7 @@ fn negotiation_tool_discovery_capabilities_and_protocol_errors() {
         let mut client = Client::new(version);
         let listed = client.request("tools/list", json!({}));
         let tools = listed["result"]["tools"].as_array().unwrap();
-        assert_eq!(tools.len(), 15);
+        assert_eq!(tools.len(), 33);
         for tool in tools {
             let read_only = matches!(
                 tool["name"].as_str().unwrap(),
@@ -321,6 +321,15 @@ fn negotiation_tool_discovery_capabilities_and_protocol_errors() {
                     | "fileveil_trace"
                     | "fileveil_verify_watermark"
                     | "fileveil_watermark_lab"
+                    | "fileveil_project_status"
+                    | "fileveil_project_verify"
+                    | "fileveil_registry_list"
+                    | "fileveil_registry_status"
+                    | "fileveil_registry_verify"
+                    | "fileveil_software_inspect"
+                    | "fileveil_software_detect"
+                    | "fileveil_software_verify"
+                    | "fileveil_software_compare"
             );
             assert_eq!(tool["annotations"]["readOnlyHint"], read_only);
             assert_eq!(tool["annotations"]["destructiveHint"], false);
@@ -753,5 +762,3 @@ fn home_case_alias_is_rejected_before_starting_the_stdio_server() {
         }
     }
 }
-
-// FVPROV1 29861 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiJlMzNhNWMzN2JhYWU2NWFhNjVkMWI2Mjg1N2JiZDZjMTVkYjBlMTU4ZTk0OWFjM2E3YzZkNjliNWY4NGRiMWYzIiwiY29weV9pZCI6InYwLjUuMC1hbHBoYS4zIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC41LjAtYWxwaGEuMyIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL2NyYXRlcy9maWxldmVpbC1ndWkvdGVzdHMvbWNwLnJzIn0sInNpZ25hdHVyZXMiOlt7ImtleV9pZCI6Ijk5ZWE2M2VmY2NmZDBmZGJkNjhlMTZlZDhmMDNkMzM3ZjE1ZWMyZTRhNmEzZDY0ZTExZDcxNGVhMWU1NDI1MzMiLCJwdWJsaWNfa2V5X2hleCI6ImFkYjNlMTdjZDEyZjk1NmQwMDcwZTE2NjNmNTMxNTM3ZmNlZGY3MzA4ZDAxNjU4ZmVhNDU2ZmVlYThmN2ZiYzUiLCJzaWduYXR1cmVfaGV4IjoiYzMwN2Y2NDI5MTFkYWFkZWUzZTY0YjhkZTk4MGEyMGJiMzhkM2YwYWE4NzdhODMwOWY3YTFmYzE1NjMxOGU2YTQxOTgzYWUzYzhmYzRmNTM1NGJkMWNmYzRlNTU0MDIxNDJjNDcyMzJlMDk3NDUxOGE3NzlkNTVjNzgyYjNkMDUifV19XQ== FVPROV1-END

@@ -31,6 +31,17 @@ const MAX_REPORT_BYTES: u64 = 16 * 1024 * 1024;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "operation", rename_all = "snake_case")]
 pub enum JobKind {
+    Registry {
+        request: Box<fileveil_engine::project::registry::RegistryRequest>,
+    },
+    Software {
+        request: Box<fileveil_engine::software::SoftwareRequest>,
+    },
+    Project {
+        request: Box<fileveil_engine::project::ProjectRequest>,
+        #[serde(default)]
+        after: Option<Vec<String>>,
+    },
     Heritage {
         path: PathBuf,
         output: Option<PathBuf>,
@@ -89,6 +100,9 @@ pub enum JobKind {
 impl JobKind {
     pub fn operation(&self) -> &'static str {
         match self {
+            Self::Project { .. } => "project",
+            Self::Registry { .. } => "registry",
+            Self::Software { .. } => "software",
             Self::Heritage { .. } => "heritage",
             Self::HeritageKeygen { .. } | Self::SystemKeygen => "heritage_keygen",
             Self::Scan { .. } => "scan",
@@ -106,6 +120,12 @@ impl JobKind {
 
     fn output_target(&self) -> Option<(&Path, Option<&Path>)> {
         match self {
+            Self::Software { request }
+                if request.action == fileveil_engine::software::SoftwareAction::Clean
+                    && request.mode == fileveil_engine::software::SoftwareMode::Structure =>
+            {
+                Some((&request.input_path, request.output_path.as_deref()))
+            }
             Self::Heritage {
                 path,
                 output,
@@ -379,6 +399,9 @@ fn supervise(
     let mut worker_request = request.clone();
     if let Some(staged) = &staged_output {
         match &mut worker_request.kind {
+            JobKind::Software { request } => {
+                request.output_path = Some(staged.clone());
+            }
             JobKind::Heritage { output, .. }
             | JobKind::Sanitize { output, .. }
             | JobKind::ProcessImage { output, .. }
@@ -491,6 +514,21 @@ fn supervise(
                     && report.result == Outcome::PartiallyVerified
             }
             (None, None) => match &request.kind {
+                JobKind::Registry { request } => report.advanced.as_ref().is_some_and(|details| {
+                    details["registry"]["action"]
+                        == serde_json::to_value(request.action).unwrap_or_default()
+                }),
+                JobKind::Software { request } => report.advanced.as_ref().is_some_and(|details| {
+                    details["software"]["action"]
+                        == serde_json::to_value(request.action).unwrap_or_default()
+                }),
+                JobKind::Project { request, .. } => {
+                    report.policy == fileveil_core::Policy::Safe
+                        && report.advanced.as_ref().is_some_and(|details| {
+                            details["project"]["action"]
+                                == serde_json::to_value(request.action).unwrap_or_default()
+                        })
+                }
                 JobKind::Heritage { request, .. } => {
                     report.policy == request.policy()
                         && report.advanced.as_ref().is_some_and(|details| {
@@ -534,7 +572,19 @@ fn supervise(
                 "Operation cancelled before artifact publication and staging was cleaned".into(),
             ));
         }
-        if let JobKind::Heritage {
+        if let JobKind::Software { request: options } = &request.kind {
+            let output = output.ok_or_else(|| {
+                Error::Input("Software clean requires an explicit new output path".into())
+            })?;
+            fileveil_engine::software::publish_staged(
+                input,
+                staged,
+                output,
+                &mut report,
+                &request.limits,
+                options,
+            )?;
+        } else if let JobKind::Heritage {
             request: options, ..
         } = &request.kind
         {
@@ -684,6 +734,25 @@ fn execute_worker(request: &JobRequest) -> fileveil_core::Result<Report> {
 fn execute_bound_worker(request: &JobRequest) -> fileveil_core::Result<Report> {
     request.validate()?;
     match &request.kind {
+        JobKind::Registry { request: options } => fileveil_engine::project::registry::run(
+            options,
+            &request.limits,
+            &std::sync::atomic::AtomicBool::new(false),
+        ),
+        JobKind::Software { request: options } => fileveil_engine::software::run(
+            options,
+            &request.limits,
+            &std::sync::atomic::AtomicBool::new(false),
+        ),
+        JobKind::Project {
+            request: options,
+            after,
+        } => fileveil_engine::worker::run_project_operation(
+            options.as_ref().clone(),
+            after.as_deref(),
+            &request.limits,
+            Duration::from_secs(request.timeout_seconds),
+        ),
         JobKind::Heritage {
             path,
             output,
@@ -785,5 +854,3 @@ fn execute_bound_worker(request: &JobRequest) -> fileveil_core::Result<Report> {
         ),
     }
 }
-
-// FVPROV1 28094 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiI0ODdhZjU2YjJhNzhkMzIzNjcxMmUwNzJhNmE4NDMwNGRkY2I2YzVhMTYwYzQ1ODE1NDQ5YTQ0OTZmNzkwY2NmIiwiY29weV9pZCI6InYwLjUuMC1hbHBoYS4zIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC41LjAtYWxwaGEuMyIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL2NyYXRlcy9maWxldmVpbC1ndWkvc3JjL2pvYnMucnMifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiJkNjgzODllMmNlMjQ3M2FhZTUzNmUxNTk1ZWRiNDJmYWFkZmUxMDBhNjEwMGJmNjlmYTEyZjFkNmJhN2UyNGQ0YzlkOWU4ODAzNWY5ZWFjODcwNjc0MmM3NWUyZmU4ZTRkNDc1YmQ3MGRjYTQ3ZTRiZDA4NmMzMjhiNjVkMmEwOCJ9XX1d FVPROV1-END
