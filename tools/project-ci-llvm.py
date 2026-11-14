@@ -63,7 +63,7 @@ def install(destination):
 
 
 def windows_pass_dependencies():
-    """Provide the static SDK's ZLIB import through the hosted runner's vcpkg."""
+    """Provide static SDK compression imports through the hosted runner's vcpkg."""
     selected = os.getenv("VCPKG_INSTALLATION_ROOT") or os.getenv("VCPKG_ROOT")
     if not selected:
         raise ValueError("Building the Windows LLVM pass requires the runner's vcpkg installation")
@@ -71,12 +71,14 @@ def windows_pass_dependencies():
     executable = root / "vcpkg.exe"
     if not executable.is_file() or not (root / "scripts/buildsystems/vcpkg.cmake").is_file():
         raise ValueError("The configured vcpkg installation has no executable or CMake toolchain")
-    subprocess.run([str(executable), "install", "zlib:x64-windows-static-md"],
+    subprocess.run([str(executable), "install", "zlib:x64-windows-static-md", "zstd:x64-windows-static-md"],
                    check=True, timeout=600, env=POST.clean_environment())
     prefix = root / "installed/x64-windows-static-md"
     names = ("zlib.lib", "zlibstatic.lib", "libz.lib", "libzs.lib", "zs.lib", "z.lib")
     if not (prefix / "include/zlib.h").is_file() or not any((prefix / "lib" / name).is_file() for name in names):
         raise ValueError("vcpkg did not produce the required static ZLIB development files")
+    if not (prefix / "share/zstd/zstdConfig.cmake").is_file():
+        raise ValueError("vcpkg did not produce the required static Zstandard CMake package")
     value = os.pathsep.join(part for part in (str(prefix), os.getenv("CMAKE_PREFIX_PATH", "")) if part)
     if any(character in value for character in "\r\n\0"):
         raise ValueError("CMake dependency paths must fit one environment record")
@@ -131,4 +133,4 @@ if __name__ == "__main__":
         print("FileVeil LLVM SDK setup failed (" + str(error) + ")", file=sys.stderr)
         sys.exit(1)
 
-# FVPROV1 6798 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiJhZDlhOTBiMmVmMjk3ZDkxYjkyYmIyZGM0MjlkNDg1MDdlMWQ0M2M3ZjEyY2Q0ODg1NTk3ODZkNjM2YTc2NmUzIiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL3Rvb2xzL3Byb2plY3QtY2ktbGx2bS5weSJ9LCJzaWduYXR1cmVzIjpbeyJrZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwicHVibGljX2tleV9oZXgiOiJhZGIzZTE3Y2QxMmY5NTZkMDA3MGUxNjYzZjUzMTUzN2ZjZWRmNzMwOGQwMTY1OGZlYTQ1NmZlZWE4ZjdmYmM1Iiwic2lnbmF0dXJlX2hleCI6ImJmZDA2ZTRiODkwMDgxNmU0NDBhMTA2ZDZlZjVkZmFkZjY1N2U0MzRmZDcwYmUwZjcyNDg2YmI4Y2U2Y2NlYmY1MTFiZWIzNTg1MDBkNWUwMDc0Y2YxZDNhZDg5NmE3MDE3YjllNjAzNTE4NWI4ZjBmYmM3NjdlYzAzYzFkMzA0In1dfV0= FVPROV1-END
+# FVPROV1 6987 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiI5ODczN2EwYjY1NjNhNzYzMzBlZDljZTY2N2MxZGNmMzA1MGVjYTk2MGUzNGFkYTZiMmEwYzQxMzc3NjUwZWU4IiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL3Rvb2xzL3Byb2plY3QtY2ktbGx2bS5weSJ9LCJzaWduYXR1cmVzIjpbeyJrZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwicHVibGljX2tleV9oZXgiOiJhZGIzZTE3Y2QxMmY5NTZkMDA3MGUxNjYzZjUzMTUzN2ZjZWRmNzMwOGQwMTY1OGZlYTQ1NmZlZWE4ZjdmYmM1Iiwic2lnbmF0dXJlX2hleCI6ImVlOGEwYThhMjFkZDZiZTUxZjUzYjEwOTMyYzI1MWQzNjA4NThjNWEzM2I5ZDQwNzJlNTYwNjRlM2E2NjRhYjM5MTA4Zjc2ODQ1NjQwM2U0NTY0YWUxNTVkZjBhYzI2MGJlNmE1YWQyZGI1YzhmYzhlZTZjNGM5NDUwZWViMjAyIn1dfV0= FVPROV1-END
