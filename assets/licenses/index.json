@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "date": "2026-11-13",
-  "cargo_lock_sha256": "59995f4a9ddb109af3fa0f03061ff56bbcf221230f00e9936d4f80c9baeda2af",
+  "cargo_lock_sha256": "3a081cf1056e44ac0ea22c2f938f19be21c1d6ef81e0978f7fc49e419490eb02",
   "registry_packages": [
     {
       "name": "abnf",
