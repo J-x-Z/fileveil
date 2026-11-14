@@ -238,6 +238,27 @@ fn read_registry(access: &Access, path: &Path) -> Result<Registry> {
     }
     Ok(registry)
 }
+
+fn lock_registry(
+    access: &Access,
+    path: &Path,
+    registry: &mut Registry,
+) -> Result<files::TransactionLock> {
+    let lock = access.lock(&registry.private_base)?;
+    // MCP may retain an earlier registry descriptor from authorization. Read
+    // the current name through the same granted directory handles after locking.
+    let current =
+        crate::access_guard::with_bound_files(Vec::new(), || read_registry(access, path))?;
+    if current.private_base != registry.private_base || current.registry_id != registry.registry_id
+    {
+        return Err(files::blocked(
+            "Registry identity or private state changed before acquiring its transaction lock",
+        ));
+    }
+    *registry = current;
+    Ok(lock)
+}
+
 fn detect(access: &Access, path: &Path) -> Result<Vec<ProjectKind>> {
     let root = access.directory(path, false, false)?;
     let names = root.list(100_000)?;
@@ -692,7 +713,7 @@ pub fn run(request: &RegistryRequest, limits: &Limits, flag: &AtomicBool) -> Res
             | RegistryAction::Sync
     );
     let _lock = if writing {
-        Some(access.lock(&registry.private_base)?)
+        Some(lock_registry(&access, &path, &mut registry)?)
     } else {
         None
     };
@@ -1203,4 +1224,128 @@ fn execute(
     Ok(report)
 }
 
-// FVPROV1 43739 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiJiNTQ3NjVkOGJhMTczNTBkNDdiNTJkMjZhZjEwYTJlOTNjM2IwOGU1MDcyNmJmYmM3YzBhOWJkN2E1YTIyYWIwIiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL2NyYXRlcy9maWxldmVpbC1lbmdpbmUvc3JjL3Byb2plY3QvcmVnaXN0cnkucnMifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiI5M2YyOTJlZDI4ZDNhMjk2NjA0MjYwNzY2MWIyMmFiYzA1MWE2ODE1OTgxN2U3YWNhZjhjZjM4YmYxYWZhOTI3MTIyYzdhNzE2NDQ5NDE1NWRjNWI2MjBjOWE4NWJiMjA5NWEwNmUyNDY5M2M4MTE0Y2MxY2EyMzUwN2VjMDAwYSJ9XX1d FVPROV1-END
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct Fixture {
+        _temporary: tempfile::TempDir,
+        access: Access,
+        path: PathBuf,
+    }
+
+    impl Fixture {
+        fn new() -> Self {
+            let temporary = tempfile::tempdir().unwrap();
+            let root = temporary.path().canonicalize().unwrap();
+            let fixture = Self {
+                _temporary: temporary,
+                access: Access::new(None).unwrap(),
+                path: root.join("registry.json"),
+            };
+            let registry = Registry {
+                schema: "fileveil.project.registry.v1".into(),
+                registry_id: "0".repeat(32),
+                private_base: root.join("private"),
+                defaults: RegistryDefaults::default(),
+                projects: Vec::new(),
+            };
+            fixture.save(&registry);
+            fixture
+        }
+
+        fn read(&self) -> Registry {
+            read_registry(&self.access, &self.path).unwrap()
+        }
+
+        fn save(&self, registry: &Registry) {
+            self.access
+                .replace(&self.path, &encoded(registry).unwrap())
+                .unwrap();
+        }
+
+        fn entry(&self, id: &str) -> RegistryEntry {
+            let root = self.path.parent().unwrap().join(id);
+            RegistryEntry {
+                project_id: id.repeat(32),
+                name: id.into(),
+                kind: ProjectKind::Local,
+                detected_kinds: vec![ProjectKind::Local],
+                source_root: root.clone(),
+                project_root: root.clone(),
+                config_path: root.join("config.json"),
+                state_directory: root.join("state"),
+                overrides: ProjectOverrides::default(),
+                compiler: None,
+                legacy_config_path: None,
+            }
+        }
+    }
+
+    #[test]
+    fn locked_writer_refreshes_a_snapshot_read_before_another_commit() {
+        let fixture = Fixture::new();
+        // Both writers read before either acquires its transaction lock.
+        let mut first = fixture.read();
+        let mut second = fixture.read();
+        let first_lock = lock_registry(&fixture.access, &fixture.path, &mut first).unwrap();
+        first.projects.push(fixture.entry("1"));
+        fixture.save(&first);
+        drop(first_lock);
+        let _second_lock = lock_registry(&fixture.access, &fixture.path, &mut second).unwrap();
+        assert_eq!(second.projects.len(), 1);
+        second.projects.push(fixture.entry("2"));
+        fixture.save(&second);
+        let saved = fixture.read();
+        assert_eq!(saved.projects.len(), 2);
+        assert_eq!(saved.projects[0].name, "1");
+        assert_eq!(saved.projects[1].name, "2");
+    }
+
+    #[test]
+    fn locked_writer_refreshes_current_path_and_restores_mcp_bindings() {
+        let fixture = Fixture::new();
+        let mut before = fixture.read();
+        let original = std::fs::File::open(&fixture.path).unwrap();
+        // Retain the old inode to model an earlier broker-bound snapshot.
+        std::fs::rename(&fixture.path, fixture.path.with_extension("previous")).unwrap();
+        let mut latest = before.clone();
+        latest.defaults.author = "Latest committed author".into();
+        fixture.save(&latest);
+        crate::access_guard::with_bound_files(vec![(fixture.path.clone(), original)], || {
+            assert!(fixture.read().defaults.author.is_empty());
+            let _lock = lock_registry(&fixture.access, &fixture.path, &mut before)?;
+            assert_eq!(before.defaults.author, latest.defaults.author);
+            // Only the locked refresh bypasses the earlier descriptor.
+            assert!(fixture.read().defaults.author.is_empty());
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(fixture.read().defaults.author, latest.defaults.author);
+    }
+
+    #[test]
+    fn locked_writer_rejects_registry_identity_or_private_base_drift() {
+        for change_base in [false, true] {
+            let fixture = Fixture::new();
+            let mut before = fixture.read();
+            let mut latest = before.clone();
+            if change_base {
+                latest.private_base = fixture.path.parent().unwrap().join("different-private");
+            } else {
+                latest.registry_id = "9".repeat(32);
+            }
+            fixture.save(&latest);
+            let result = lock_registry(&fixture.access, &fixture.path, &mut before);
+            assert!(matches!(result, Err(Error::Blocked(_))));
+            assert!(fixture.access.lock(&before.private_base).is_ok());
+            if change_base {
+                assert!(!latest.private_base.exists());
+            }
+            assert_eq!(fixture.read().registry_id, latest.registry_id);
+            assert_eq!(fixture.read().private_base, latest.private_base);
+        }
+    }
+}
+
+// FVPROV1 49332 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiJjMmZiOWM5YjhiOGRjNTM4NmJjMmU4MGI3Y2Y5NDBlMjM5NjQ1ZDJiMWU5MDIxZTBkYTE5YjBjNTUwZjk2ODA1IiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL2NyYXRlcy9maWxldmVpbC1lbmdpbmUvc3JjL3Byb2plY3QvcmVnaXN0cnkucnMifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiI2ZjYxYmEwYTY2NjlmNmE3M2YzM2U0OGI1ODY1MTQ3Yzk5Njc0YmU0NGQ1Y2YzNzM4MDcwMTQwZDhjMTU1MjA4NWZmNTZiMGU4ODQxMTc4MWUwZTgwYmRkZDIwNmNkNTgwMzBlNTkxMjllYzIzNWY0NDM4MzMwNmMzNmNiOWQwNyJ9XX1d FVPROV1-END
