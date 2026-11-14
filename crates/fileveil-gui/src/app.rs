@@ -130,6 +130,15 @@ pub struct FileVeilApp {
 }
 impl FileVeilApp {
     pub fn new(context: &eframe::CreationContext<'_>, paths: Vec<PathBuf>) -> Self {
+        Self::new_with_language(context, paths, crate::preferences::load())
+    }
+
+    /// Create an embedded workbench with an explicitly selected interface language.
+    pub fn new_with_language(
+        context: &eframe::CreationContext<'_>,
+        paths: Vec<PathBuf>,
+        language: Language,
+    ) -> Self {
         install_fonts(&context.egui_ctx);
         let appearance = Appearance::default();
         apply_style(&context.egui_ctx, appearance);
@@ -152,7 +161,7 @@ impl FileVeilApp {
         session.add_paths(paths);
         Self {
             session,
-            language: crate::preferences::load(),
+            language,
             appearance,
             finding_view: FindingView::default(),
             settings_open: false,
@@ -2335,5 +2344,3 @@ mod tests {
         );
     }
 }
-
-// FVPROV1 95539 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiIzMWM0NTk0NDE2NDA3OGU1ZWQ3MDcxMGFmNTM0N2UyZWEyNDI5Yjg2OWIyMGJhODcxYzRiMmY2NzAzMTMxY2RiIiwiY29weV9pZCI6InYwLjUuMC1hbHBoYS4yIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC41LjAtYWxwaGEuMiIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL2NyYXRlcy9maWxldmVpbC1ndWkvc3JjL2FwcC5ycyJ9LCJzaWduYXR1cmVzIjpbeyJrZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwicHVibGljX2tleV9oZXgiOiJhZGIzZTE3Y2QxMmY5NTZkMDA3MGUxNjYzZjUzMTUzN2ZjZWRmNzMwOGQwMTY1OGZlYTQ1NmZlZWE4ZjdmYmM1Iiwic2lnbmF0dXJlX2hleCI6ImNlNzQ1NTgwNzM4OWYzNTE4NTAwMTY2N2YwM2JkMzc3OTcyMGEzMGI0ODMxYmQyM2QyYTY5NDE0OGMwMzBlOGE4MTJkNjZkMmUwYWU0NzVlMDlkMGI2NzJhZWQ4ZTU0MDBmOWNiODU1ZjcxZTgyYWQ1MjQxMWFkYWJkODU5ZTAyIn1dfV0= FVPROV1-END

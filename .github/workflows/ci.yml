@@ -29,6 +29,7 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 env:
+  PYTHONUTF8: '1'
   CARGO_INCREMENTAL: '0'
   CARGO_PROFILE_DEV_DEBUG: '0'
   CARGO_PROFILE_TEST_DEBUG: '0'
@@ -194,11 +195,6 @@ jobs:
           output = pathlib.Path('work/independent-v2-geometry').resolve()
           output.mkdir(parents=True, exist_ok=True)
           subprocess.run([sys.executable, 'tests/support/watermark_v2_oracle.py', 'crates/fileveil-engine/tests/fixtures/watermark/astronaut.png', '--encode', str(output / 'independent.png'), '--rotation-fixtures', str(output), '--output-json', str(output / 'oracle.json')], check=True, timeout=120)
-          environment = dict(os.environ, FILEVEIL_ROTATION_FIXTURES=str(output))
-          result = subprocess.run(['cargo', 'test', '--locked', '-p', 'fileveil-engine', '--test', 'heritage_robust_v2', 'independent_pillow_rotation_sync_and_cleaning', '--', '--ignored', '--exact'], env=environment, capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=180)
-          pathlib.Path('work/independent-v2-geometry.log').write_text(result.stdout + result.stderr, encoding='utf-8')
-          print(result.stdout + result.stderr)
-          assert result.returncode == 0 and '1 passed;' in result.stdout, result.stdout + result.stderr
       - name: Clippy
         run: cargo clippy --locked --all-targets -- -D warnings
       - name: Test
@@ -212,6 +208,25 @@ jobs:
           pathlib.Path('work/ci-tests.log').write_text(result.stdout, encoding='utf-8')
           print(result.stdout, end='', flush=True)
           sys.exit(result.returncode)
+      - name: Independent geometry test with separate compilation budget
+        shell: python {0}
+        run: |
+          import json
+          import os
+          import pathlib
+          import subprocess
+          build = subprocess.run(['cargo', 'test', '--locked', '-p', 'fileveil-engine', '--test', 'heritage_robust_v2', '--no-run', '--message-format=json'], check=True, stdout=subprocess.PIPE, text=True, encoding='utf-8')
+          artifacts = [json.loads(line) for line in build.stdout.splitlines() if line.startswith('{')]
+          executables = [item['executable'] for item in artifacts if item.get('reason') == 'compiler-artifact' and item.get('target', {}).get('name') == 'heritage_robust_v2' and item.get('executable')]
+          assert len(executables) == 1, executables
+          log = pathlib.Path('work/independent-v2-geometry.log')
+          environment = dict(os.environ, FILEVEIL_ROTATION_FIXTURES=str(pathlib.Path('work/independent-v2-geometry').resolve()))
+          try:
+              with log.open('w', encoding='utf-8') as stream:
+                  result = subprocess.run([executables[0], 'independent_pillow_rotation_sync_and_cleaning', '--ignored', '--exact', '--nocapture'], env=environment, stdout=stream, stderr=subprocess.STDOUT, timeout=180)
+          finally:
+              print(log.read_text(encoding='utf-8'), end='', flush=True)
+          assert result.returncode == 0 and '1 passed;' in log.read_text(encoding='utf-8')
       - name: Save native test evidence
         uses: actions/upload-artifact@v4
         if: always()
@@ -522,5 +537,3 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
           key: ${{ steps.cargo-cache.outputs.cache-primary-key }}
-
-# FVPROV1 30558 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiI2OTMzZGExNzk2NTY5YTllOWJiNTM4MTg5NDI4MjExMjZlZDA3YWIwZmMzNGM5MzBiYTYwYjM1NTM2ZTIyYmIzIiwiY29weV9pZCI6InYwLjUuMC1hbHBoYS4yIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC41LjAtYWxwaGEuMiIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlLy5naXRodWIvd29ya2Zsb3dzL2NpLnltbCJ9LCJzaWduYXR1cmVzIjpbeyJrZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwicHVibGljX2tleV9oZXgiOiJhZGIzZTE3Y2QxMmY5NTZkMDA3MGUxNjYzZjUzMTUzN2ZjZWRmNzMwOGQwMTY1OGZlYTQ1NmZlZWE4ZjdmYmM1Iiwic2lnbmF0dXJlX2hleCI6ImRmNGVmN2E5ZDJhNDIxNjc1ZTE0YmE2OWNlMmViNTAyMDZlYzE0M2YwMDQ4OGVkMzA5YTc4ZjA5YWRkMGExNjhmYTNkNTgyOTllOGQxNzg2N2VmODRmMDliMzIzNzEzNTEyMDdjYzRiZDRmZGY4NjJiMGVjM2QwOWRhODI4MDA4In1dfV0= FVPROV1-END

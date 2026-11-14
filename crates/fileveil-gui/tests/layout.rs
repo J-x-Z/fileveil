@@ -5,6 +5,7 @@ use eframe::{App, egui};
 use fileveil_core::{Action, Finding, FindingState, Format, Integrity, Outcome, Report, RiskLayer};
 use fileveil_gui::{
     app::FileVeilApp,
+    i18n::{Language, tr},
     jobs::{JobHandle, JobKind, JobRequest},
     session::{ActiveTask, FileItem, ItemStatus, TaskKind},
 };
@@ -134,7 +135,7 @@ fn scan_sanitize_scan_keeps_workbench_accessible_at_supported_sizes() {
         let context = egui::Context::default();
         context.enable_accesskit();
         let creation = eframe::CreationContext::_new_kittest(context.clone());
-        let mut app = FileVeilApp::new(&creation, Vec::new());
+        let mut app = FileVeilApp::new_with_language(&creation, Vec::new(), Language::Chinese);
         let scan = report("scan");
         app.session.items.push(FileItem {
             id: 1,
@@ -220,6 +221,76 @@ fn scan_sanitize_scan_keeps_workbench_accessible_at_supported_sizes() {
                     text.iter().any(|text| text.contains("打开输出文件夹")),
                     "{text:?}"
                 );
+            }
+        }
+    }
+}
+
+#[test]
+fn localized_workbench_keeps_controls_and_verification_at_minimum_size() {
+    let dimensions = egui::vec2(1060.0, 700.0);
+    for language in Language::ALL
+        .into_iter()
+        .filter(|language| *language != Language::Chinese)
+    {
+        let context = egui::Context::default();
+        context.enable_accesskit();
+        let creation = eframe::CreationContext::_new_kittest(context.clone());
+        let mut app = FileVeilApp::new_with_language(&creation, Vec::new(), language);
+        let scan = report("scan");
+        app.session.items.push(FileItem {
+            id: 1,
+            path: "synthetic-layout.png".into(),
+            size: 128,
+            scan: Some(scan.clone()),
+            latest: Some(scan),
+            output_path: None,
+            output_processing: None,
+            status: ItemStatus::Finished,
+        });
+        app.session.selected = Some(1);
+        let mut time = 0.0;
+        for operation in ["scan", "sanitize", "scan"] {
+            app.session.items[0].latest = Some(report(operation));
+            app.session.items[0].output_path =
+                (operation == "sanitize").then(|| PathBuf::from("synthetic-layout.clean.png"));
+            for pass in 0..4 {
+                time += 0.1;
+                let update = frame(&mut app, &context, dimensions, time);
+                let text = tree_text(&update);
+                assert!(
+                    root_descendants(&update) > 25,
+                    "{language:?} {operation} transition {pass} collapsed, {text:?}"
+                );
+                for key in ["File queue", "Findings", "Cleaning plan", "Scan selected"] {
+                    let expected = tr(language, key);
+                    assert!(
+                        text.iter().any(|text| text.contains(expected)),
+                        "{language:?} {operation} transition {pass} lost {expected}, {text:?}"
+                    );
+                }
+                let status = tr(
+                    language,
+                    if operation == "scan" {
+                        "Ready to clean"
+                    } else {
+                        "Verified within scope"
+                    },
+                );
+                assert!(
+                    text.iter().any(|text| text.contains(status)),
+                    "{language:?} {operation} transition {pass} lost status {status}, {text:?}"
+                );
+                for (_, node) in &update.nodes {
+                    if let Some(bounds) = node.bounds() {
+                        assert!(
+                            bounds.x0.is_finite()
+                                && bounds.x1.is_finite()
+                                && bounds.y0.is_finite()
+                                && bounds.y1.is_finite()
+                        );
+                    }
+                }
             }
         }
     }
@@ -377,7 +448,7 @@ fn real_png_report_stays_accessible_through_batch_footer_changes_on_retina() {
         let context = egui::Context::default();
         context.enable_accesskit();
         let creation = eframe::CreationContext::_new_kittest(context.clone());
-        let mut app = FileVeilApp::new(&creation, Vec::new());
+        let mut app = FileVeilApp::new_with_language(&creation, Vec::new(), Language::Chinese);
         for (index, name) in [
             "jpeg_exif_gps_author.jpg",
             "png_itxt_exif_icc.png",
@@ -542,5 +613,3 @@ fn real_png_report_stays_accessible_through_batch_footer_changes_on_retina() {
         }
     }
 }
-
-// FVPROV1 19901 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiJhODk5NTliOTQzOTIwNzczNmFiYTM3MzUzNDJiYmFmODU5ZjlkZmUzZDUxNGQ0Njk2MDE4N2UwNWIzN2NlZWJhIiwiY29weV9pZCI6InYwLjUuMC1hbHBoYS4yIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC41LjAtYWxwaGEuMiIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL2NyYXRlcy9maWxldmVpbC1ndWkvdGVzdHMvbGF5b3V0LnJzIn0sInNpZ25hdHVyZXMiOlt7ImtleV9pZCI6Ijk5ZWE2M2VmY2NmZDBmZGJkNjhlMTZlZDhmMDNkMzM3ZjE1ZWMyZTRhNmEzZDY0ZTExZDcxNGVhMWU1NDI1MzMiLCJwdWJsaWNfa2V5X2hleCI6ImFkYjNlMTdjZDEyZjk1NmQwMDcwZTE2NjNmNTMxNTM3ZmNlZGY3MzA4ZDAxNjU4ZmVhNDU2ZmVlYThmN2ZiYzUiLCJzaWduYXR1cmVfaGV4IjoiMzY0Y2Q1YzBiZTAxMjRhOGQxNmE2MzIwOWZkZDk1ZmU3MTQyMjY0ZDc5N2YyZmJmM2ZiODY3ZWEwZWE2YzJhZDY2MTRjNDJiNGMyMGU4ODI5NDAzYzRjYjQ0ZGI3ZmJlNjNkMGUyODI4MDIxMTJmZDNmY2QyYjQ0MjdkMzEwMGIifV19XQ== FVPROV1-END

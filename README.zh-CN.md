@@ -43,7 +43,7 @@ FileVeil 是一个使用 Rust 编写的**离线优先、跨平台文件隐私与
 
 ## 下载与运行
 
-从 [v0.5.0-alpha.2 Alpha 发布页](https://github.com/J-x-Z/fileveil/releases/tag/v0.5.0-alpha.2)下载 Windows、macOS 和 Linux 软件包。
+从 [v0.5.0-alpha.3 Alpha 发布页](https://github.com/J-x-Z/fileveil/releases/tag/v0.5.0-alpha.3)下载 Windows、macOS 和 Linux 软件包。
 
 - **macOS Apple Silicon** — `.dmg` 支持将应用拖入 Applications 安装，也提供 `.zip`。
 - **Windows x64** — `.exe` 安装程序或便携 `.zip`。

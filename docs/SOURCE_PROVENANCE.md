@@ -34,7 +34,7 @@ The publisher keeps the signing key in a local owner-only file outside the track
 python3 tools/mark-source-tree.py \
   --executable target/release/fileveil \
   --key /path/to/private/release-signing.key \
-  --release v0.5.0-alpha.2 --created-at 2026-11-14
+  --release v0.5.0-alpha.3 --created-at 2026-11-14
 ```
 
 Add `--apply` to stage signatures, verify them, test byte-exact Clean roundtrips and update the project files. The tool also writes `provenance/source-catalog.toml` and `provenance/source-catalog.evidence.json`. Commit the verified tree before tagging a release. Editing published source requires a new signed distribution.
