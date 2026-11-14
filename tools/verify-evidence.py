@@ -121,6 +121,37 @@ def record_hash(record):
     return sha(domain + canonical(value))
 
 
+def extract_source_carrier(data):
+    marker = re.compile(rb"(?m)^(?:// |# |-- |; )FVPROV1 [^\n]*")
+    for candidate in marker.finditer(data):
+        terminal = candidate.end() == len(data) or candidate.end() + 1 == len(data)
+        if candidate.end() - candidate.start() > 256 * 1024 * 2 + 128:
+            require(not terminal, "Oversized source provenance carrier")
+            continue
+        line = candidate.group()
+        match = re.fullmatch(rb"(?:// |# |-- |; )FVPROV1 (0|[1-9][0-9]{0,19}) ([A-Za-z0-9+/=]+) FVPROV1-END", line)
+        if match is None:
+            require(not terminal, "Malformed source provenance carrier")
+            continue
+        size = int(match[1])
+        if size + 1 != candidate.start() or data[size:size + 1] != b"\n":
+            require(not terminal, "Source provenance byte boundary mismatch")
+            continue
+        require(candidate.end() + 1 == len(data) and data.endswith(b"\n"), "Source provenance must be terminal")
+        require(len(match[2]) <= 256 * 1024 * 2, "Oversized source provenance payload")
+        packet = base64.b64decode(match[2], validate=True)
+        require(0 < len(packet) <= 256 * 1024, "Invalid source provenance payload size")
+        require(base64.b64encode(packet) == match[2], "Noncanonical source provenance base64")
+        data.decode("utf-8")
+        require(b"\0" not in data, "Source provenance cannot contain NUL bytes")
+        return data[:size], packet
+    return data, None
+
+
+def unwrap_source(data):
+    return extract_source_carrier(data)[0]
+
+
 def unwrap(data):
     if data.startswith(b"\x89PNG\r\n\x1a\n"):
         result, offset, found = bytearray(data[:8]), 8, False
@@ -211,7 +242,7 @@ def unwrap(data):
                 carrier = offset
             offset = end
         return data[:carrier] if carrier is not None else data
-    return data
+    return unwrap_source(data)
 
 
 def timestamp_epoch(openssl, directory):

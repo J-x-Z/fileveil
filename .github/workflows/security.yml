@@ -2,6 +2,7 @@ name: Dependency security
 on:
   workflow_dispatch:
   push:
+    branches: [main]
     paths:
       - Cargo.lock
       - '**/Cargo.toml'
@@ -11,14 +12,43 @@ on:
     - cron: '17 5 * * 1'
 permissions:
   contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  CARGO_INCREMENTAL: '0'
+  CARGO_PROFILE_RELEASE_DEBUG: '0'
+  CARGO_BUILD_JOBS: '2'
+  CARGO_AUDIT_VERSION: '0.23.0'
+  CARGO_DENY_VERSION: '0.20.2'
 jobs:
   audit:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - name: Restore audit tools
+        uses: actions/cache/restore@v4
+        id: audit-tools
+        with:
+          path: |
+            ~/.cargo/bin/cargo-audit
+            ~/.cargo/bin/cargo-deny
+          key: ${{ runner.os }}-${{ runner.arch }}-audit-${{ env.CARGO_AUDIT_VERSION }}-deny-${{ env.CARGO_DENY_VERSION }}
       - name: Install audit tools
-        run: cargo install --locked cargo-audit cargo-deny
+        if: steps.audit-tools.outputs.cache-hit != 'true'
+        run: |
+          cargo install --locked --version "$CARGO_AUDIT_VERSION" cargo-audit
+          cargo install --locked --version "$CARGO_DENY_VERSION" cargo-deny
+      - name: Save audit tools
+        if: success() && steps.audit-tools.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.cargo/bin/cargo-audit
+            ~/.cargo/bin/cargo-deny
+          key: ${{ steps.audit-tools.outputs.cache-primary-key }}
       - name: Vulnerability audit
         # c2pa_raw_crypto still pins rsa 0.9. FileVeil limits RSA to public-key validation.
         # Private signing supports Ed25519 and ES256. Private RSA operations remain unavailable.

@@ -256,15 +256,21 @@ pub fn keygen(output: &Path) -> Result<Report> {
     Ok(report)
 }
 
-fn detect_format(data: &[u8], hint: &Path, limits: &Limits) -> Result<Format> {
-    let format = if data.starts_with(b"PK") {
+pub(crate) fn detect_format(data: &[u8], hint: &Path, limits: &Limits) -> Result<Format> {
+    let mut format = if data.starts_with(b"PK") {
         fileveil_formats::inspect(data, hint, limits)?.format
     } else {
         fileveil_formats::identify(data, hint)
     };
+    if matches!(format, Format::Unknown | Format::Text | Format::Html)
+        && super::source::supported_path(hint)
+    {
+        super::source::validate_path(data, hint)?;
+        format = Format::Text;
+    }
     if !container::supported(format) {
         return Err(Error::Unsupported(
-            "Watermark records support JPEG, PNG, PDF, Office, HEIC, AVIF, MP4 and MOV".into(),
+            "Watermark records support JPEG, PNG, PDF, Office, ISO media and supported UTF-8 source languages".into(),
         ));
     }
     Ok(format)
@@ -311,12 +317,13 @@ fn trust(request: &HeritageRequest, limits: &Limits) -> Result<TrustStore> {
 }
 fn reference_history(path: &Path, limits: &Limits) -> Result<Vec<SignedRecord>> {
     let snapshot = Snapshot::open(path, limits)?;
-    let records = if snapshot
-        .bytes
-        .iter()
-        .copied()
-        .find(|b| !b.is_ascii_whitespace())
-        == Some(b'{')
+    let records = if !super::source::supported_path(path)
+        && snapshot
+            .bytes
+            .iter()
+            .copied()
+            .find(|b| !b.is_ascii_whitespace())
+            == Some(b'{')
     {
         let package = super::custody::parse_evidence(&snapshot.bytes)?;
         let verified =
@@ -538,7 +545,10 @@ pub fn run(
         return super::provenance_ops::run(input, output, request, limits);
     }
     let snapshot = Snapshot::open(input, limits)?;
-    let format = if request.action == HeritageAction::Clean && request.clean_metadata {
+    let format = if request.action == HeritageAction::Clean
+        && request.clean_metadata
+        && !super::source::supported_path(input)
+    {
         fileveil_formats::inspect(&snapshot.bytes, input, limits)?.format
     } else {
         detect_format(&snapshot.bytes, input, limits)?
@@ -655,15 +665,32 @@ pub fn run(
         if let Some(reference) = &request.reference {
             let reference = reference_history(reference, limits)?;
             let reference_body = &reference.last().expect("nonempty reference").body;
+            let source_record = if format == Format::Text
+                && verification.signature == VerificationState::Valid
+                && verification.chain == VerificationState::Valid
+            {
+                records.last()
+            } else {
+                None
+            };
             let expected = if details["robust"]["method_id"] == super::robust_v2::METHOD_ID {
                 super::robust_v2::work_id_digest(&reference_body.work_id)?
             } else {
                 robust::work_id_digest(&reference_body.work_id)?
             };
             let verification = signing::verify_chain(&reference, &digest(&extracted.base), &store)?;
-            let work_match = details["robust"]["frame_valid"] == true
-                && details["robust"]["work_id_digest"] == expected;
-            let copy_match = if details["robust"]["method_id"] == super::robust_v2::METHOD_ID {
+            let work_match = if let Some(record) = source_record {
+                record.body.work_id == reference_body.work_id
+            } else {
+                details["robust"]["frame_valid"] == true
+                    && details["robust"]["work_id_digest"] == expected
+            };
+            let copy_match = if let Some(record) = source_record {
+                reference_body
+                    .copy_id
+                    .as_ref()
+                    .map(|copy| record.body.copy_id.as_ref() == Some(copy))
+            } else if details["robust"]["method_id"] == super::robust_v2::METHOD_ID {
                 reference_body
                     .copy_id
                     .as_deref()
@@ -675,7 +702,9 @@ pub fn run(
             };
             details["work_digest_match"] = json!(work_match);
             details["copy_digest_match"] = json!(copy_match);
-            details["reference_match_scope"] = json!(if copy_match.is_some() {
+            details["reference_match_scope"] = json!(if source_record.is_some() {
+                "signed_source_work_and_optional_copy"
+            } else if copy_match.is_some() {
                 "work_and_copy"
             } else {
                 "work_only"
@@ -807,7 +836,11 @@ pub fn run(
                 details["verification"] = json!(verification);
                 details["records"] = claim_report(&records, request.disclose_claims);
                 let encoded = signing::canonical_records(&records)?;
-                let marked = container::embed(&base, format, &encoded)?;
+                let marked = if format == Format::Text {
+                    super::source::embed(&base, input, &encoded)?
+                } else {
+                    container::embed(&base, format, &encoded)?
+                };
                 let parsed = container::extract(&marked, format)?;
                 if parsed.base != base || history(parsed.manifest.as_deref())? != records {
                     return Err(Error::Verification(
@@ -828,7 +861,13 @@ pub fn run(
                         Value::Null
                     };
                 base = clean;
-                if request.clean_metadata {
+                if request.clean_metadata
+                    && format == Format::Text
+                    && (super::source::supported_path(input) || extracted.manifest.is_some())
+                {
+                    details["standard_metadata_cleaned"] = json!(false);
+                    details["source_content_preserved"] = json!(true);
+                } else if request.clean_metadata {
                     let inspection = inspect_snapshot(&base, input, limits)?;
                     let sanitized = if format == Format::Pdf {
                         crate::pdf::sanitize(&base, limits)?
@@ -1174,6 +1213,9 @@ pub fn run(
     report.integrity.original_unchanged = Some(true);
     report.integrity.parseable = true;
     report.advanced = Some(json!({"heritage":details}));
+    if format == Format::Text {
+        report.warnings.push("Source provenance covers the recognized FileVeil comment and exact unwrapped bytes. Other comments, strings and identifiers retain their own privacy scope.".into());
+    }
     report.warnings.push("Watermark signals can be copied. Signatures, current content binding, issuer trust and trusted time are assessed separately. Offline dates are user assertions.".into());
     Ok(report)
 }

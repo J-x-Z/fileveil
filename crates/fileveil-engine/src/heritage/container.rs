@@ -29,6 +29,7 @@ pub fn supported(format: Format) -> bool {
             | Format::Avif
             | Format::Mp4
             | Format::Mov
+            | Format::Text
     )
 }
 pub fn extract(data: &[u8], format: Format) -> Result<Extracted> {
@@ -38,6 +39,7 @@ pub fn extract(data: &[u8], format: Format) -> Result<Extracted> {
         Format::Pdf => pdf(data, None),
         Format::Docx | Format::Xlsx | Format::Pptx => office(data, None),
         Format::Heic | Format::Avif | Format::Mp4 | Format::Mov => bmff(data, None),
+        Format::Text => super::source::extract(data),
         _ => Err(Error::Unsupported(
             "Watermark carriers support JPEG, PNG, PDF, Office and ISO media".into(),
         )),

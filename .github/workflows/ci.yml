@@ -1,12 +1,79 @@
 name: CI
 on:
   push:
+    branches: [main]
+    tags: ['v*']
+    paths:
+      - Cargo.toml
+      - Cargo.lock
+      - 'crates/**'
+      - 'tools/**'
+      - 'tests/**'
+      - 'assets/**'
+      - .github/workflows/ci.yml
+      - .github/check-workflows.py
   pull_request:
+    paths:
+      - Cargo.toml
+      - Cargo.lock
+      - 'crates/**'
+      - 'tools/**'
+      - 'tests/**'
+      - 'assets/**'
+      - .github/workflows/ci.yml
+      - .github/check-workflows.py
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+env:
+  CARGO_INCREMENTAL: '0'
+  CARGO_PROFILE_DEV_DEBUG: '0'
+  CARGO_PROFILE_TEST_DEBUG: '0'
+  CARGO_BUILD_JOBS: '2'
 jobs:
+  core:
+    if: github.event_name != 'workflow_dispatch' && !startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Validate workflow structure
+        run: |
+          python -m pip install --disable-pip-version-check --only-binary=:all: PyYAML==6.0.3 "jsonschema>=4,<5"
+          python .github/check-workflows.py
+      - name: Restore Cargo source cache
+        uses: actions/cache/restore@v4
+        id: cargo-cache
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-${{ runner.arch }}-cargo-sources-core-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-cargo-sources-core-
+      - name: Format
+        run: cargo fmt --all --check
+      - name: Verify signed source distribution
+        if: hashFiles('provenance/source-catalog.toml') != ''
+        run: python tools/verify-source-tree.py . --key-id 99ea63efccfd0fdbd68e16ed8f03d337f15ec2e4a6a3d64e11d714ea1e542533
+      - name: Core and format tests
+        run: cargo test --locked -p fileveil-core -p fileveil-formats
+      - name: Save Cargo source cache
+        if: success() && steps.cargo-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ steps.cargo-cache.outputs.cache-primary-key }}
   check:
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
     strategy:
       fail-fast: false
       matrix:
@@ -21,6 +88,16 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
+      - name: Source provenance and independent verifier tests
+        run: python -m unittest discover -s tests -p "test_source*.py" -v
+      - name: Verify signed source distribution
+        if: hashFiles('provenance/source-catalog.toml') != ''
+        run: python tools/verify-source-tree.py . --key-id 99ea63efccfd0fdbd68e16ed8f03d337f15ec2e4a6a3d64e11d714ea1e542533
+      - name: Validate workflow structure
+        if: runner.os == 'Linux'
+        run: |
+          python -m pip install --disable-pip-version-check --only-binary=:all: PyYAML==6.0.3 "jsonschema>=4,<5"
+          python .github/check-workflows.py
       - name: Packaging unit tests
         run: python -m unittest discover -s tests -p test_packaging.py -v
       - name: Restore platform Cargo cache
@@ -30,34 +107,9 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            target
-          key: ${{ runner.os }}-${{ runner.arch }}-cargo-${{ hashFiles('Cargo.lock') }}-${{ github.sha }}
+          key: ${{ runner.os }}-${{ runner.arch }}-cargo-sources-native-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
-            ${{ runner.os }}-${{ runner.arch }}-cargo-${{ hashFiles('Cargo.lock') }}-
-            ${{ runner.os }}-${{ runner.arch }}-cargo-
-      - name: Bound Linux build storage
-        if: runner.os == 'Linux'
-        shell: python {0}
-        run: |
-          import os
-          import pathlib
-          import shutil
-          import subprocess
-          subprocess.run(['df', '-h', '.'], check=True)
-          subprocess.run(['du', '-sh', 'target/debug', 'target/release'], check=False)
-          # Migrate the older symbol-heavy cache once. Subsequent jobs retain
-          # the compatible debug cache, release cache and downloaded crates.
-          marker = pathlib.Path('target/.fileveil-linux-ci-debug0')
-          if not marker.is_file():
-              debug = pathlib.Path('target/debug')
-              if debug.is_dir():
-                  shutil.rmtree(debug)
-              marker.parent.mkdir(parents=True, exist_ok=True)
-              marker.write_text('dev_debug=0\ntest_debug=0\nincremental=0\n')
-          with pathlib.Path(os.environ['GITHUB_ENV']).open('a') as environment:
-              environment.write('CARGO_INCREMENTAL=0\nCARGO_PROFILE_DEV_DEBUG=0\nCARGO_PROFILE_TEST_DEBUG=0\nCARGO_BUILD_JOBS=2\n')
-          subprocess.run(['df', '-h', '.'], check=True)
-          subprocess.run(['du', '-sh', 'target/debug', 'target/release'], check=False)
+            ${{ runner.os }}-${{ runner.arch }}-cargo-sources-native-
       - name: Linux desktop dependencies
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install --no-install-recommends -y libx11-dev libxi-dev libxcursor-dev libxrandr-dev libxinerama-dev libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev libegl1-mesa-dev libgl1-mesa-dev libgl1-mesa-dri qpdf poppler-utils xvfb xauth xdotool libavif-bin libheif-examples libheif-plugin-libde265 ffmpeg libsecret-tools gnome-keyring dbus-x11
@@ -124,6 +176,7 @@ jobs:
         with:
           name: backend-path-evidence-windows
           path: work/pdf-path-probe.json
+          retention-days: 7
       - name: Format
         run: cargo fmt --all --check
       - name: Benchmark measurement and independent geometry checks
@@ -161,6 +214,7 @@ jobs:
         if: always()
         with:
           name: test-evidence-${{ matrix.os }}
+          retention-days: 7
           path: |
             work/ci-tests.log
             work/pdf-path-probe.json
@@ -421,10 +475,12 @@ jobs:
         with:
           name: FileVeil-${{ matrix.os }}
           path: dist/
+          retention-days: 14
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: native-evidence-${{ matrix.os }}
+          retention-days: 7
           path: |
             work/native-gui.*
             work/native-interaction.*
@@ -437,11 +493,10 @@ jobs:
             work/packaged-cli.json
             work/native-signature.json
       - name: Save platform Cargo cache
-        if: always() && steps.cargo-cache.outputs.cache-hit != 'true'
+        if: success() && steps.cargo-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            target
           key: ${{ steps.cargo-cache.outputs.cache-primary-key }}

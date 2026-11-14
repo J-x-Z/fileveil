@@ -1,0 +1,8 @@
+{
+  "schema": "fileveil.release.signing-key.v1",
+  "repository": "https://github.com/J-x-Z/fileveil",
+  "subject": "J-x-Z/FileVeil",
+  "algorithm": "Ed25519",
+  "key_id": "99ea63efccfd0fdbd68e16ed8f03d337f15ec2e4a6a3d64e11d714ea1e542533",
+  "public_key_hex": "adb3e17cd12f956d0070e1663f531537fcedf7308d01658fea456feea8f7fbc5"
+}

@@ -50,17 +50,7 @@ impl AuxInputs {
 }
 
 fn format(data: &[u8], path: &Path, limits: &Limits) -> Result<Format> {
-    let value = if data.starts_with(b"PK") {
-        fileveil_formats::inspect(data, path, limits)?.format
-    } else {
-        fileveil_formats::identify(data, path)
-    };
-    if !container::supported(value) {
-        return Err(Error::Unsupported(
-            "Provenance sidecar input requires a supported marked asset".into(),
-        ));
-    }
-    Ok(value)
+    super::pipeline::detect_format(data, path, limits)
 }
 fn asset_history(
     data: &[u8],

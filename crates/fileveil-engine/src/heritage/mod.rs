@@ -4,6 +4,7 @@ pub mod legacy;
 mod pipeline;
 pub mod robust;
 pub mod signing;
+pub mod source;
 pub use pipeline::{HeritageAction, HeritageRequest, MarkSettings, keygen, publish_staged, run};
 pub mod c2pa_mark;
 pub mod custody;
