@@ -102,12 +102,27 @@ def probe_built_pass(directory, prefix):
     with tempfile.TemporaryDirectory(prefix=".fileveil-pass-probe-", dir=directory) as name:
         source = Path(name) / "probe.ll"
         source.write_text("; trusted FileVeil pass loading probe\n", encoding="ascii")
-        if kind == "standalone_driver":
-            command = [str(artifact), "--operation", "inspect", "--input", str(source.resolve())]
-        else:
-            command = [str(tools(prefix)["opt"]), "--load-pass-plugin=" + str(artifact),
-                "-passes=verify", "-disable-output", str(source.resolve())]
-        subprocess.run(command, check=True, timeout=120, env=POST.clean_environment())
+        packet = Path(name) / "public-probe.json"
+        # A public synthetic payload exercises the transform without a signing key.
+        packet.write_text(json.dumps({"schema": "fileveil.software.pass_packet.v1",
+            "packet_hex": b"FileVeil public toolchain probe".hex(),
+            "witness_hex": "0000000000000042", "challenge_hex": "0000000000000007"}))
+        marked, cleaned = Path(name) / "marked.ll", Path(name) / "cleaned.ll"
+        for operation, input_path, output in (("mark", source, marked), ("inspect", marked, None),
+                                             ("clean", marked, cleaned), ("inspect", cleaned, None)):
+            environment = POST.clean_environment()
+            environment.pop("FILEVEIL_SOFTWARE_PACKET", None)
+            if operation == "mark":
+                environment["FILEVEIL_SOFTWARE_PACKET"] = str(packet.resolve())
+            if kind == "standalone_driver":
+                command = [str(artifact), "--operation", operation, "--input", str(input_path.resolve())]
+                if output is not None:
+                    command += ["--output", str(output.resolve())]
+            else:
+                command = [str(tools(prefix)["opt"]), "--load-pass-plugin=" + str(artifact),
+                    "-passes=fileveil-" + operation, str(input_path.resolve())]
+                command += ["-S", "-o", str(output.resolve())] if output else ["-disable-output"]
+            subprocess.run(command, check=True, timeout=120, env=environment)
     return artifact
 
 
@@ -408,4 +423,4 @@ if __name__ == "__main__":
         print(f"FileVeil compiler stage failed ({error})", file=sys.stderr)
         sys.exit(1)
 
-# FVPROV1 22089 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiI4MDUzMTJjODUwYTFlZjAyMjZhMzIyMWJiNDkwMGRjZTUwNzczMGViZmNjNDM4ZDIyZjhjN2YyNGU2YmVmNTM4IiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL3Rvb2xzL3Byb2plY3QtY2ktY29tcGlsZXIucHkifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiIxMzdiNDM5ZTFhNTcwYjk1ZWUxZWQ5YjI2MTRjMmUwZjI2NzkxZWIxN2Y0NmQ5YWJmNzU1MWY4MThlMjExNzUzY2ZlZjFhMzdkOWY5ZjQ2ODFhYTY1ODE4ZTM4MmVkN2M5YjA5MTAwMGU4Njc0MmM5YzU3NWQzYjI4MDViYWYwZCJ9XX1d FVPROV1-END
+# FVPROV1 23188 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiI5MDI1OWQ4MDVmM2NjOGQxMzVhNTRmYWY4OTJiMmEzMGMyNWE2ODQyM2Q2YmEwNzU2N2UxYTUxOThhZDBmOTE0IiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL3Rvb2xzL3Byb2plY3QtY2ktY29tcGlsZXIucHkifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiI3ZTM3ZTNjNTNhNjAxOGEwNGI4YmY2ZTYyOGYyNGE2ZWQwOGQwOTMyMmVhYzcwNjlhM2U0MDEzNGZhMTc4ZTc5MjM1NWNjNzYyZjIzMDU4MWQ3MmEyMjdlNGU0MTllZmIxOTg4MWExOWNiZWVlY2IwMGQyZDA4ZGIzN2YzZmMwMSJ9XX1d FVPROV1-END

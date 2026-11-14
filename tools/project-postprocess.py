@@ -22,6 +22,7 @@ FIELDS = {"name", "work_id", "author", "copy_id", "artifact_directory", "output_
           "build_argv", "test_argv", "engine_ref", "runner", "policy", "rules", "compiler"}
 KEY_MAGIC = b"FILEVEIL-ED25519-KEY-V1\n"
 POLICIES = ("manifest_only", "asset_watermark", "compiler_watermark", "hybrid")
+WINDOWS = os.name == "nt"
 
 
 def default_asset_rules():
@@ -167,6 +168,95 @@ def clean_environment():
     return {key: value for key, value in os.environ.items() if key != "FILEVEIL_SIGNING_KEY_BASE64"}
 
 
+def windows_private_key_descriptor(path):
+    """Match signing.rs owner-only, protected DACL at CREATE_NEW time."""
+    import ctypes
+    import msvcrt
+
+    class SecurityAttributes(ctypes.Structure):
+        _fields_ = [("nLength", ctypes.c_uint32),
+                    ("lpSecurityDescriptor", ctypes.c_void_p),
+                    ("bInheritHandle", ctypes.c_int32)]
+
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    security = ctypes.WinDLL("advapi32", use_last_error=True)
+    kernel.GetCurrentProcess.argtypes = []
+    kernel.GetCurrentProcess.restype = ctypes.c_void_p
+    kernel.CloseHandle.argtypes = [ctypes.c_void_p]
+    kernel.CloseHandle.restype = ctypes.c_int32
+    kernel.LocalFree.argtypes = [ctypes.c_void_p]
+    kernel.LocalFree.restype = ctypes.c_void_p
+    security.OpenProcessToken.argtypes = [ctypes.c_void_p, ctypes.c_uint32, ctypes.POINTER(ctypes.c_void_p)]
+    security.OpenProcessToken.restype = ctypes.c_int32
+    security.GetTokenInformation.argtypes = [ctypes.c_void_p, ctypes.c_int32, ctypes.c_void_p,
+                                           ctypes.c_uint32, ctypes.POINTER(ctypes.c_uint32)]
+    security.GetTokenInformation.restype = ctypes.c_int32
+    security.ConvertSidToStringSidW.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_void_p)]
+    security.ConvertSidToStringSidW.restype = ctypes.c_int32
+    security.ConvertStringSecurityDescriptorToSecurityDescriptorW.argtypes = [
+        ctypes.c_wchar_p, ctypes.c_uint32, ctypes.POINTER(ctypes.c_void_p), ctypes.POINTER(ctypes.c_uint32)]
+    security.ConvertStringSecurityDescriptorToSecurityDescriptorW.restype = ctypes.c_int32
+    kernel.CreateFileW.argtypes = [ctypes.c_wchar_p, ctypes.c_uint32, ctypes.c_uint32,
+                                  ctypes.POINTER(SecurityAttributes), ctypes.c_uint32,
+                                  ctypes.c_uint32, ctypes.c_void_p]
+    kernel.CreateFileW.restype = ctypes.c_void_p
+    token = ctypes.c_void_p()
+    sid_text = ctypes.c_void_p()
+    descriptor = ctypes.c_void_p()
+    handle = None
+    try:
+        if not security.OpenProcessToken(kernel.GetCurrentProcess(), 0x0008, ctypes.byref(token)):
+            raise OSError("Could not determine private-key owner identity")
+        length = ctypes.c_uint32()
+        security.GetTokenInformation(token, 1, None, 0, ctypes.byref(length))
+        if not ctypes.sizeof(ctypes.c_void_p) <= length.value <= 64 * 1024:
+            raise OSError("Invalid private-key owner identity size")
+        information = ctypes.create_string_buffer(length.value)
+        if not security.GetTokenInformation(token, 1, information, length, ctypes.byref(length)):
+            raise OSError("Could not inspect private-key owner identity")
+        # TOKEN_USER begins with SID_AND_ATTRIBUTES, whose first field is PSID.
+        sid = ctypes.cast(information, ctypes.POINTER(ctypes.c_void_p))[0]
+        if not sid or not security.ConvertSidToStringSidW(sid, ctypes.byref(sid_text)):
+            raise OSError("Could not encode private-key owner identity")
+        owner = ctypes.wstring_at(sid_text)
+        if not owner or len(owner) > 256:
+            raise OSError("Invalid private-key owner SID")
+        sddl = f"O:{owner}D:P(A;;FA;;;{owner})"
+        if not security.ConvertStringSecurityDescriptorToSecurityDescriptorW(
+                sddl, 1, ctypes.byref(descriptor), None):
+            raise OSError("Could not create owner-only private-key permissions")
+        attributes = SecurityAttributes(ctypes.sizeof(SecurityAttributes), descriptor, False)
+        handle = kernel.CreateFileW(str(path), 0x00120116 | 0x80 | 0x20000, 1,
+                                    ctypes.byref(attributes), 1, 0x00200000, None)
+        if handle in (None, ctypes.c_void_p(-1).value):
+            handle = None
+            raise OSError("Could not create private signing key without replacement")
+        result = msvcrt.open_osfhandle(handle, os.O_WRONLY | getattr(os, "O_BINARY", 0))
+        handle = None  # The CRT descriptor now owns the non-inheritable handle.
+        return result
+    finally:
+        if handle is not None:
+            kernel.CloseHandle(handle)
+        if descriptor.value:
+            kernel.LocalFree(descriptor)
+        if sid_text.value:
+            kernel.LocalFree(sid_text)
+        if token.value:
+            kernel.CloseHandle(token)
+
+
+def private_key_file(path):
+    if WINDOWS:
+        descriptor = windows_private_key_descriptor(path)
+    else:
+        descriptor = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+    try:
+        return os.fdopen(descriptor, "wb")
+    except BaseException:
+        os.close(descriptor)
+        raise
+
+
 def signing_identity(private, selected=None):
     if selected:
         return selected.resolve(strict=True)
@@ -177,8 +267,7 @@ def signing_identity(private, selected=None):
     if not secret.startswith(KEY_MAGIC) or len(secret) != len(KEY_MAGIC) + 32:
         raise ValueError("CI signing key has an unsupported format")
     path = private / "signing.key"
-    descriptor = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
-    with os.fdopen(descriptor, "wb") as stream:
+    with private_key_file(path) as stream:
         stream.write(secret)
     return path
 
@@ -555,4 +644,4 @@ if __name__ == "__main__":
         print(f"FileVeil postprocessing failed ({error})", file=sys.stderr)
         sys.exit(1)
 
-# FVPROV1 34784 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiJiYTY3ODg1ZjJjZjczYTc0YzNhNGNhMDEzMzk3NWU1YmZmZDZjY2EwMzBkZmRiZTEzY2Y0ZTEwMzllMzA4MGMzIiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL3Rvb2xzL3Byb2plY3QtcG9zdHByb2Nlc3MucHkifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiI5OTNmOWEwYTljNzBlMzc3Y2IyYWI5NjFhYTZhYjUzM2M4ZGQ1NGY2OGIyY2Q2MDg1MTU4ZDgzNDEyMTBmNmZmZWJhY2U4NGY4MTZiZTJkM2ViNzNjODY3ODZlYmNhOWY3MDBjZjI0YTlmODYwZmU4NWJmNGExY2VhYmQ0YTgwMiJ9XX1d FVPROV1-END
+# FVPROV1 39390 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiJiODM1Y2RkYTc1NjQ2MWEzZWE3Y2MwZjdhZmYxYWFlZWRjNjRkYmQyMjk5MTBhZDYxODlmNDk0MDJmMmYyYzQ3IiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL3Rvb2xzL3Byb2plY3QtcG9zdHByb2Nlc3MucHkifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiI2ZTc3MGYzMjNjZDQwN2E5NTUxMWZjMjBjMzM1NjNiYTZiMzhmZjk1YmFiOThlODdjZTk4MzVlZDI2OTRmYTAyMDExNjllZjdmNGZkOTkwZGQyYTVmM2Q0NDc4Zjk2ZDIwYWExMmQyMTQxYWU4ZWI1OWZiNTYwZGJiYmFiZmQwYyJ9XX1d FVPROV1-END

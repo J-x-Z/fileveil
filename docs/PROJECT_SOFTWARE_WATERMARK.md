@@ -118,7 +118,7 @@ python /path/to/fileveil/tools/project-ci-stage.py \
 | `compiler` | C/C++ 或显式 IR 经 pass 与本机编译器产生新二进制 | 通过签名绑定的无标记源码/IR受控重编，可选运行指定测试向量比较 |
 | `structure` | 对支持的无平台签名容器加入已绑定原始摘要的编码 footer，或审计已有数据区 | 已知 footer 可恢复原字节，已知非执行 section 载体可以清理，语义候选保留 |
 
-Pass 实现需要匹配本机平台、架构和 LLVM major。构建产物附有 ABI 元数据。SDK 禁用动态插件时，构建器将同一 ModulePass 编译为独立驱动器，报告中的 `pass_execution_kind` 标明实际后端。驱动器使用固定的 Mark、Clean、Inspect 参数，并沿用现有水印协议。Windows 官方 SDK 的独立驱动路径正在接受原生 CI 验证。下面使用 macOS 的 LLVM 路径，输入 `main.c` 应为已有的可构建程序。
+Pass 实现需要匹配本机平台、架构和 LLVM major。构建产物附有 ABI 元数据。SDK 静态链接 LLVM 或禁用动态插件时，构建器将同一 ModulePass 编译为独立驱动器，报告中的 `pass_execution_kind` 标明实际后端。驱动器使用固定的 Mark、Clean、Inspect 参数，并沿用现有水印协议。Windows 官方 SDK 的独立驱动路径正在接受原生 CI 验证。下面使用 macOS 的 LLVM 路径，输入 `main.c` 应为已有的可构建程序。
 
 ```sh
 export FILEVEIL_LLVM_DIR=/opt/homebrew/opt/llvm

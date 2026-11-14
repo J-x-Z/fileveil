@@ -67,17 +67,20 @@ class BuiltPassTests(unittest.TestCase):
                 with patch.dict(os.environ, {"FILEVEIL_SIGNING_KEY_BASE64": "synthetic-secret"}), \
                         patch.object(COMPILER.subprocess, "run") as run:
                     selected = COMPILER.probe_built_pass(build, sdk)
-                arguments = run.call_args.args[0]
-                self.assertNotIn("FILEVEIL_SIGNING_KEY_BASE64", run.call_args.kwargs["env"])
+                self.assertEqual(run.call_count, 4)
+                for call in run.call_args_list:
+                    self.assertNotIn("FILEVEIL_SIGNING_KEY_BASE64", call.kwargs["env"])
+                arguments = run.call_args_list[0].args[0]
+                self.assertIn("FILEVEIL_SOFTWARE_PACKET", run.call_args_list[0].kwargs["env"])
                 if kind == "standalone_driver":
-                    self.assertEqual(arguments[:4], [str(selected), "--operation", "inspect", "--input"])
+                    self.assertEqual(arguments[:4], [str(selected), "--operation", "mark", "--input"])
                 else:
                     self.assertEqual(arguments[0], str((binary / ("opt" + extension)).resolve()))
                     self.assertIn("--load-pass-plugin=" + str(selected), arguments)
-                    self.assertIn("-passes=verify", arguments)
+                    self.assertIn("-passes=fileveil-mark", arguments)
 
 
 if __name__ == "__main__":
     unittest.main()
 
-# FVPROV1 3885 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiJjYjBkMWEzYTJhYzFkZDE1YjU1MzgwMmMxZGVhZWVjMDY2OTU1ZjI5YzIyZjRhZTVmZjM0ZmQ3ZmUyYzQwNmJkIiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL3Rlc3RzL3Rlc3RfcHJvamVjdF9jaV9wYXNzLnB5In0sInNpZ25hdHVyZXMiOlt7ImtleV9pZCI6Ijk5ZWE2M2VmY2NmZDBmZGJkNjhlMTZlZDhmMDNkMzM3ZjE1ZWMyZTRhNmEzZDY0ZTExZDcxNGVhMWU1NDI1MzMiLCJwdWJsaWNfa2V5X2hleCI6ImFkYjNlMTdjZDEyZjk1NmQwMDcwZTE2NjNmNTMxNTM3ZmNlZGY3MzA4ZDAxNjU4ZmVhNDU2ZmVlYThmN2ZiYzUiLCJzaWduYXR1cmVfaGV4IjoiOWVmODc4MjE2NDZjNjM4Y2JhOTk2YjRkNjI3MjIyMjNmZWMzZTRhYjc1NWFhNGRkYjI1MmIzOTdhMDY5NWJmZjNhN2NmNTVjNDhjZDMxZThiODNiODM2ZmZmNzgxZjcwNzVhYjk0MTFjOGJjNjdiNDc5YTI1OWVkNDE3OGJhMDQifV19XQ== FVPROV1-END
+# FVPROV1 4087 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiIyNDUwYTdjZmQzYTZiYjQwZTAyNWMwNGEyYTA3OTVhNGJlZTU0ODAzYzM4MGI1OGU5OWExNDFlNjJjNzNmMzAwIiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL3Rlc3RzL3Rlc3RfcHJvamVjdF9jaV9wYXNzLnB5In0sInNpZ25hdHVyZXMiOlt7ImtleV9pZCI6Ijk5ZWE2M2VmY2NmZDBmZGJkNjhlMTZlZDhmMDNkMzM3ZjE1ZWMyZTRhNmEzZDY0ZTExZDcxNGVhMWU1NDI1MzMiLCJwdWJsaWNfa2V5X2hleCI6ImFkYjNlMTdjZDEyZjk1NmQwMDcwZTE2NjNmNTMxNTM3ZmNlZGY3MzA4ZDAxNjU4ZmVhNDU2ZmVlYThmN2ZiYzUiLCJzaWduYXR1cmVfaGV4IjoiNDVhY2ViNjc3ZjM5N2NlNzNlZDVmMDY3ZTE5NTBjOTY4OTJjMzM2NmQ5MjRiMjZjYjA4MjMwYzUwMjY2MGEyNWZjYTI5YWIwN2UwZDljNjZlYWMyYWJlNzZhZTlkNDliMWQwNDI0ZGU0MGVmM2ExOTQwYWY5NDQ0ODQ0ZTFhMGEifV19XQ== FVPROV1-END

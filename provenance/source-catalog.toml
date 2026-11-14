@@ -8586,8 +8586,8 @@ marked = false
 
 [[files]]
 path = "docs/PROJECT_SOFTWARE_WATERMARK.md"
-sha256 = "290291a53ceff33aa179f3520013fe7f06b483297635dca3948299ac873fa1d5"
-size_bytes = 16687
+sha256 = "8546bdcfcf3ee2ca62434db2567bf8f1cee173bab7d5d62c4efa61a3fe927bda"
+size_bytes = 16708
 marked = false
 
 [[files]]
@@ -8994,8 +8994,14 @@ marked = true
 
 [[files]]
 path = "tests/test_project_ci_pass.py"
-sha256 = "03f602885b03d595a411985dc4bada71edbe467b50d961b8adeb8f11bdc5f187"
-size_bytes = 5146
+sha256 = "f78ba74ab4f32940a99318a9a474d749a7c49b9dd80a6fda7478a87357bc70df"
+size_bytes = 5348
+marked = true
+
+[[files]]
+path = "tests/test_project_ci_private_key.py"
+sha256 = "30560eb7579f00ca6da8f8fa7716441fb96b3ef4abeda6de098d50b51d46c886"
+size_bytes = 10272
 marked = true
 
 [[files]]
@@ -9090,8 +9096,8 @@ marked = true
 
 [[files]]
 path = "tools/project-ci-compiler.py"
-sha256 = "68806f1985bbc53a42577aedb5d072f728d15f2f994cf365e9bde177d3c6936b"
-size_bytes = 23347
+sha256 = "113248c3814c28eaf13774159c6bf887f6bbf238a6edcf56419c1e88eac59b73"
+size_bytes = 24446
 marked = true
 
 [[files]]
@@ -9114,8 +9120,8 @@ marked = true
 
 [[files]]
 path = "tools/project-postprocess.py"
-sha256 = "3b7d3e51c4a3502dc916125390e790e8dde68328a5b776286c1563df4a121857"
-size_bytes = 36042
+sha256 = "6757940849d21c8a0dd5fbc945ee60a8df086edd87688949edcfb402b82f010e"
+size_bytes = 40648
 marked = true
 
 [[files]]
@@ -9126,8 +9132,8 @@ marked = true
 
 [[files]]
 path = "tools/software-watermark/CMakeLists.txt"
-sha256 = "b0ef0266e6ceee32db50e13d1a69f44f08273a5cc61544923badd4219f37b587"
-size_bytes = 1962
+sha256 = "e32086f5c8ae4ca112a1653ecf3f48f737d198698bc1eb0ca7038bab90799b09"
+size_bytes = 1668
 marked = false
 
 [[files]]
@@ -9184,4 +9190,4 @@ sha256 = "bd7a06d78c55d59f9e98c8746f6f974698dd0b28abe868dd8ff51303964910c3"
 size_bytes = 17304
 marked = true
 
-# FVPROV1 268273 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiIyNjFhNmFkOTk1MjRkNjAzZjZiNzMxZGJlMzMzZGFmMWM2ODIxMTA1MDI4ZmIyODJhN2ZkYTkyNWMwNmFlZDA2IiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlLXRyZWUifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiI4ZWQ1NzllYWY0MjM4NTc5NDAzMGFlOWVkMzFmNjAxODVmYWJiZDZmNTk5ZTVkNThmZDZhYzNlYzIyYWJmNGM1ZGNmNTBkMWRiYmE0MjdkYjc0ZTkwZjNiMjAyYTAzMTkzMDYzZjVkY2U3NTg2NjI3ZmY0ZDA5NzJmOWIwN2MwOSJ9XX1d FVPROV1-END
+# FVPROV1 268439 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiI3YzA1Nzc1ZjcwY2YxMmM4MjI4ZmIxYjM4ODM5NzVkZWQxMjRiZjA2ZmQ2NDBjN2M0ODdhNmU0MjA5ODBhNDA5IiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlLXRyZWUifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiIzNzM0ZDM5YzI0MmMyZWJiMGRiMzg2Y2U5YWI2OTcwNzdlYjQ0Y2U5YWRkOGY4NDc1MzU4N2E4NTM5ZTIwYWU1ZDVkNjQyMWMzMDk5M2NhZDkyN2ZkMzI3Y2MyZDU1NTAzYjYxNjE4YzUwNWNiNzMyMWYyMGU3NzM1MGMwODMwOSJ9XX1d FVPROV1-END
