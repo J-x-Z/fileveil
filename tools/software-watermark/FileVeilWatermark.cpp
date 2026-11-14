@@ -13,11 +13,18 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/Verifier.h"
+#if defined(FILEVEIL_STANDALONE_DRIVER)
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IRReader/IRReader.h"
+#include "llvm/Support/InitLLVM.h"
+#include "llvm/Support/SourceMgr.h"
+#else
 #include "llvm/Passes/PassBuilder.h"
 #if __has_include("llvm/Plugins/PassPlugin.h")
 #include "llvm/Plugins/PassPlugin.h"
 #else
 #include "llvm/Passes/PassPlugin.h"
+#endif
 #endif
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/FormatVariadic.h"
@@ -622,6 +629,70 @@ public:
 };
 } // namespace
 
+#if defined(FILEVEIL_STANDALONE_DRIVER)
+int main(int Argc, char **Argv) {
+  InitLLVM Initialization(Argc, Argv);
+  if (Argc != 5 && Argc != 7)
+    reject("driver requires --operation, --input and an optional --output");
+  StringRef Operation, Input, Output;
+  for (int Index = 1; Index < Argc; Index += 2) {
+    const StringRef Name(Argv[Index]);
+    const StringRef Value(Argv[Index + 1]);
+    StringRef *Selected = nullptr;
+    if (Name == "--operation")
+      Selected = &Operation;
+    else if (Name == "--input")
+      Selected = &Input;
+    else if (Name == "--output")
+      Selected = &Output;
+    else
+      reject("driver received an unsupported argument");
+    if (!Selected->empty() || Value.empty())
+      reject("driver arguments must be unique and nonempty");
+    *Selected = Value;
+  }
+  if (Operation != "mark" && Operation != "clean" && Operation != "inspect")
+    reject("driver operation must be mark, clean or inspect");
+  if (Input.empty() || !sys::path::is_absolute(Input))
+    reject("driver input must be an absolute file path");
+  if ((Operation == "inspect") != Output.empty())
+    reject("mark and clean require output; inspect cannot write a file");
+  if (!Output.empty() && !sys::path::is_absolute(Output))
+    reject("driver output must be an absolute file path");
+  sys::fs::file_status Status;
+  if (sys::fs::status(Input, Status) || !sys::fs::is_regular_file(Status) ||
+      Status.getSize() > 64 * 1024 * 1024)
+    reject("driver input must be a regular IR file within 64 MiB");
+  auto Buffer = MemoryBuffer::getFile(Input);
+  if (!Buffer || (*Buffer)->getBufferSize() > 64 * 1024 * 1024)
+    reject("driver could not read bounded IR input");
+  LLVMContext Context;
+  SMDiagnostic Diagnostic;
+  auto Module = parseIR((*Buffer)->getMemBufferRef(), Diagnostic, Context);
+  if (!Module) {
+    Diagnostic.print("FileVeilWatermarkDriver", errs());
+    return 2;
+  }
+  if (verifyModule(*Module, &errs()))
+    reject("driver input failed LLVM verification");
+  ModuleAnalysisManager Analyses;
+  WatermarkPass(Operation).run(*Module, Analyses);
+  if (verifyModule(*Module, &errs()))
+    reject("driver result failed LLVM verification");
+  if (!Output.empty()) {
+    int Descriptor;
+    if (sys::fs::openFileForWrite(Output, Descriptor, sys::fs::CD_CreateNew,
+                                 sys::fs::OF_Text))
+      reject("driver output must be a new writable file");
+    raw_fd_ostream Stream(Descriptor, true);
+    Module->print(Stream, nullptr);
+    Stream.flush();
+    if (Stream.has_error())
+      reject("driver could not complete IR output");
+  }
+  return 0;
+}
+#else
 extern "C" LLVM_ATTRIBUTE_WEAK PassPluginLibraryInfo llvmGetPassPluginInfo() {
   return {LLVM_PLUGIN_API_VERSION, "FileVeilWatermark", "1.0.0",
           [](PassBuilder &Builder) {
@@ -644,5 +715,6 @@ extern "C" LLVM_ATTRIBUTE_WEAK PassPluginLibraryInfo llvmGetPassPluginInfo() {
                 });
           }};
 }
+#endif
 
-// FVPROV1 25755 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiI1YjcwYmY3MjU3YjU4YjUyYWUyYmNhMDgwNGU1NWM2NDMyY2U0NzRkODkyM2I4ODFiM2NiNjY1NjIzZDFkMGM2IiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL3Rvb2xzL3NvZnR3YXJlLXdhdGVybWFyay9GaWxlVmVpbFdhdGVybWFyay5jcHAifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiJlNjg4MDk0MzMwNDYzYWEwNjVlOGRkZDM1NzM2ODdmNzJhOTExZWNhMzEzNmYxMTA2Mjg2MzQ1ODM3NmUyNGY1ZTg0MTcyNWNmYWIyYmIzZDlhZGM5MjcxN2M0MjI0MzIwYjk2MGQzZjk1ZWNjYTUyOWE3M2E5ZWM3NzdmNmMwMiJ9XX1d FVPROV1-END
+// FVPROV1 28559 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiJlMWM0MjNmOWE4OGIzYWFhN2MwMzU3ODJhNjM5NjAxNjIzODIxYWMxMmQ0NGQ5MDE1MjIyNmJhZGFjZjI0YWQ1IiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL3Rvb2xzL3NvZnR3YXJlLXdhdGVybWFyay9GaWxlVmVpbFdhdGVybWFyay5jcHAifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiI4YWRiZTJmMWQyMTU0ZDYxOGU3ZTk3OTI4YmY4NzBjZWU2ZDkwZDZiNjAwNTNkMGI1MjZhZDQ4Y2NiOGU0MWE4YWI2NzVkNmMzNjJiYzcyMmI4NzAzNDU2ZTg1ZWI4MDI0NmU5NTc0M2VlMTJmMjY4OGQwMzc3MWE1YThhYjgwYSJ9XX1d FVPROV1-END

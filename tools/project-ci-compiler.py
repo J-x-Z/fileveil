@@ -78,6 +78,39 @@ def tools(prefix):
     return result
 
 
+def built_pass(directory):
+    candidates = []
+    for path in directory.rglob("fileveil-plugin.json"):
+        metadata = read_json(path, 65536)
+        name = metadata.get("plugin")
+        kind = metadata.get("execution_kind", "plugin")
+        if (metadata.get("schema") != "fileveil.software.llvm-plugin.v1"
+                or not isinstance(name, str) or not name or Path(name).name != name
+                or any(character in name for character in "/\\:\0\r\n")
+                or kind not in ("plugin", "standalone_driver")):
+            raise ValueError("Built LLVM pass metadata has an invalid artifact identity")
+        artifact = path.parent / name
+        if artifact.is_file() and not artifact.is_symlink():
+            candidates.append((artifact.resolve(), kind))
+    if len(candidates) != 1:
+        raise ValueError("Select one completed native LLVM pass build")
+    return candidates[0]
+
+
+def probe_built_pass(directory, prefix):
+    artifact, kind = built_pass(directory)
+    with tempfile.TemporaryDirectory(prefix=".fileveil-pass-probe-", dir=directory) as name:
+        source = Path(name) / "probe.ll"
+        source.write_text("; trusted FileVeil pass loading probe\n", encoding="ascii")
+        if kind == "standalone_driver":
+            command = [str(artifact), "--operation", "inspect", "--input", str(source.resolve())]
+        else:
+            command = [str(tools(prefix)["opt"]), "--load-pass-plugin=" + str(artifact),
+                "-passes=verify", "-disable-output", str(source.resolve())]
+        subprocess.run(command, check=True, timeout=120, env=POST.clean_environment())
+    return artifact
+
+
 def stop(process):
     if os.name == "posix":
         try:
@@ -375,4 +408,4 @@ if __name__ == "__main__":
         print(f"FileVeil compiler stage failed ({error})", file=sys.stderr)
         sys.exit(1)
 
-# FVPROV1 20449 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiIyYTVlNmIyZmJlOGFkYTUzYzA0YTZlN2NjZjEwOTUxY2ExYTA1ZWRlZGNlYTgyN2I3Nzg5ZmIwYmFmODI1MmU1IiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL3Rvb2xzL3Byb2plY3QtY2ktY29tcGlsZXIucHkifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiI0ZmE3MzVmYzU5NzM3MzM5YmRlZTNhMDBhNmMyNTQ2ODRkOWFjZjViMjUwODg4ZmRiODU1YjE4ZDljMTY4ZDc5OGE0OTdhMDUxM2QxYmNiZDM5ZDFkZDM4ZTE4ZTljODgxMTM2ZGNiNTdiMTE4ODRiZDg1N2JmMzVmNjdlYTAwNyJ9XX1d FVPROV1-END
+# FVPROV1 22089 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiI4MDUzMTJjODUwYTFlZjAyMjZhMzIyMWJiNDkwMGRjZTUwNzczMGViZmNjNDM4ZDIyZjhjN2YyNGU2YmVmNTM4IiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL3Rvb2xzL3Byb2plY3QtY2ktY29tcGlsZXIucHkifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiIxMzdiNDM5ZTFhNTcwYjk1ZWUxZWQ5YjI2MTRjMmUwZjI2NzkxZWIxN2Y0NmQ5YWJmNzU1MWY4MThlMjExNzUzY2ZlZjFhMzdkOWY5ZjQ2ODFhYTY1ODE4ZTM4MmVkN2M5YjA5MTAwMGU4Njc0MmM5YzU3NWQzYjI4MDViYWYwZCJ9XX1d FVPROV1-END

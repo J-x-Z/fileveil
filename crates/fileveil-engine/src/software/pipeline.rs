@@ -360,6 +360,7 @@ fn inspect_ir(
 ) -> Result<()> {
     let chain = toolchain(request, work, cancelled)?;
     let plugin = tools::plugin(request.plugin_path.as_deref(), &chain)?;
+    details_mut(report)["pass_execution_kind"] = json!(plugin.execution_kind);
     let path = work.join("input.ll");
     write_private(&path, &original.bytes)?;
     let inspection = ir_operation(
@@ -452,7 +453,7 @@ fn disassemble(
 #[allow(clippy::too_many_arguments)]
 fn ir_operation(
     chain: &tools::Toolchain,
-    plugin: &Path,
+    plugin: &tools::Plugin,
     action: &str,
     input: &Path,
     output: Option<&Path>,
@@ -461,25 +462,12 @@ fn ir_operation(
     request: &SoftwareRequest,
     cancelled: &AtomicBool,
 ) -> Result<Value> {
-    let mut arguments = vec![
-        OsString::from(format!("-load-pass-plugin={}", plugin.display())),
-        format!("-passes=fileveil-{action}").into(),
-    ];
-    if let Some(output) = output {
-        arguments.extend([
-            "-S".into(),
-            input.as_os_str().into(),
-            "-o".into(),
-            output.as_os_str().into(),
-        ]);
-    } else {
-        arguments.extend(["-disable-output".into(), input.as_os_str().into()]);
-    }
+    let (program, arguments) = pass_command(chain, plugin, action, input, output)?;
     let environment = pass_packet
         .map(|path| vec![("FILEVEIL_SOFTWARE_PACKET", path.as_os_str())])
         .unwrap_or_default();
     let output = tools::run(
-        &chain.opt,
+        &program,
         &arguments,
         work,
         &environment,
@@ -487,10 +475,55 @@ fn ir_operation(
         cancelled,
     )?;
     if action == "mark" {
-        return Ok(json!({"llvm_ir_verified":true,"metrics":output.metrics}));
+        return Ok(json!({"llvm_ir_verified":true,"metrics":output.metrics,
+            "pass_execution_kind":plugin.execution_kind}));
     }
     serde_json::from_slice(&output.stdout)
         .map_err(|_| Error::Verification("LLVM pass returned invalid structured evidence".into()))
+}
+
+fn pass_command(
+    chain: &tools::Toolchain,
+    plugin: &tools::Plugin,
+    action: &str,
+    input: &Path,
+    output: Option<&Path>,
+) -> Result<(PathBuf, Vec<OsString>)> {
+    if !matches!(action, "inspect" | "mark" | "clean") || (action == "inspect") != output.is_none()
+    {
+        return Err(Error::Input("Invalid managed LLVM pass operation".into()));
+    }
+    match plugin.execution_kind {
+        tools::PassExecutionKind::Plugin => {
+            let mut arguments = vec![
+                OsString::from(format!("-load-pass-plugin={}", plugin.path.display())),
+                format!("-passes=fileveil-{action}").into(),
+            ];
+            if let Some(output) = output {
+                arguments.extend([
+                    "-S".into(),
+                    input.as_os_str().into(),
+                    "-o".into(),
+                    output.as_os_str().into(),
+                ]);
+            } else {
+                arguments.extend(["-disable-output".into(), input.as_os_str().into()]);
+            }
+            Ok((chain.opt.clone(), arguments))
+        }
+        tools::PassExecutionKind::StandaloneDriver => {
+            let mut arguments = vec![
+                "--operation".into(),
+                action.into(),
+                "--input".into(),
+                input.as_os_str().into(),
+            ];
+            if let Some(output) = output {
+                arguments.extend(["--output".into(), output.as_os_str().into()]);
+            }
+            Ok((plugin.path.clone(), arguments))
+        }
+    }
 }
 
 fn is_ir(path: &Path) -> bool {
@@ -692,6 +725,7 @@ fn mark(
         .ok_or_else(|| Error::Input("Software Mark requires a new output path".into()))?;
     let chain = toolchain(request, work, cancelled)?;
     let plugin = tools::plugin(request.plugin_path.as_deref(), &chain)?;
+    details_mut(report)["pass_execution_kind"] = json!(plugin.execution_kind);
     let base = base_ir(
         request,
         limits,
@@ -879,6 +913,7 @@ fn mark_source(
         .ok_or_else(|| Error::Input("Source Mark requires a new C/C++ output path".into()))?;
     let chain = toolchain(request, work, cancelled)?;
     let plugin = tools::plugin(request.plugin_path.as_deref(), &chain)?;
+    details_mut(report)["pass_execution_kind"] = json!(plugin.execution_kind);
     let base = base_ir(
         request,
         limits,
@@ -1211,6 +1246,7 @@ fn clean_compiler(
         .ok_or_else(|| Error::Input("Software Clean requires a new output path".into()))?;
     let chain = toolchain(request, work, cancelled)?;
     let plugin = tools::plugin(request.plugin_path.as_deref(), &chain)?;
+    details_mut(report)["pass_execution_kind"] = json!(plugin.execution_kind);
     let key = packet::load_key(request)?;
     if request.mode == SoftwareMode::Ir {
         let marked = work.join("marked.ll");
@@ -1556,40 +1592,65 @@ fn build_plugin(
         duration,
         cancelled,
     )?;
-    let artifact_directory = if output.join("fileveil-plugin.json").is_file() {
-        output.clone()
-    } else {
-        output.join("Release")
-    };
-    let metadata: Value = serde_json::from_slice(
-        &fs::read(artifact_directory.join("fileveil-plugin.json"))
-            .map_err(|_| Error::Verification("Plugin build omitted ABI metadata".into()))?,
-    )
-    .map_err(|_| Error::Verification("Plugin build returned invalid ABI metadata".into()))?;
-    let filename = metadata["plugin"]
-        .as_str()
-        .ok_or_else(|| Error::Verification("Plugin build omitted its filename".into()))?;
-    if Path::new(filename)
-        .components()
-        .any(|component| !matches!(component, Component::Normal(_)))
-        || Path::new(filename).components().count() != 1
-    {
-        return Err(Error::Verification(
-            "Plugin build returned an unsafe filename".into(),
-        ));
-    }
-    let path = artifact_directory.join(filename);
-    tools::plugin(Some(&path), &chain)?;
+    let (plugin, metadata) = built_plugin(&output, &chain)?;
     let mut report = Report::new("software", Format::Unknown);
     report.policy = Policy::Research;
     report.result = Outcome::VerifiedWithinScope;
     report.advanced = Some(
         json!({"software":{"schema":"fileveil.software.report.v1","action":"build_plugin",
+        "pass_execution_kind":plugin.execution_kind,
         "abi":metadata,"configure_metrics":configure.metrics,"build_metrics":build.metrics,
-        "plugin_sha256":digest(&fs::read(path).map_err(|_| Error::Io("Could not read built plugin".into()))?),
+        "plugin_sha256":digest(&fs::read(&plugin.path).map_err(|_| Error::Io("Could not read built plugin".into()))?),
         "scope":"local_plugin_build_and_abi_metadata","network_used":false}}),
     );
     Ok(report)
+}
+
+fn built_plugin(output: &Path, chain: &tools::Toolchain) -> Result<(tools::Plugin, Value)> {
+    let mut built = Vec::new();
+    // CMake single-config targets live at the root. Multi-config builds above
+    // explicitly select Release, while Debug metadata can exist without a file.
+    for directory in [output.to_path_buf(), output.join("Release")] {
+        let metadata_path = directory.join("fileveil-plugin.json");
+        if !metadata_path.is_file() {
+            continue;
+        }
+        let mut bytes = Vec::new();
+        fs::File::open(&metadata_path)
+            .and_then(|file| file.take(16 * 1024 + 1).read_to_end(&mut bytes))
+            .map_err(|_| Error::Verification("Plugin build omitted ABI metadata".into()))?;
+        if bytes.len() > 16 * 1024 {
+            return Err(Error::Verification(
+                "Plugin build ABI metadata exceeds its limit".into(),
+            ));
+        }
+        let metadata: Value = serde_json::from_slice(&bytes).map_err(|_| {
+            Error::Verification("Plugin build returned invalid ABI metadata".into())
+        })?;
+        let filename = metadata["plugin"]
+            .as_str()
+            .ok_or_else(|| Error::Verification("Plugin build omitted its filename".into()))?;
+        if Path::new(filename)
+            .components()
+            .any(|component| !matches!(component, Component::Normal(_)))
+            || Path::new(filename).components().count() != 1
+        {
+            return Err(Error::Verification(
+                "Plugin build returned an unsafe filename".into(),
+            ));
+        }
+        let path = directory.join(filename);
+        if path.is_file() {
+            built.push((tools::plugin(Some(&path), chain)?, metadata));
+        }
+    }
+    if built.len() != 1 {
+        return Err(Error::Verification(
+            "Plugin build must produce one unambiguous pass artifact with adjacent ABI metadata"
+                .into(),
+        ));
+    }
+    Ok(built.remove(0))
 }
 
 fn lab(
@@ -2015,6 +2076,112 @@ mod tests {
     use crate::{heritage::signing::SigningKey, project::ProjectKey};
 
     #[test]
+    fn built_pass_discovery_requires_one_existing_release_artifact() {
+        let directory = tempfile::tempdir().unwrap();
+        let chain = tools::Toolchain {
+            directory: "llvm".into(),
+            clang: "clang".into(),
+            opt: "opt".into(),
+            objdump: "llvm-objdump".into(),
+            strip: "llvm-strip".into(),
+            version: "23.1.5".into(),
+            major: 23,
+        };
+        let metadata = json!({
+            "schema":"fileveil.software.llvm-plugin.v1", "llvm_major":23,
+            "plugin":"FileVeilWatermarkDriver", "execution_kind":"standalone_driver",
+            "architecture":std::env::consts::ARCH,
+            "platform":if cfg!(windows) { "Windows" } else if cfg!(target_os="macos") { "Darwin" } else { "Linux" }
+        });
+        let encoded = serde_json::to_vec(&metadata).unwrap();
+        for config in ["", "Debug", "Release"] {
+            let path = directory.path().join(config);
+            fs::create_dir_all(&path).unwrap();
+            fs::write(path.join("fileveil-plugin.json"), &encoded).unwrap();
+        }
+        let release = directory.path().join("Release/FileVeilWatermarkDriver");
+        fs::write(&release, b"unexecuted driver fixture").unwrap();
+        let (plugin, _) = built_plugin(directory.path(), &chain).unwrap();
+        assert_eq!(plugin.path, release.canonicalize().unwrap());
+        assert_eq!(
+            plugin.execution_kind,
+            tools::PassExecutionKind::StandaloneDriver
+        );
+        fs::write(
+            directory.path().join("FileVeilWatermarkDriver"),
+            b"ambiguous old driver",
+        )
+        .unwrap();
+        assert!(built_plugin(directory.path(), &chain).is_err());
+    }
+
+    #[test]
+    fn managed_pass_commands_select_the_declared_backend_with_fixed_arguments() {
+        let chain = tools::Toolchain {
+            directory: "llvm".into(),
+            clang: "clang".into(),
+            opt: "opt".into(),
+            objdump: "llvm-objdump".into(),
+            strip: "llvm-strip".into(),
+            version: "23.1.5".into(),
+            major: 23,
+        };
+        let mut plugin = tools::Plugin {
+            path: "FileVeilWatermarkDriver".into(),
+            execution_kind: tools::PassExecutionKind::StandaloneDriver,
+        };
+        let input = Path::new("input.ll");
+        let output = Path::new("output.ll");
+        for action in ["mark", "clean"] {
+            let (program, arguments) =
+                pass_command(&chain, &plugin, action, input, Some(output)).unwrap();
+            assert_eq!(program, plugin.path);
+            assert_eq!(
+                arguments,
+                [
+                    "--operation",
+                    action,
+                    "--input",
+                    "input.ll",
+                    "--output",
+                    "output.ll"
+                ]
+                .map(OsString::from)
+            );
+        }
+        let (program, arguments) = pass_command(&chain, &plugin, "inspect", input, None).unwrap();
+        assert_eq!(program, plugin.path);
+        assert_eq!(
+            arguments,
+            ["--operation", "inspect", "--input", "input.ll"].map(OsString::from)
+        );
+        plugin.execution_kind = tools::PassExecutionKind::Plugin;
+        let (program, arguments) =
+            pass_command(&chain, &plugin, "mark", input, Some(output)).unwrap();
+        assert_eq!(program, chain.opt);
+        assert_eq!(
+            arguments,
+            [
+                "-load-pass-plugin=FileVeilWatermarkDriver",
+                "-passes=fileveil-mark",
+                "-S",
+                "input.ll",
+                "-o",
+                "output.ll",
+            ]
+            .map(OsString::from)
+        );
+        for (action, output) in [
+            ("unknown", None),
+            ("mark", None),
+            ("clean", None),
+            ("inspect", Some(output)),
+        ] {
+            assert!(pass_command(&chain, &plugin, action, input, output).is_err());
+        }
+    }
+
+    #[test]
     fn runtime_crt_recovers_all_64_bits_and_checks_bounds() {
         const PRIMES: [u64; 9] = [251, 241, 239, 233, 229, 227, 223, 211, 199];
         for witness in [0, 1, 0x123456789abcdef, u64::MAX] {
@@ -2137,4 +2304,4 @@ int main(int argc,char **argv) {
     }
 }
 
-// FVPROV1 76814 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiJmZWJiNzRjODE4M2IwOTgxMGI5M2M4ODA5NzczZDRkNmJjMzNhODdhMTU1ZjQ4ZGY1MmE3MDhkZGIxOTk5N2E4IiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL2NyYXRlcy9maWxldmVpbC1lbmdpbmUvc3JjL3NvZnR3YXJlL3BpcGVsaW5lLnJzIn0sInNpZ25hdHVyZXMiOlt7ImtleV9pZCI6Ijk5ZWE2M2VmY2NmZDBmZGJkNjhlMTZlZDhmMDNkMzM3ZjE1ZWMyZTRhNmEzZDY0ZTExZDcxNGVhMWU1NDI1MzMiLCJwdWJsaWNfa2V5X2hleCI6ImFkYjNlMTdjZDEyZjk1NmQwMDcwZTE2NjNmNTMxNTM3ZmNlZGY3MzA4ZDAxNjU4ZmVhNDU2ZmVlYThmN2ZiYzUiLCJzaWduYXR1cmVfaGV4IjoiZTVhMTUxMjE4M2Q4ZjM3MmM4MjE2ZTBkYjlkNjNmNjE2MjgyNzkyODdiZTI5MjU0OWE4ZDk5NWNmNDhkYzZiZDJmMmNhNjI4MWQ0MWZkMzIxZGFiOWUxZjEzMjgyZGNkMzU0Y2QxMDI2ZDdlNzhlODY5ODAxMzA4YzA1N2VlMDIifV19XQ== FVPROV1-END
+// FVPROV1 83498 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiJmNDViNzE1NzUzNGExOTVlZjI4MzkyZGM5MWVkOTcyZWNlNTdiYjBiNTMxMzVjYWE2Mjc3MTUyYmE4OTMxNDk0IiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL2NyYXRlcy9maWxldmVpbC1lbmdpbmUvc3JjL3NvZnR3YXJlL3BpcGVsaW5lLnJzIn0sInNpZ25hdHVyZXMiOlt7ImtleV9pZCI6Ijk5ZWE2M2VmY2NmZDBmZGJkNjhlMTZlZDhmMDNkMzM3ZjE1ZWMyZTRhNmEzZDY0ZTExZDcxNGVhMWU1NDI1MzMiLCJwdWJsaWNfa2V5X2hleCI6ImFkYjNlMTdjZDEyZjk1NmQwMDcwZTE2NjNmNTMxNTM3ZmNlZGY3MzA4ZDAxNjU4ZmVhNDU2ZmVlYThmN2ZiYzUiLCJzaWduYXR1cmVfaGV4IjoiYzk3YjVhYTQ3MmU2Y2Y1YWE4NmVlZTIwOGU1NTc1YmI2ZDMzY2NlYmJjNzA0NjRjMTVmZTQ3N2U2YjY2MGZjNTBlNTZjYmI2ODUxMDVmNmE1MDJlODdiZTYyZTZlNzdjNGY5ZWNkOGVmNDAwYjI5YmY1ZDVkZjU2YTMyZjE3MDcifV19XQ== FVPROV1-END

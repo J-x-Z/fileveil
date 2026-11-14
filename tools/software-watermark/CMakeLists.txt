@@ -4,15 +4,27 @@ project(FileVeilSoftwareWatermark LANGUAGES C CXX)
 find_package(LLVM REQUIRED CONFIG)
 list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
 include(AddLLVM)
-add_llvm_pass_plugin(FileVeilWatermark FileVeilWatermark.cpp PLUGIN_TOOL opt)
-# Match LLVM's Darwin module lookup when the host statically owns LLVM symbols.
-# Shared-library SDKs retain AddLLVM's existing LLVM target linkage.
-if(APPLE AND NOT LLVM_LINK_LLVM_DYLIB)
-  target_link_options(FileVeilWatermark PRIVATE
-    "LINKER:-flat_namespace" "LINKER:-undefined,dynamic_lookup")
+option(FILEVEIL_FORCE_STANDALONE_DRIVER "Run the watermark pass in a separate executable" OFF)
+if(FILEVEIL_FORCE_STANDALONE_DRIVER OR
+   (NOT LLVM_ENABLE_PLUGINS AND NOT (LLVM_EXPORT_SYMBOLS_FOR_PLUGINS AND TARGET opt)))
+  set(LLVM_LINK_COMPONENTS Core IRReader Support TargetParser)
+  add_llvm_executable(FileVeilWatermarkDriver DISABLE_LLVM_LINK_LLVM_DYLIB FileVeilWatermark.cpp)
+  set(fileveil_target FileVeilWatermarkDriver)
+  set(fileveil_execution_kind standalone_driver)
+  target_compile_definitions(${fileveil_target} PRIVATE FILEVEIL_STANDALONE_DRIVER=1)
+else()
+  add_llvm_pass_plugin(FileVeilWatermark FileVeilWatermark.cpp PLUGIN_TOOL opt)
+  set(fileveil_target FileVeilWatermark)
+  set(fileveil_execution_kind plugin)
+  # Match LLVM's Darwin module lookup when the host statically owns LLVM symbols.
+  # Shared-library SDKs retain AddLLVM's existing LLVM target linkage.
+  if(APPLE AND NOT LLVM_LINK_LLVM_DYLIB)
+    target_link_options(${fileveil_target} PRIVATE
+      "LINKER:-flat_namespace" "LINKER:-undefined,dynamic_lookup")
+  endif()
 endif()
-target_compile_features(FileVeilWatermark PRIVATE cxx_std_17)
-target_include_directories(FileVeilWatermark SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})
-target_compile_definitions(FileVeilWatermark PRIVATE ${LLVM_DEFINITIONS})
-file(GENERATE OUTPUT "$<TARGET_FILE_DIR:FileVeilWatermark>/fileveil-plugin.json" CONTENT
-  "{\n  \"schema\": \"fileveil.software.llvm-plugin.v1\",\n  \"llvm_version\": \"${LLVM_PACKAGE_VERSION}\",\n  \"llvm_major\": ${LLVM_VERSION_MAJOR},\n  \"platform\": \"${CMAKE_SYSTEM_NAME}\",\n  \"architecture\": \"${CMAKE_SYSTEM_PROCESSOR}\",\n  \"plugin\": \"$<TARGET_FILE_NAME:FileVeilWatermark>\"\n}\n")
+target_compile_features(${fileveil_target} PRIVATE cxx_std_17)
+target_include_directories(${fileveil_target} SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})
+target_compile_definitions(${fileveil_target} PRIVATE ${LLVM_DEFINITIONS})
+file(GENERATE OUTPUT "$<TARGET_FILE_DIR:${fileveil_target}>/fileveil-plugin.json" CONTENT
+  "{\n  \"schema\": \"fileveil.software.llvm-plugin.v1\",\n  \"llvm_version\": \"${LLVM_PACKAGE_VERSION}\",\n  \"llvm_major\": ${LLVM_VERSION_MAJOR},\n  \"platform\": \"${CMAKE_SYSTEM_NAME}\",\n  \"architecture\": \"${CMAKE_SYSTEM_PROCESSOR}\",\n  \"execution_kind\": \"${fileveil_execution_kind}\",\n  \"plugin\": \"$<TARGET_FILE_NAME:${fileveil_target}>\"\n}\n")

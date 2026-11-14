@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 //! Trusted local LLVM tools with bounded logs and inherited worker confinement.
 use fileveil_core::{Error, Result};
-use serde::Serialize;
-use serde_json::Value;
+use serde::{Deserialize, Serialize};
 use std::{
     ffi::{OsStr, OsString},
     fs::{self, File},
@@ -24,6 +23,31 @@ pub(super) struct Toolchain {
     pub strip: PathBuf,
     pub version: String,
     pub major: u32,
+}
+
+#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub(super) enum PassExecutionKind {
+    #[default]
+    Plugin,
+    StandaloneDriver,
+}
+
+#[derive(Debug, Deserialize)]
+struct PluginMetadata {
+    schema: String,
+    llvm_major: u32,
+    plugin: String,
+    platform: String,
+    architecture: String,
+    #[serde(default)]
+    execution_kind: PassExecutionKind,
+}
+
+#[derive(Debug)]
+pub(super) struct Plugin {
+    pub path: PathBuf,
+    pub execution_kind: PassExecutionKind,
 }
 
 #[derive(Debug, Clone, Default, Serialize)]
@@ -402,7 +426,7 @@ pub(super) fn discover(
     ))
 }
 
-pub(super) fn plugin(path: Option<&Path>, toolchain: &Toolchain) -> Result<PathBuf> {
+pub(super) fn plugin(path: Option<&Path>, toolchain: &Toolchain) -> Result<Plugin> {
     let chosen = path
         .map(Path::to_path_buf)
         .or_else(|| std::env::var_os("FILEVEIL_SOFTWARE_PLUGIN").map(PathBuf::from))
@@ -432,11 +456,11 @@ pub(super) fn plugin(path: Option<&Path>, toolchain: &Toolchain) -> Result<PathB
             "LLVM plugin metadata exceeds its size limit".into(),
         ));
     }
-    let value: Value = serde_json::from_slice(&data)
+    let value: PluginMetadata = serde_json::from_slice(&data)
         .map_err(|_| Error::Input("Invalid LLVM plugin ABI metadata".into()))?;
-    if value["schema"] != "fileveil.software.llvm-plugin.v1"
-        || value["llvm_major"].as_u64() != Some(toolchain.major as u64)
-        || value["plugin"].as_str() != canonical.file_name().and_then(OsStr::to_str)
+    if value.schema != "fileveil.software.llvm-plugin.v1"
+        || value.llvm_major != toolchain.major
+        || Some(value.plugin.as_str()) != canonical.file_name().and_then(OsStr::to_str)
     {
         return Err(Error::Blocked(
             "LLVM pass plugin and selected toolchain have incompatible ABI metadata".into(),
@@ -449,18 +473,21 @@ pub(super) fn plugin(path: Option<&Path>, toolchain: &Toolchain) -> Result<PathB
     } else {
         "Linux"
     };
-    let architecture = value["architecture"].as_str().unwrap_or_default();
+    let architecture = value.architecture.as_str();
     let architecture_matches = match std::env::consts::ARCH {
         "aarch64" => matches!(architecture, "aarch64" | "arm64" | "ARM64"),
         "x86_64" => matches!(architecture, "x86_64" | "AMD64" | "amd64"),
         native => architecture == native,
     };
-    if value["platform"].as_str() != Some(platform) || !architecture_matches {
+    if value.platform != platform || !architecture_matches {
         return Err(Error::Blocked(
             "LLVM pass plugin platform or architecture differs from this host".into(),
         ));
     }
-    Ok(canonical)
+    Ok(Plugin {
+        path: canonical,
+        execution_kind: value.execution_kind,
+    })
 }
 
 pub(super) fn native_flags(
@@ -530,6 +557,58 @@ pub(super) fn target_flags(target: Option<&str>) -> Result<Vec<OsString>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn plugin_metadata_defaults_to_plugin_and_selects_standalone_driver() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("pass-fixture");
+        fs::write(&path, b"unexecuted pass fixture").unwrap();
+        let toolchain = Toolchain {
+            directory: directory.path().to_path_buf(),
+            clang: "clang".into(),
+            opt: "opt".into(),
+            objdump: "llvm-objdump".into(),
+            strip: "llvm-strip".into(),
+            version: "23.1.5".into(),
+            major: 23,
+        };
+        let mut metadata = serde_json::json!({
+            "schema":"fileveil.software.llvm-plugin.v1", "llvm_major":23,
+            "plugin":"pass-fixture", "architecture":std::env::consts::ARCH,
+            "platform":if cfg!(windows) { "Windows" } else if cfg!(target_os="macos") { "Darwin" } else { "Linux" }
+        });
+        for (kind, expected) in [
+            (None, PassExecutionKind::Plugin),
+            (Some("plugin"), PassExecutionKind::Plugin),
+            (
+                Some("standalone_driver"),
+                PassExecutionKind::StandaloneDriver,
+            ),
+        ] {
+            if let Some(kind) = kind {
+                metadata["execution_kind"] = kind.into();
+            }
+            fs::write(
+                directory.path().join("fileveil-plugin.json"),
+                serde_json::to_vec(&metadata).unwrap(),
+            )
+            .unwrap();
+            let selected = plugin(Some(&path), &toolchain).unwrap();
+            assert_eq!(selected.execution_kind, expected);
+            assert_eq!(selected.path, path.canonicalize().unwrap());
+        }
+        metadata["execution_kind"] = "unknown_backend".into();
+        fs::write(
+            directory.path().join("fileveil-plugin.json"),
+            serde_json::to_vec(&metadata).unwrap(),
+        )
+        .unwrap();
+        assert!(matches!(
+            plugin(Some(&path), &toolchain),
+            Err(Error::Input(_))
+        ));
+    }
+
     #[test]
     #[cfg(unix)]
     fn generated_artifact_budget_is_enforced_before_success() {
@@ -555,4 +634,4 @@ mod tests {
     }
 }
 
-// FVPROV1 18126 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiIxZjgyODY5YjA0OGFlMTA1MzIzN2M4NmU4MWI3NTA1ZmZhYTY1YWU5YzdjOTI1MGUyMzFmYTc0ODFiYTlkNjMwIiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL2NyYXRlcy9maWxldmVpbC1lbmdpbmUvc3JjL3NvZnR3YXJlL3Rvb2xzLnJzIn0sInNpZ25hdHVyZXMiOlt7ImtleV9pZCI6Ijk5ZWE2M2VmY2NmZDBmZGJkNjhlMTZlZDhmMDNkMzM3ZjE1ZWMyZTRhNmEzZDY0ZTExZDcxNGVhMWU1NDI1MzMiLCJwdWJsaWNfa2V5X2hleCI6ImFkYjNlMTdjZDEyZjk1NmQwMDcwZTE2NjNmNTMxNTM3ZmNlZGY3MzA4ZDAxNjU4ZmVhNDU2ZmVlYThmN2ZiYzUiLCJzaWduYXR1cmVfaGV4IjoiOTNmYTc5OGE0YWUyM2NjNTExZDE4NDA2YjhjZTc0YzhhNDRiZmU5MjQ3Y2FiZDIzOTMxMWE4ODYyNjEwNjY5MjJhZmJmZTllNjQzZjFmM2ViYzcyZGIxYTQ1NjQwYTFjYzllODI4OTdkODQ0OWNmYjExZjI0ZDI0MDIxOTYzMDYifV19XQ== FVPROV1-END
+// FVPROV1 20697 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiI5NGVhZTFiOTMyZTU1ZDJjMDEyNWMxOTYzYmQwMjQ2NTdlZTFkMjIzYTMyMDljNzIxMzdjMjYxOWIwNjBmNmIxIiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL2NyYXRlcy9maWxldmVpbC1lbmdpbmUvc3JjL3NvZnR3YXJlL3Rvb2xzLnJzIn0sInNpZ25hdHVyZXMiOlt7ImtleV9pZCI6Ijk5ZWE2M2VmY2NmZDBmZGJkNjhlMTZlZDhmMDNkMzM3ZjE1ZWMyZTRhNmEzZDY0ZTExZDcxNGVhMWU1NDI1MzMiLCJwdWJsaWNfa2V5X2hleCI6ImFkYjNlMTdjZDEyZjk1NmQwMDcwZTE2NjNmNTMxNTM3ZmNlZGY3MzA4ZDAxNjU4ZmVhNDU2ZmVlYThmN2ZiYzUiLCJzaWduYXR1cmVfaGV4IjoiMWUzNDhkNWE2ZTIxZmNkOGRkMWEzYWNlYjYwODlmYWNhODAzNWRkNDlhZmIwNjVkM2ViNWY4MjcwNjA1ODUyMDkyNmE0NmQ5MDQ0MjRjNGY2ODA2M2U5N2JiODc1ZWM0YTgxMzJmM2FkODRmOGMwMTFiOTg2NjYxZTlkOTA3MDgifV19XQ== FVPROV1-END

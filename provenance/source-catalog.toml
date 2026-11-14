@@ -30,8 +30,8 @@ marked = true
 
 [[files]]
 path = ".github/workflows/project-release.yml"
-sha256 = "daeb0c55f70f231f3654d2a9dbe8dd0189813d9ac01a4700ff5cded8207fb5aa"
-size_bytes = 17308
+sha256 = "06b0c1eac18ba818bf97771048799ce536c879200ca70c2b03359feeb4b9bd9b"
+size_bytes = 16723
 marked = true
 
 [[files]]
@@ -7608,8 +7608,8 @@ marked = true
 
 [[files]]
 path = "crates/fileveil-cli/src/registry_cli.rs"
-sha256 = "4f3cb6293fdcc3ca991c0ec4246dc6b17868b4ca4e513ff14aee034c1b1b3fd3"
-size_bytes = 19644
+sha256 = "2d08648f9360ff18b052a906193c985d9cfea4a4d9d8ac24158631274b85cae1"
+size_bytes = 19729
 marked = true
 
 [[files]]
@@ -7896,8 +7896,8 @@ marked = true
 
 [[files]]
 path = "crates/fileveil-engine/src/software/pipeline.rs"
-sha256 = "c9155cc677186fdc0bc4699e67805d3a99c67406a8e900ea47a1c442cc195a6b"
-size_bytes = 78101
+sha256 = "f57239ef4b4dd0f090a6425f98e3d7ee4f84c5aa02c31fa6d1b60a2f1153d5f4"
+size_bytes = 84785
 marked = true
 
 [[files]]
@@ -7908,8 +7908,8 @@ marked = true
 
 [[files]]
 path = "crates/fileveil-engine/src/software/tools.rs"
-sha256 = "c679638303d436f128b9b58a4a37aca047e93f3a586231249b2c6ba3e312b5ce"
-size_bytes = 19409
+sha256 = "5d85693898af8c2a58fa5516d7fca3ed18e965047b868a7e1f7b77ea04ffb909"
+size_bytes = 21980
 marked = true
 
 [[files]]
@@ -8586,8 +8586,8 @@ marked = false
 
 [[files]]
 path = "docs/PROJECT_SOFTWARE_WATERMARK.md"
-sha256 = "e8a96b7fead058a1eb39d33a249a35b8f5a801170e3c3eda099029e14e98dbcd"
-size_bytes = 16383
+sha256 = "290291a53ceff33aa179f3520013fe7f06b483297635dca3948299ac873fa1d5"
+size_bytes = 16687
 marked = false
 
 [[files]]
@@ -8982,14 +8982,20 @@ marked = true
 
 [[files]]
 path = "tests/test_project_ci_llvm.py"
-sha256 = "39fba6bfb56b867d8d4bc9a9f93845e86711fdca0c75a65fbf21faeb03752cfb"
-size_bytes = 10559
+sha256 = "3b5f65c05426cdb97a2cf321b603a94f115c0cdd9d154bb6873c7677167c323c"
+size_bytes = 11475
 marked = true
 
 [[files]]
 path = "tests/test_project_ci_local.py"
 sha256 = "bf42d807ad987bc5d335b90e69aa0768b0be2c52fb893aea5c4337224f262b0e"
 size_bytes = 15118
+marked = true
+
+[[files]]
+path = "tests/test_project_ci_pass.py"
+sha256 = "03f602885b03d595a411985dc4bada71edbe467b50d961b8adeb8f11bdc5f187"
+size_bytes = 5146
 marked = true
 
 [[files]]
@@ -9084,14 +9090,14 @@ marked = true
 
 [[files]]
 path = "tools/project-ci-compiler.py"
-sha256 = "a0812305697ba65d12960706f2901e40d52471cbeaf7f75c07e6ef9edd6c0c6e"
-size_bytes = 21707
+sha256 = "68806f1985bbc53a42577aedb5d072f728d15f2f994cf365e9bde177d3c6936b"
+size_bytes = 23347
 marked = true
 
 [[files]]
 path = "tools/project-ci-llvm.py"
-sha256 = "417056f03152ce09b06016de6f83a1375bd98293d76298c34cd26e967738e77a"
-size_bytes = 6191
+sha256 = "e6f3c869877c0fe104a757c5ed8be12e191ff031d7bea527a845aba63057aad1"
+size_bytes = 6112
 marked = true
 
 [[files]]
@@ -9120,14 +9126,14 @@ marked = true
 
 [[files]]
 path = "tools/software-watermark/CMakeLists.txt"
-sha256 = "87504613bcb11d2ebbb4b4173c1242165901f0019082774c718b04e9468a2a0f"
-size_bytes = 1229
+sha256 = "b0ef0266e6ceee32db50e13d1a69f44f08273a5cc61544923badd4219f37b587"
+size_bytes = 1962
 marked = false
 
 [[files]]
 path = "tools/software-watermark/FileVeilWatermark.cpp"
-sha256 = "caec26c79029847fced5a4548cc9ce7168bcac1093f3c32252620ff3e7b302b0"
-size_bytes = 27038
+sha256 = "9d6fc9641457d84db88a59867af2da36d69ae43df9fde5e520466d5788300cfd"
+size_bytes = 29842
 marked = true
 
 [[files]]
@@ -9178,4 +9184,4 @@ sha256 = "bd7a06d78c55d59f9e98c8746f6f974698dd0b28abe868dd8ff51303964910c3"
 size_bytes = 17304
 marked = true
 
-# FVPROV1 268115 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiIwNzQ4YTM3MmM2NTdhYTgzYjczNmEyMjJiZjExYmM3Y2JlM2Q4Y2ZhZDIxY2M1NjRkYzhjNzhmMTk4OGViZmVhIiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlLXRyZWUifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiI2ZjFjZDZiZTU5NDU5Y2VhY2Q3MzNjMzIzYmU1MzUwYmJlMDRkOTgwMDJjZGFhYmI1ZGQ5MjRjMWU2OTk2NTJjODQ4ZTE0ZmM1ODJiMTA3YjAwMTljMjUzM2Y5Y2FlMjQ3YjFlN2IwMzUwNThhNzUyZTU1NGI0MTVjMzZjYzIwMSJ9XX1d FVPROV1-END
+# FVPROV1 268273 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiIyNjFhNmFkOTk1MjRkNjAzZjZiNzMxZGJlMzMzZGFmMWM2ODIxMTA1MDI4ZmIyODJhN2ZkYTkyNWMwNmFlZDA2IiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlLXRyZWUifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiI4ZWQ1NzllYWY0MjM4NTc5NDAzMGFlOWVkMzFmNjAxODVmYWJiZDZmNTk5ZTVkNThmZDZhYzNlYzIyYWJmNGM1ZGNmNTBkMWRiYmE0MjdkYjc0ZTkwZjNiMjAyYTAzMTkzMDYzZjVkY2U3NTg2NjI3ZmY0ZDA5NzJmOWIwN2MwOSJ9XX1d FVPROV1-END

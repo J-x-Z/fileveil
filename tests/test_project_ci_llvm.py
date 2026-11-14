@@ -32,6 +32,20 @@ def sdk_archive():
 
 
 class ProjectCiLlvmTests(unittest.TestCase):
+    def test_macos_does_not_override_system_cpp_runtime_search(self):
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            environment_file = root / "environment"
+            with patch.object(INSTALLER.sys, "argv", ["project-ci-llvm.py", str(root / "llvm")]), \
+                    patch.object(INSTALLER.sys, "platform", "darwin"), \
+                    patch.dict(INSTALLER.os.environ, {"GITHUB_ENV": str(environment_file),
+                        "GITHUB_PATH": str(root / "path"), "DYLD_LIBRARY_PATH": "existing-system-search"}), \
+                    patch.object(INSTALLER, "install"), \
+                    patch.object(INSTALLER.subprocess, "run"):
+                INSTALLER.main()
+                self.assertEqual(INSTALLER.os.environ["DYLD_LIBRARY_PATH"], "existing-system-search")
+            self.assertNotIn("DYLD_LIBRARY_PATH", environment_file.read_text())
+
     def test_main_exports_sdk_environment_and_checks_executables(self):
         with tempfile.TemporaryDirectory() as name:
             root = Path(name)
@@ -169,4 +183,4 @@ class ProjectCiLlvmTests(unittest.TestCase):
 if __name__ == "__main__":
     unittest.main()
 
-# FVPROV1 9298 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiIyNjlkMzc2YzIyZDIzNzI3NmI1ZGE4ZmZhNWU0MWY0NGQ0N2JlNjQzYjQ3Zjc4ZGVhZWY0NmFlODBlMmYzNWZiIiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL3Rlc3RzL3Rlc3RfcHJvamVjdF9jaV9sbHZtLnB5In0sInNpZ25hdHVyZXMiOlt7ImtleV9pZCI6Ijk5ZWE2M2VmY2NmZDBmZGJkNjhlMTZlZDhmMDNkMzM3ZjE1ZWMyZTRhNmEzZDY0ZTExZDcxNGVhMWU1NDI1MzMiLCJwdWJsaWNfa2V5X2hleCI6ImFkYjNlMTdjZDEyZjk1NmQwMDcwZTE2NjNmNTMxNTM3ZmNlZGY3MzA4ZDAxNjU4ZmVhNDU2ZmVlYThmN2ZiYzUiLCJzaWduYXR1cmVfaGV4IjoiYWNiNmY3MWQwYjI3MTY2MDU4MjU0MDYwZGQwOTkyMTMwODE4NzM3ZjAxZmQ1ZmZhYjY5MmUxNWZlZDAwZWM5ZGRkZmQyYTc2YjIzNjVkMDM4NzYwYWQ3YWExNTRhYzYxZmFkYmM3ODgyYzMxNTg1YjZjMGY1N2QyOTg1Y2I0MGQifV19XQ== FVPROV1-END
+# FVPROV1 10213 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiI0YWM5MTEwODVjNDhlZmI0OTQwNjA0Mjk3YjAxOTA2NWVhNWRhZjUwZjdiNWYzYjk2MGExZjY4NGQxNjE3NmUwIiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL3Rlc3RzL3Rlc3RfcHJvamVjdF9jaV9sbHZtLnB5In0sInNpZ25hdHVyZXMiOlt7ImtleV9pZCI6Ijk5ZWE2M2VmY2NmZDBmZGJkNjhlMTZlZDhmMDNkMzM3ZjE1ZWMyZTRhNmEzZDY0ZTExZDcxNGVhMWU1NDI1MzMiLCJwdWJsaWNfa2V5X2hleCI6ImFkYjNlMTdjZDEyZjk1NmQwMDcwZTE2NjNmNTMxNTM3ZmNlZGY3MzA4ZDAxNjU4ZmVhNDU2ZmVlYThmN2ZiYzUiLCJzaWduYXR1cmVfaGV4IjoiNjExNjMxYThkOTEwY2Y5YmMyOGNkYWNkMjI5Y2VhMWZjY2JhYmVlNzcyMjkyZjkwMWEyMGYxYjg0NmQ5OTFlMWYxMTU1YWU4N2IzNTg1ZTU1ZGZmZGE4ZGFiYTQxMTNkZGI4YzUyYzQ0MTQwOTJlNmRhNmYwMjI5Mjk3OWY2MDMifV19XQ== FVPROV1-END
