@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MPL-2.0
 schema = "fileveil.source-catalog.v1"
 repository = "https://github.com/J-x-Z/fileveil"
-release = "v0.5.0-alpha.2"
+release = "v0.5.0-alpha.3"
 created_at = "2026-11-14"
 
 [[files]]
@@ -12,25 +12,25 @@ marked = false
 
 [[files]]
 path = ".github/check-workflows.py"
-sha256 = "779a25664ca619817b313bc245f3e5a749726d6026133c4cc12d8e1f3e13535c"
+sha256 = "51233e56c9182f53ad4633ad7a7c5278d43c73a49f20e662c51513a2b84443b0"
 size_bytes = 5228
 marked = true
 
 [[files]]
 path = ".github/deny.toml"
-sha256 = "9cb87643269c74b9154b1c3743b5ad2d58aa3072204310d64511f92f2270ea26"
+sha256 = "92de5fa3769e7502b562995b830f2c6c7892737f2566806ff4b04b135533ddff"
 size_bytes = 1598
 marked = true
 
 [[files]]
 path = ".github/workflows/ci.yml"
-sha256 = "8800feb919c2d17788c10ee5f73f309dfe631215587e92650c3608983458749e"
-size_bytes = 31812
+sha256 = "4b8a2129c51c711022daf3656e28778aff7a64834de6c1b0aa7b05d07a5bf377"
+size_bytes = 32642
 marked = true
 
 [[files]]
 path = ".github/workflows/security.yml"
-sha256 = "7337c4f73d63592af040e571e53cae0e418b4e93ada8a62ac6b4b6af1d4f7b08"
+sha256 = "77dc423dcbf94ed6c288a84bb898ffafebd6a32cb65adeb347fcd17e966ae462"
 size_bytes = 3309
 marked = true
 
@@ -42,13 +42,13 @@ marked = false
 
 [[files]]
 path = "Cargo.lock"
-sha256 = "1a67b4bc7e215b3b0c4a557518c05d03c44507c6fbd1e28d370d4e6e9dd2ec63"
+sha256 = "59995f4a9ddb109af3fa0f03061ff56bbcf221230f00e9936d4f80c9baeda2af"
 size_bytes = 165328
 marked = false
 
 [[files]]
 path = "Cargo.toml"
-sha256 = "ed932bc9050e32a28b3d9113ac8210827d23e0374e6046b9511e0760ac526d58"
+sha256 = "e90b1caad1e1102fc356816999dfdc7dfd734a366de4334d192aea66977855d0"
 size_bytes = 2071
 marked = true
 
@@ -60,19 +60,19 @@ marked = false
 
 [[files]]
 path = "README.md"
-sha256 = "eb723dad95833c6de807e5a65af85f702f76634afff471e48aefded741d42525"
+sha256 = "8fcf8b38534c59e014daad259bd5b6f8cb0c60be6d5826fe54cc70861f7d1ab7"
 size_bytes = 8366
 marked = false
 
 [[files]]
 path = "README.zh-CN.md"
-sha256 = "7e5ae9b184d757f5346b00fbdb37b6b8ea4cad3d27f12b6cb2a21efef524c083"
+sha256 = "bb7400aa1a488e3a87ac090a8a60215d1d480eb68e1fc011f04f99b97168b964"
 size_bytes = 8037
 marked = false
 
 [[files]]
 path = "THIRD_PARTY_NOTICES.txt"
-sha256 = "e14da6b35685842e099417956fbf8034582f42e22363590da4ecad0506da29f8"
+sha256 = "fc2c4720028d1a20324433de7465bcfc3fc9cc0a6b5c08062427984c8ce51cec"
 size_bytes = 208906
 marked = false
 
@@ -3108,7 +3108,7 @@ marked = false
 
 [[files]]
 path = "assets/licenses/index.json"
-sha256 = "e199e44c5c39819b4be526dee1e1992178eab39f794bb24758ccaa358cfb3e95"
+sha256 = "3c2e231f732ee2348b6e1f8298e5f100b13f04db2d9d2682db4a6abba6d096df"
 size_bytes = 496160
 marked = false
 
@@ -7518,217 +7518,217 @@ marked = false
 
 [[files]]
 path = "crates/fileveil-cli/Cargo.toml"
-sha256 = "7a9d108d2011e4e7740dad6421dd50aeb945759c25ebae02e0b0d8caabe93067"
+sha256 = "bc708fe7e9420168598caa3e0be0422291b6bafef1371503550144c63e8af927"
 size_bytes = 1744
 marked = true
 
 [[files]]
 path = "crates/fileveil-cli/src/main.rs"
-sha256 = "e89d3f4d19eb3d1cbc6cb1e350dec50f1eba1ef67bc7009613cf1943c12d9649"
+sha256 = "c9c4d6bd845dc1dacf9cc3caa236efa66c622d786cc808f95a32f361f40a0e94"
 size_bytes = 47017
 marked = true
 
 [[files]]
 path = "crates/fileveil-cli/tests/commands.rs"
-sha256 = "22ed3802cc18812c2f0b412b74767a0f492829b98b905e6b6f13cb9404d15825"
+sha256 = "6eb48490c753bdd6966211afcfc098c78d6404fad02b4e5ef00c916b689556b0"
 size_bytes = 12506
 marked = true
 
 [[files]]
 path = "crates/fileveil-cli/tests/heritage.rs"
-sha256 = "a9509737e3655921cf2fc8e4467376536f115821564743f2bf0f285fd10f3959"
+sha256 = "68b242aebfc03cc7a60dbff1959e343f6c268ddca7ddff74f8e6c2bf1fd5efc6"
 size_bytes = 13695
 marked = true
 
 [[files]]
 path = "crates/fileveil-core/Cargo.toml"
-sha256 = "53b604242035b8be6b230e2bfa82649c68da3666eda0dff1f0ce85bfa4d9ff07"
+sha256 = "8472dcb2fac7553a77e6b9cc6c85d60c8c392699552afe2162b2416479fb7c47"
 size_bytes = 1538
 marked = true
 
 [[files]]
 path = "crates/fileveil-core/src/lib.rs"
-sha256 = "92e9346d1a126994cc080dc741faf6ac437ee5d42e717becbd1c1b62cbb433ff"
+sha256 = "4206278e99aa9d0b112577f660771106b565701b7f44dcbcc8ee90644a2bedd8"
 size_bytes = 11777
 marked = true
 
 [[files]]
 path = "crates/fileveil-core/src/options.rs"
-sha256 = "fbfb589e4349873040eb07ca6eef8c1d2534ab6f9781be3f890026521f29813f"
+sha256 = "b9b7d6253f8240b6daab743ef77acecb1da38c5f36144544ff1b58dc566d6bfb"
 size_bytes = 4462
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/Cargo.toml"
-sha256 = "9ae5cebf028c5b566c0a2289ec1621f7334cae632bf328936668e10b3995df90"
+sha256 = "97176ca676e319c64d562154c9eb164317304d898caa5e0954536f05e8ec78eb"
 size_bytes = 2459
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/examples/benchmark_engine.rs"
-sha256 = "bfd1951193cb0dcdfcf602efae5ec8951e64d6b702c55e2abe50e0b00d08ce46"
+sha256 = "22b847f3f789022628286de4760b040c6a313de726418f9250efff13a49d6df0"
 size_bytes = 10017
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/src/access_guard.rs"
-sha256 = "319126e1a465013cbfe2a3e154ff273546cd26ee11d00e78e99e76981df29520"
+sha256 = "5e621e44fa913eb0c2d95dc3641afefb698ae4b83f52bcfdb48aec07f7d7f172"
 size_bytes = 3672
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/src/advanced.rs"
-sha256 = "8aa73d47ed507a3db1ee8b4abc5c1d127c1ee17a896d6c1465fcc7b70e6b10ff"
+sha256 = "07cf44c1238142f2bc3b4bcc7e7e563eeeaf77033424fb94e19bfff007ec3a95"
 size_bytes = 26143
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/src/audits.rs"
-sha256 = "703beb1b366ead26602452481e7a85744dc5a68e234c2bd5551d5bcd4fb4a72d"
+sha256 = "208f9eb94fd8b59181a997e4e2fb317cd574dd92adc5bad4b06c966fc03186c5"
 size_bytes = 8142
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/src/heritage/c2pa_mark.rs"
-sha256 = "6ae4ec3e04da25697b2edf3307b4c887ce0b86615bb47114f72316ef83e1ada0"
+sha256 = "764d46606bc539b0aef590ba63a74c8e75fe5c2a4ab6e4903753eca773a79187"
 size_bytes = 38721
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/src/heritage/container.rs"
-sha256 = "5d71b888f6d88c259192581152e0e6c66c5ad6248006e40e4977244f6d480d57"
+sha256 = "82aab5aa452b8a56fe457904a7fca2d9dc8079a598ca2f588ada01762beea7da"
 size_bytes = 19787
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/src/heritage/custody.rs"
-sha256 = "80edf40f061752661c9645b2180488f371e9af1066e05344371f625d98258999"
+sha256 = "03ee5333892abc546cc77b1a32edaf569a9615f35502bf756695205cd2f1f94d"
 size_bytes = 28036
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/src/heritage/key_store.rs"
-sha256 = "9b75ec538654889bd6d0de9ad7825137e85b9cc8d800ea2e2edb011e6ca9361e"
+sha256 = "ca2e5d79d36c718d5994b46635e8c8a1e37c725622e1a54482563cbb50061711"
 size_bytes = 18945
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/src/heritage/legacy.rs"
-sha256 = "7a4a6eafbd92f81d890b1cf531098be4044c6e3e709dea4e040ccc25c7b85c0f"
+sha256 = "40cb00677036ad605b04355902b4fcbf76018992d0a71bd68fda2f86637c0acb"
 size_bytes = 29829
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/src/heritage/mod.rs"
-sha256 = "b2bd72d643a374785c82e50eee8c5310d2eafd7936fee476da52205f99d84426"
+sha256 = "af823f2bed2ffcac862395afc4970b703a8ef1dffb3725e02fa7fffeaa98001e"
 size_bytes = 1625
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/src/heritage/pipeline.rs"
-sha256 = "3109bc2b4093dd92a6340f0da06954de3077dd41ed4c10d0d98499e2ee5e09c6"
+sha256 = "e7f27315e354a9be5df0589baf18b34d8787c0b52b1600c58a691e80b09f1feb"
 size_bytes = 68035
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/src/heritage/provenance_ops.rs"
-sha256 = "e3bfc70f58aaacf0db95622b15efd7c551a28738309306e5534c5bc443c4a681"
+sha256 = "08ecd1fb271b711fe259671c1e7d6ea2f67415ec3a51df62344ad33868cee19b"
 size_bytes = 21593
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/src/heritage/robust.rs"
-sha256 = "10b0105218ed9b584928fcd1c57561dbd7036870540e9ad9c85e417b57082b8d"
+sha256 = "1eb5be75a34b949c2935ed2d280aff8364a26a8ef1b5d05ef7b7f3a8411ed850"
 size_bytes = 22480
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/src/heritage/robust_v2.rs"
-sha256 = "6310a2dc092395d8e28083bd0a54f16c74d3422248c9ef66bd4a854688b19495"
+sha256 = "1cda9da5d0404d70b2ffba32d31c340ec60d512e2988b630e2e3d1f7ba2cd90b"
 size_bytes = 45440
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/src/heritage/robust_v2/geometry.rs"
-sha256 = "1112058a23995afd7d0f87a77c06f6b7e5761262fe45bc4fac1df0bc271a7db9"
+sha256 = "b1b427b0b5a18c0a0ec03efb29924392fe4bf4e5650c60a3eeb394b702ca6de5"
 size_bytes = 9679
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/src/heritage/signing.rs"
-sha256 = "b43ba29ae06c6a8f15cd60c1f39ba4f03c1c3980de63c9b6f2a407e2f596c6b3"
+sha256 = "b76a7d7878aa38bac54bba010a9879ae4818ce0718165d6ddfc39a408f697954"
 size_bytes = 51682
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/src/heritage/signing_tests.rs"
-sha256 = "962e53ab1bafdd5add24f7513a4645910742a5bc5330ae82a93119dabe25fbba"
+sha256 = "00c2a01c20d892d1dfc4d451d94149caea3e4f8256fb8db3e614b428ee87eb7d"
 size_bytes = 21184
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/src/heritage/source.rs"
-sha256 = "89ac36da55aee19a644db98deb48f339da48ba4a29b066fba280f20f693bb07f"
+sha256 = "6ca07e973551d96381beb5d6aec88245848b1383ed1805a978fde75f40671a4a"
 size_bytes = 9548
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/src/heritage/timestamp.rs"
-sha256 = "0e0b186bd1de44d9a378820900a14b02aea65b34f8148c5294bf2dd9f1e21662"
+sha256 = "a0f9a5e07e2abe2d376aa6c84f65160392d43a550dc8680d1013d934e1545dda"
 size_bytes = 26580
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/src/image_processing.rs"
-sha256 = "316b75836e508a1aa5483f8dd21aeceab8ddb5d7efb3b0d478e3464a9c3249c0"
+sha256 = "f7d39b71812d0e2ae9d1f73b599251464c7ef6e356636390011eaa8f9e57d9ae"
 size_bytes = 42070
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/src/lab.rs"
-sha256 = "6417b94b6dee7c1c59e814bb9bdaae75c03a7d14d1a2b156a674d6eba5bfdeaf"
+sha256 = "cdeca62d0d63c7c64b871a82f941e570125c72cb360e65f859bc0890c5e75c09"
 size_bytes = 22631
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/src/lab/signals.rs"
-sha256 = "00cc7f52162ed747458a4d617afe1a48df4d32f1a8f26dbc42b8c4b9717c1acb"
+sha256 = "9c3f877a5c896ab3bba6ebe8e15b28ba0da173988875874f5d6b73f26341f565"
 size_bytes = 14604
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/src/lib.rs"
-sha256 = "1264d4dd4d764c344a775c005ea2159c0e3c0b3393ace15dc9392de27983a9e5"
+sha256 = "305daee51622537481bad740a4452b319147238fb50ed0cc1504eb3961333ae0"
 size_bytes = 41313
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/src/media_pixels.rs"
-sha256 = "bad2a941bdfe74146b4a56e99573278d33b3ef53cd9e1724e5e71637c67c302a"
+sha256 = "6005eaa4d64930d23e9fd47a591dab7ae51f5425a2d9b54b3659995a25243858"
 size_bytes = 23252
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/src/os.rs"
-sha256 = "f3caabbdd60514f11fa8e90344a6e37444846e172d5d80a444e80c531e4fbd0d"
+sha256 = "2adaa451e54135268814bfa28fe89aa2003df4dfaa8bd05e2b1cbc856bebf219"
 size_bytes = 10652
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/src/pdf.rs"
-sha256 = "280e7a10525e293337ef4a487923b4ee252d1bf6f0087cd1215cf03339f7e04d"
+sha256 = "0f8936c98c3554a61d5ef0fb32ab11bf878640e3ffa1077e8c13cd3f6a464311"
 size_bytes = 65657
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/src/provenance.rs"
-sha256 = "7b4fe1ed24ca770cf40f5b27d686b6180e07869aa6aeaefa3789d784d28d55a8"
+sha256 = "98c47e24a4c239ac8059e55470f51272c9c3c20175b955fbe0a260197a643123"
 size_bytes = 43056
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/src/watermark.rs"
-sha256 = "7dd89827ed42f95f282d40b43986b3eade96208459ded0a7581a42d9fed15a51"
+sha256 = "4a777aa68f1a7b32d686e779e9d7faea1d617f34886cc50d485b0663d85115bd"
 size_bytes = 23682
 marked = true
 
@@ -7740,43 +7740,43 @@ marked = false
 
 [[files]]
 path = "crates/fileveil-engine/src/watermark_engine.rs"
-sha256 = "16c203a21f0972a31f3565387f9d30c090fd091d8079fb5a970d74eda25281c9"
+sha256 = "188d77f9248b2edb73544b4d84b904e165c9566154b61ad10e460970dff39fe6"
 size_bytes = 8305
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/src/worker.rs"
-sha256 = "2a431980d009e0d7f35480df775995a82e02e1230ff8b909dfdfbca6b8d8a71a"
+sha256 = "19cec45ba1d988d3150fbc5959e333ca4eb8fbdb9a07bf2e50c7f1a0e5d751a1"
 size_bytes = 7380
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/tests/advanced.rs"
-sha256 = "6522df4296196e78ca5f29eba39bf90c588cc5af40a923bb9607dc95f6f4798d"
+sha256 = "a08742b7d2d654e49e2e0ebd1094a4d3be517c7d8e3c23993458a278a974660c"
 size_bytes = 25511
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/tests/audio.rs"
-sha256 = "3e77897a2f4ffe244bb73acc2a0d4f32edcc19e6e316d4c8073d3fe2a60c3805"
+sha256 = "d1b7d94e74d85f1a550fc030c084aeecf2e56c66be5d3cd4aabf65b7393b9903"
 size_bytes = 9621
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/tests/audits.rs"
-sha256 = "695f6f7260cd270b9e22b2d5f1ed596d964b451e268642114c4ccf7f29d1e084"
+sha256 = "be7e0762d4604f3a4dcd2dbb72ed57fe1ef4f2c20b2f09301bd8317dc3586da2"
 size_bytes = 4066
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/tests/c2pa_association.rs"
-sha256 = "1610163ec1a25d62faf54aaa1f7879686b190c331086276a7c212247bcaf2de2"
+sha256 = "e585b9cedff7fa86da59e5532709c85430cbadd05368751c4e853e705f74333d"
 size_bytes = 4118
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/tests/document_credentials.rs"
-sha256 = "5c86ba9b9c4380c6bdbe62a0e4ddce9078f8e4e3fb5dcac55c555171f2a7fbed"
+sha256 = "3e5c0ab163c3bcda19d7de65ba2bac42fae95ed6f1835eb6924dd69681f337ab"
 size_bytes = 7460
 marked = true
 
@@ -7944,235 +7944,235 @@ marked = false
 
 [[files]]
 path = "crates/fileveil-engine/tests/heritage_legacy.rs"
-sha256 = "fa8aedfe3fe0f4474f00d33e355cc44f30b40f868248686631efd5f216681835"
+sha256 = "16944ff1b91e0d5ede626639487a59f9908c59a5f2c0a72e028f9fc43552bd92"
 size_bytes = 24868
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/tests/heritage_pipeline.rs"
-sha256 = "375805804767bdd1375376726165b84ae2beba50de1dfa77a432f73cf6145bb7"
+sha256 = "b9e3f3f24e9cf0d4da59a91a877beb72176e82d3f0d7e18a90a3392577622d98"
 size_bytes = 22494
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/tests/heritage_pipeline_audit.rs"
-sha256 = "e8eefbcb7b147f1dc9c223cff13361cdd9fb8d62a4b2c988f0c33a0663693f2f"
+sha256 = "1290e91d2b2f6e5f8891ddb5f9685dc6c18fc40e04f0d9ddf46192f094efccaa"
 size_bytes = 13530
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/tests/heritage_robust.rs"
-sha256 = "764f6d7c9ce61f5ba70d47b35f0d4de0a80e79ec4a8ede6b4f03afa22bcabdc6"
+sha256 = "d981408a94e5f7e60e57f7a70632d74567de74078022518b5fc4fc23f70a1885"
 size_bytes = 11974
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/tests/heritage_robust_v2.rs"
-sha256 = "5217a2b467275bb0559b8504225cb71d700d4d57bee0d1a004a733dc58842908"
+sha256 = "1b7030dc34b3f36596e21249f842fdd7b769e653e84f93e25a01c0b1f07e6250"
 size_bytes = 6376
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/tests/heritage_source.rs"
-sha256 = "36ba6786ccda7bae2d0d1a630b271a21c055e849ef9722e893b664bfc79275a1"
+sha256 = "3a64c2acae4ceb50c96c247819ba8c9be6e21f5c5b05be0973effbb63bf93584"
 size_bytes = 8642
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/tests/lab.rs"
-sha256 = "c437aa500ab42a0295ebcb37955c1f60e727bff25c7aebf9a318446429533b4a"
+sha256 = "eace0b2bb95fee30623c4b6844b53cf3cd6c1081ad56585178576c5620850e7a"
 size_bytes = 16496
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/tests/media.rs"
-sha256 = "0efb48ae8e151dfb2a22400bb01997cccacc75533f18a37fc79c60e2c22d7ebd"
+sha256 = "79030c87bbeff9ef154fe67bb5c43ad350e8b48edf2acc6e83ba3c2785e12d25"
 size_bytes = 7031
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/tests/media_watermark_v05.rs"
-sha256 = "e980e2061785f2e93b28a29650074981f054ebe4f5ecbb7ec146fd288a2e5ca1"
+sha256 = "841549185ee395a4982070650aafed7b68cee915de70f6b693f4f347f71b5772"
 size_bytes = 18137
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/tests/pdf.rs"
-sha256 = "bb9a592778a816700925b9d5a4baa931b7cc20890de822cbe786a256394e4e59"
+sha256 = "900bd2e0f4ee067b8d6ca88b6951759dba12fb6880b9d32fc772192a435697af"
 size_bytes = 25151
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/tests/pipeline.rs"
-sha256 = "d779431e03cc670ec132dbd19b0e97095336d9615ca79b1a9e12e2561018cace"
+sha256 = "51d5cbc2723de24f88fc96afcf33171fdcf017e1335d05c8ca36a6d42795176c"
 size_bytes = 9860
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/tests/provenance.rs"
-sha256 = "7928406f2f8051005ea3c06da33f92795183f839fad9430e00ea1d2b4286208f"
+sha256 = "3a96ea0c58fa8444bdf906a4ebd5cacbe19cf42fda57b6cdeedb582cfad9f83c"
 size_bytes = 40451
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/tests/provenance_v2.rs"
-sha256 = "3cbb32ffdac12d374cde80be85b0205c460eb834541273ef146c0411bd82d59e"
+sha256 = "f8ec58efbd057b99b4b30c1eaf8fb30344702230a645ab6db10145013c99b864"
 size_bytes = 15977
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/tests/remote_credentials.rs"
-sha256 = "6c1da065c51e1a3dde826489dbd43248d08b401dfc80a98fd30bd0fe4442fd84"
+sha256 = "f9003ad7f45c4ae2ed3a3bf60eb3f4f5e6b8e13133b1dca297e676aa15f2a336"
 size_bytes = 8617
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/tests/support/generate_av_fixture.swift"
-sha256 = "0d88c507c71e855d2eb0f98fee24db89657d580b3ff7a4c1fd176482d700add4"
+sha256 = "937e56f6c993ddb18dfee4232cf8ad76ef2b7cd4ce0341c09a34e3f7fb1da1ce"
 size_bytes = 4074
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/tests/support/generate_watermark_fixtures.py"
-sha256 = "a948e95104f2697ebf0c461347a37abe7e2eb6f67710996643c3c734b5b43e20"
+sha256 = "ac3867ebd2b4a3fb445391b6fe769c465249f9258c83151fbbbe193836c74e62"
 size_bytes = 6468
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/tests/support/media_fidelity.swift"
-sha256 = "59ba6a798e3fa9fb91acb45c6b8126ea750869464d61fd28b1bf829e26997759"
+sha256 = "0c6b7b6ee44d09325c2734e085a3f5f901e588f437a4d9ef2e94b389c4abaf02"
 size_bytes = 7104
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/tests/video_research_v05.rs"
-sha256 = "3c381584d7f9af4763bfff8359953ea95fe43554e0717438e71c7df399da94e1"
+sha256 = "acdc013a44fbb190335c2b586ee5c347e508acd85f721dd5009aceca0c90c893"
 size_bytes = 3854
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/tests/watermark.rs"
-sha256 = "16a0c26d46ea5cc5bc889623f7c923776a3f0d25abbb44a275f8b4577013679e"
+sha256 = "476dec5c8b4160afe36bd3ec343fdc8af564455ee86fd8a1e117d65519bd2207"
 size_bytes = 15705
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/tests/watermark_public_clean_v05.rs"
-sha256 = "4c05c891452c09e556d23298b3626415478d2d1feec2587a6727aa73c851e369"
+sha256 = "4c1bb1da44d31972eb04a2c3b0c51a868e914739107384e56caced489cc390b5"
 size_bytes = 9440
 marked = true
 
 [[files]]
 path = "crates/fileveil-engine/tests/worker.rs"
-sha256 = "b7ac8620892ddcdadb1d85a84ad96538d230130d746449db78e805a86a7bb1f8"
+sha256 = "a4ecd2d39940c80d0f8dbfe6c0f8a3927a9aefeb8bdc8f0c667c81d60a862163"
 size_bytes = 3394
 marked = true
 
 [[files]]
 path = "crates/fileveil-formats/Cargo.toml"
-sha256 = "7498674a751480eb691aa077b672d414c369ffc245052b9e8fa18d20a2e4396a"
+sha256 = "3fbc615fad1b443fd0510d1e44847b45b76637898c30bd05734adce569b8195d"
 size_bytes = 1751
 marked = true
 
 [[files]]
 path = "crates/fileveil-formats/src/audio.rs"
-sha256 = "83e59b1ac55fd4a0e587b9312642b61c61424de2d8573e9b14a9eccc446ec38d"
+sha256 = "b7073afbd1963510a2aa5c403c18fbdff692269029e226c137ce06f1e5ab124d"
 size_bytes = 21171
 marked = true
 
 [[files]]
 path = "crates/fileveil-formats/src/bmff.rs"
-sha256 = "345f3e7846111431c65e0e011a8fdf9652d93c72c52ab220647b9e8d224f36a1"
+sha256 = "c15cefa4941465c55ca981cd94ef5eef8d70f302ee401caf53a960d03407b56d"
 size_bytes = 50138
 marked = true
 
 [[files]]
 path = "crates/fileveil-formats/src/bmff_rewrite.rs"
-sha256 = "f3d9208891df500b69290c98a2ac9e06785abafa2542d1934d2bd8b1e06c669c"
+sha256 = "6d0acc45297bf25e7f87343d80a603a00f4750f96cedab949cebd08d66d7e694"
 size_bytes = 46633
 marked = true
 
 [[files]]
 path = "crates/fileveil-formats/src/deep.rs"
-sha256 = "e8eeb10652f6cbd8ce59c2b2f93cd69b519a363adc58950eb25bb3030a3b39dc"
+sha256 = "9a54eb4089360880537f12512ba2f29b66c911b6155baeac5ca6bb0245a157d1"
 size_bytes = 55212
 marked = true
 
 [[files]]
 path = "crates/fileveil-formats/src/jpeg.rs"
-sha256 = "38ac3f66b61de42ca7e3b5e359504ab1b8496af5ea4efefac0d3b9a7e532601c"
+sha256 = "2191bf30a0e9c765aa8a87191b529fa7775d40154a0decd00b782927d5f595cb"
 size_bytes = 24644
 marked = true
 
 [[files]]
 path = "crates/fileveil-formats/src/lib.rs"
-sha256 = "457686d4d5c60cd1d35dfaa5b7ae4713bc76828dfd0f3277281d8d4b326a6848"
+sha256 = "9d8568719921bdad856f37faa35d1522d2cc89a5e8bf0fdf189df391343a4ee2"
 size_bytes = 8507
 marked = true
 
 [[files]]
 path = "crates/fileveil-formats/src/ooxml.rs"
-sha256 = "1d67db0ca214af8a63b3f3faa3cb5a2aba8f3e039d401c4829d52a30e552256b"
+sha256 = "679dfcd0c4bb87d6b217cecbf42f1d56874bef0c836647cf594c60b17c50367c"
 size_bytes = 58072
 marked = true
 
 [[files]]
 path = "crates/fileveil-formats/src/png.rs"
-sha256 = "90bbcc1019a33a505f61db3d58d5d051f6f40524b2e93a65d66a905e3a163b5d"
+sha256 = "de17e612f13e9a7a38a575ed845a94e2f52914933423caf5ab1e0271e2be133e"
 size_bytes = 24000
 marked = true
 
 [[files]]
 path = "crates/fileveil-formats/src/text.rs"
-sha256 = "b775e1c230af1c4045ed2d84c4f07817b5b5892e00db4d2801e28cd3f3791bd3"
+sha256 = "c6d49fb7628e046577c50ee1b31ed0faf8f66474a1dca455938a56171622ba86"
 size_bytes = 13045
 marked = true
 
 [[files]]
 path = "crates/fileveil-formats/tests/audio.rs"
-sha256 = "c0ed9df21f616eb7a5e705e7dbdb630b7be7f67ac94ae949f47af81dc06198c8"
+sha256 = "8dea50e70948625c61a901e04424bd7d8ea5267e77bd6bb0009633ca4fa677c9"
 size_bytes = 11020
 marked = true
 
 [[files]]
 path = "crates/fileveil-formats/tests/bmff.rs"
-sha256 = "3365535a0ad8e3d98aadb5ed83089411ae1d6216ccfe9f455cc70cd32c72ad57"
+sha256 = "8f52ae39846153bb36c43e27cbd468ba137f2777aeef300c1c07b57389a271a6"
 size_bytes = 28140
 marked = true
 
 [[files]]
 path = "crates/fileveil-formats/tests/deep.rs"
-sha256 = "35e3334e3025cb18c60b99d34d2a4c91ba68a34f64de5365e99c516d121dea99"
+sha256 = "e55017e18b37efd534ce03d56bb954903041863d1e30f2870c88f7a8daafbc64"
 size_bytes = 54593
 marked = true
 
 [[files]]
 path = "crates/fileveil-formats/tests/provenance.rs"
-sha256 = "09c21f61e29f30a12a72e3ea9b52e587ef347aff539cbfdc23d988278eb816d4"
+sha256 = "7af3fab4d214f239c76a9b19f9d25aedf4818f66e94b2931cdbc056d09112d43"
 size_bytes = 6761
 marked = true
 
 [[files]]
 path = "crates/fileveil-formats/tests/support/decode_native_video.swift"
-sha256 = "ffb6d4ad37578111898b37c1ade6594b6e3c1368f474e31b4f23110c1687c0ce"
+sha256 = "59c71db29bf975fbe130c18d4a35e93f21b9acda1d85729a03bce15bad72e4db"
 size_bytes = 2572
 marked = true
 
 [[files]]
 path = "crates/fileveil-formats/tests/text_candidate.rs"
-sha256 = "6a83fcf0a2f9fa02890608ab3ba41b5021326b3d60f42032d8b7d51bf07c91a9"
+sha256 = "f0cff46468283d7f75430dfb25afc5f68cfbd10761d90206cfc1eea6c8964ffc"
 size_bytes = 3841
 marked = true
 
 [[files]]
 path = "crates/fileveil-gui/Cargo.toml"
-sha256 = "06e2616afdfbbdaea9a737b49e8395e8f1e862c7f3a7a9a2d039199d48ee6fe0"
+sha256 = "7ec9ed978c44a28121357557f23ba0a81c8145ddefc71361c884b7c2ef576a87"
 size_bytes = 2059
 marked = true
 
 [[files]]
 path = "crates/fileveil-gui/examples/native_watermark_screen.rs"
-sha256 = "be60823986d44543740671a2c111636097881311bc7f269d3fdee953061cf084"
+sha256 = "13532488a11f30bd56aa6e9a81eed484392a3441f525bbb66169b81b65f6550e"
 size_bytes = 11716
 marked = true
 
@@ -8196,127 +8196,127 @@ marked = false
 
 [[files]]
 path = "crates/fileveil-gui/src/app.rs"
-sha256 = "142324231275b86465a33940aae7c3789a2835dea2936f77fa1de1d7ae0f1563"
-size_bytes = 96802
+sha256 = "3e9359df6a3ff76494174c0be087479587292b2596e2e0801bbd96261b6e8cd9"
+size_bytes = 97092
 marked = true
 
 [[files]]
 path = "crates/fileveil-gui/src/heritage_ui.rs"
-sha256 = "d76680564cee14fc27db9eb8b0884f232ec29a00f90ecca028ea53ab5f2d84c3"
+sha256 = "52b97805f36f351235b736bab59988f943d8e74e277cc015a1faf6130466a132"
 size_bytes = 45064
 marked = true
 
 [[files]]
 path = "crates/fileveil-gui/src/i18n.rs"
-sha256 = "1b53ac5d8a8c42bfaa7f9443719b79526c80040bdcd78b10a447f2b9c7f38d49"
+sha256 = "7111f046dabc3cd26ac90e4eb0c53e42c5f986cf75dd4bd12eb4d58100a6d1a1"
 size_bytes = 72280
 marked = true
 
 [[files]]
 path = "crates/fileveil-gui/src/image_processing.rs"
-sha256 = "b2b8718e5d898915ca00fe6139c95ddaa5f4b6d574180aa274ff5cf9bc92591f"
+sha256 = "19dfb571bb3cfd84d6cd7c8800465f8414f48b01dcbcbcdd9caa3f7aadb6edaa"
 size_bytes = 12537
 marked = true
 
 [[files]]
 path = "crates/fileveil-gui/src/jobs.rs"
-sha256 = "9c7e45e0d2081b18f0f64ec86a8375f2d39ac9d724b06792caae1aa3e2f02e17"
+sha256 = "7264bb4ddffde2752c12978050ff27fabde8f0fe130b73e1b4ecfcb26507acb5"
 size_bytes = 29357
 marked = true
 
 [[files]]
 path = "crates/fileveil-gui/src/lib.rs"
-sha256 = "5e55c41aae7b180019f8d0707f678519c7c3566642b3728aa996327622989c8c"
+sha256 = "85097e8a56bdab1583e8ebf00b1ca5864abcb8dff12837b098a73feea5789c2b"
 size_bytes = 1573
 marked = true
 
 [[files]]
 path = "crates/fileveil-gui/src/main.rs"
-sha256 = "37ee3ca40ee50f2966517810c6582975f33c6341d71abfbf8788c08405e00e3a"
+sha256 = "622e2ec375cb4f2fe588d489c56868af4e8c91ad35b1ce5e58069f73fb308168"
 size_bytes = 6911
 marked = true
 
 [[files]]
 path = "crates/fileveil-gui/src/mcp.rs"
-sha256 = "16d39a5f2c2c1e847466d1239d8b3374feb8c6063723071c16680b1e636c5634"
+sha256 = "2c69bc8af30f067b89d7557fa5b55d5b9a2f61f841dd8fa1f8b834f4be3fe888"
 size_bytes = 32538
 marked = true
 
 [[files]]
 path = "crates/fileveil-gui/src/mcp_access.rs"
-sha256 = "17a880b55baa07e457ad09c56150601cb80b5c4a7b75c8e9b80aa5d0718e62ef"
+sha256 = "e09f59e9dad9eac90ee6ff0bfbdbe3bb169ae38a5675fd07cd98022ebb08075a"
 size_bytes = 62081
 marked = true
 
 [[files]]
 path = "crates/fileveil-gui/src/mcp_settings.rs"
-sha256 = "4744c7117c109cf17e784418916e268c816c0df60a91403477000156424803a0"
+sha256 = "7abd039aab8f3e2e2b5f286c4cadd73bea700134d0bb2cc56bf6b33903ba1f53"
 size_bytes = 9518
 marked = true
 
 [[files]]
 path = "crates/fileveil-gui/src/preferences.rs"
-sha256 = "5b1559944e61762dc315fc54002e52d9073a4e87607dfa92e309cdca3c38a4bf"
+sha256 = "400f2543ea219de9f245f5b220de687c58497ce194731f70b67d824d2612f831"
 size_bytes = 7031
 marked = true
 
 [[files]]
 path = "crates/fileveil-gui/src/session.rs"
-sha256 = "128aa98ca267c8d965e6e502ed57c4818175a945845825666286cc5d20efcac7"
+sha256 = "753b7b0768931613ccd85c8f76a0bce6e682b1ddec2ec44dbf854614761ad286"
 size_bytes = 41817
 marked = true
 
 [[files]]
 path = "crates/fileveil-gui/src/smoke.rs"
-sha256 = "c5825540640c3aff6cec901c725bf9960be870bcbeb5d388f595113998c66905"
+sha256 = "db7df936753cf84442d03ee52adfba9f4e740fc445cada43cd37f666b68d7d47"
 size_bytes = 8676
 marked = true
 
 [[files]]
 path = "crates/fileveil-gui/src/workspaces.rs"
-sha256 = "272dc33e0fa75d7ce5d4c574c09bf8bcd63da9e6720fb8cb05c146e991ce9253"
+sha256 = "68b083e03d50c9c41e4c57f15810476fad0b68cd8c2fb5b20f530787db6837a8"
 size_bytes = 111668
 marked = true
 
 [[files]]
 path = "crates/fileveil-gui/tests/heritage_mcp.rs"
-sha256 = "3deb53073a8619a63a3e5d87059f952ca7f27319e9a9f882d55e85962c5f1927"
+sha256 = "068f794348c2f4f54a16b6f5411ff1d9858acabac1ae23e352948dcbc50eaf35"
 size_bytes = 13556
 marked = true
 
 [[files]]
 path = "crates/fileveil-gui/tests/jobs.rs"
-sha256 = "f6eb42deb06ab5d5daceb8386e2e710272903717e68a0366fa69e799fe8f6228"
+sha256 = "62ed229f0ff908042e8d11bed77147c3ef133bfb6a8525feacd0670d176336ba"
 size_bytes = 18854
 marked = true
 
 [[files]]
 path = "crates/fileveil-gui/tests/layout.rs"
-sha256 = "028de77e6efb3a5a65badc75b4ece80c7868c8754ef158dbc743e86b26640539"
-size_bytes = 21172
+sha256 = "7f61aec11aa3642a91e3bb2db77d7c4b0c450a355994bef67ec015b98abb37b6"
+size_bytes = 24139
 marked = true
 
 [[files]]
 path = "crates/fileveil-gui/tests/mcp.rs"
-sha256 = "8f992fabe55bea45cd2f29ed65a011ba3865a1f04ab1bc7dcd982b0294f591be"
+sha256 = "d8c871d49ec53781ca57437e7f9f6b03b09c76fa063e9b423ef02b7b17ff43a7"
 size_bytes = 31128
 marked = true
 
 [[files]]
 path = "crates/fileveil-gui/tests/session_processing.rs"
-sha256 = "94d0da1b054078d70bc7c21a9cb14080421c236574dd967c924b1e871bf3482d"
+sha256 = "e025c187672df77d550cfa4f1f0c1739a60240b626f6768362085891481d65a4"
 size_bytes = 8176
 marked = true
 
 [[files]]
 path = "crates/fileveil-gui/tests/support/process_tree_worker.rs"
-sha256 = "21057b8cfa0a4e0f712378acf22ca197812ee249be3d05d082fa320966424f5b"
+sha256 = "d12aa118e677da76c9c5d85119799c7655a0d7cf226ac91a13d42d7abef2193e"
 size_bytes = 2700
 marked = true
 
 [[files]]
 path = "crates/fileveil-gui/tests/watermark_v05_mcp.rs"
-sha256 = "11c7e1bab19c314041e3825065a582f032a0ee929b8765c73485734df8a5b7c3"
+sha256 = "e57f6feec8b5b0b20f36e8e3aa1fd4c5a3f3c4f7e783d59d6bc829d34c8bcf55"
 size_bytes = 16796
 marked = true
 
@@ -8364,7 +8364,7 @@ marked = false
 
 [[files]]
 path = "docs/SOURCE_PROVENANCE.md"
-sha256 = "8508d5e8b6c0622d7fe94d9c0584aaf06a984c3afc0c5fa5887eccbe0bc55f93"
+sha256 = "d8eeb8df44bfecb4e17bf2fabaed40bac669ab513ede402c596289ae61ce43fe"
 size_bytes = 3336
 marked = false
 
@@ -8634,152 +8634,152 @@ marked = false
 
 [[files]]
 path = "tests/support/benchmark_metrics_test.py"
-sha256 = "86d2b6f2b81d018d2d416b21e85fbfae4e4c63186151e04b947fb7200a53fdf1"
+sha256 = "3b6f951d4edeee812251d4fc146a2e3c09cc2954dfdddae570fe91be841b6ebb"
 size_bytes = 9564
 marked = true
 
 [[files]]
 path = "tests/support/benchmark_oracle_recheck.py"
-sha256 = "8cebdc789bd00600a01e8927cc5c66fade97461efacb67d1f2a667ee86769704"
+sha256 = "6b5f6b9b8f6eaaf6714c7eb3adc431822cd9873dcb2dc249e328671253a4804a"
 size_bytes = 8871
 marked = true
 
 [[files]]
 path = "tests/support/heritage_robust_oracle.py"
-sha256 = "a20ff087c7683855d474c5f3f5adba38cfd1da7a59196417726e4a629a00a0ae"
+sha256 = "4feefdc66703c5af5193110630469de501efa8147a7a412181b6b57019c42e1f"
 size_bytes = 7082
 marked = true
 
 [[files]]
 path = "tests/support/native_screen_benchmark.py"
-sha256 = "e0350d28ce8a699d9e1b32e82fb8d9f645a5b0558bf99a57d934469af3b69977"
+sha256 = "c915cc56fdf86749ccfd00d5e4011861f498cfff253c71b401243e072a088dc2"
 size_bytes = 18761
 marked = true
 
 [[files]]
 path = "tests/support/watermark_v2_oracle.py"
-sha256 = "ed29a9441cd5a717bba38ba3f0bb49746832af069c7a8e704fcc1aacef4237aa"
+sha256 = "660f0f608c2324357684bb2b912a5454e018baff8b3bc5308914d020af5ebf45"
 size_bytes = 10895
 marked = true
 
 [[files]]
 path = "tests/test_desktop_signing.py"
-sha256 = "9636eca7e468fe8317ce99c99bdf32c89942263c7a636dbc9c305673f2b9d701"
+sha256 = "628462c591c8adf7ccaf084424b0574da787bd395935d52baf1371d974665fab"
 size_bytes = 4964
 marked = true
 
 [[files]]
 path = "tests/test_installers.py"
-sha256 = "a14b0dea594884b3111cc83bffd621f8d1c02b6a6181d263569e7d141ad4c337"
+sha256 = "d55cbc1e56237b15c10101f5cbf194ff26042c1fee680bf666b54e036c1f9bc3"
 size_bytes = 11231
 marked = true
 
 [[files]]
 path = "tests/test_packaging.py"
-sha256 = "495e1004cc651a3ed92ec47deac04c868cdbc1f9f9b832a2e4c4c7f8da1aa2dc"
+sha256 = "d9b6c5047fb64ed39f0fa1fc4249f35e5a7858e537143ad4bc3e5aebb578bc85"
 size_bytes = 17760
 marked = true
 
 [[files]]
 path = "tests/test_source_provenance.py"
-sha256 = "aade3bc8c6bb091e02c7c6650465255086146eaea2017705c29acdcde6dde17a"
+sha256 = "a1e6447b47c0b17b9a8956b5232b8389ddc1930aca3df3425eca084b8a6423ec"
 size_bytes = 2630
 marked = true
 
 [[files]]
 path = "tests/test_source_tree_verifier.py"
-sha256 = "406fcbde27b901400c03dd264fb3ed6978fc84b21166e320e91b48aa14f483d2"
+sha256 = "90478436c8976269756523107093bb85f2d8395541f352627e5ffea540b7fbbc"
 size_bytes = 19385
 marked = true
 
 [[files]]
 path = "tools/benchmark-compare.py"
-sha256 = "25dbb40b0390abd3f5054ad8984268b4dc00dabb05ee3d7953555ace89249c26"
+sha256 = "0819bf431c98cfe01e6466741d21373a576e5ad1fcdb0568e09e87e66cb97fa0"
 size_bytes = 11582
 marked = true
 
 [[files]]
 path = "tools/benchmark-fetch.py"
-sha256 = "5488ef88900e0eded02b900bed04770f6ca3263587b616ca7fd80d31ca61c5c5"
+sha256 = "081099d70f1d0d78dc53fc164b774b5366135d16a1eab7391ba0fc3fe9d0f121"
 size_bytes = 13705
 marked = true
 
 [[files]]
 path = "tools/benchmark-watermarks.py"
-sha256 = "47879a176737fe2205b78da0603423737161ab5888c608e5a5bb8becf740c020"
+sha256 = "34a6096a69f2c6a2d09d03282dcdeafffa18d2cb5b2140d23ba1a1a1711d91c7"
 size_bytes = 35008
 marked = true
 
 [[files]]
 path = "tools/build-installers.py"
-sha256 = "b412426ba449cf9b6c8ed9936f0dc7d44174b0c952e379f11593f0719b7501fb"
+sha256 = "667a9b4e3fae3a60742288526be3492dd834b2ad13a13d610bfed0f5fc2d6947"
 size_bytes = 16995
 marked = true
 
 [[files]]
 path = "tools/check-installers.py"
-sha256 = "784f0ce34b33ee8cbb001eaacb3ccae9d4d3dfbbbca7b936a12120a08419e31e"
+sha256 = "030c3a21517af3499ee8401733268a13d0d5c4cdb5ec17db9d5099806dce4f8c"
 size_bytes = 13913
 marked = true
 
 [[files]]
 path = "tools/check-report-schemas.py"
-sha256 = "a2d6715e6a60d07a404da5736af066e0204625c295c05f0589ae76cdf23bccae"
+sha256 = "a828534bcfdd720a1d36b337f6330435043ad3baeaeadb8a0a17d102f075246a"
 size_bytes = 6101
 marked = true
 
 [[files]]
 path = "tools/fetch-heritage-reference-samples.py"
-sha256 = "0c09d64576ce79f1b44792fe2a5203aaf42cb8af225b9791f0e804f4b14e6c30"
+sha256 = "218ead8bb7c953d34b805e4cb2c243de3d32e28560446268e8dbe0674e93ba73"
 size_bytes = 3471
 marked = true
 
 [[files]]
 path = "tools/fixture-generator/Cargo.toml"
-sha256 = "5be017884f3524a323ef591db224df133b969bf5b0695e2568164f24dd6a304d"
+sha256 = "5d9cbea74d2d1c8225a4d4bfa1dcf052962bbd98a3aacf3b028c985f23fd549f"
 size_bytes = 1588
 marked = true
 
 [[files]]
 path = "tools/fixture-generator/src/main.rs"
-sha256 = "d8b031f7ad5a101dcdee11f258ab2cf196c25a40460723efae528e2b5e5022d7"
+sha256 = "11684552d2a0b0c7f08af322ced4df709b8a0c48bb399e38e0479e5d063c8c31"
 size_bytes = 31409
 marked = true
 
 [[files]]
 path = "tools/mark-source-tree.py"
-sha256 = "46b5ae2e9d3bf4a25f642f4e3c2b85f6690af54ed02ee73980f92f3290095655"
+sha256 = "a267d18c3b331636ab7b1bfb2d375dba0b98afec8fd2798a6f6f0d63f1246f69"
 size_bytes = 9687
 marked = true
 
 [[files]]
 path = "tools/native-interaction.py"
-sha256 = "36c556e3503227e00e203e6f38971b5ab545536f63beb0408e042ac9499a68d4"
+sha256 = "b3e20f052e1a927251e8b5f4cd9d1de320413585480456869d013295cd2a356d"
 size_bytes = 16030
 marked = true
 
 [[files]]
 path = "tools/package-desktop.py"
-sha256 = "5a7767657a65c2a61277fe55e0144d2cd4c969d8fbf450b6215a371e3b9a704d"
+sha256 = "b852a39dab0b2994a17631ff5234b3496f2fd2f27491fa204bfedf08a9882b14"
 size_bytes = 28157
 marked = true
 
 [[files]]
 path = "tools/sign-desktop.py"
-sha256 = "d3fe69c15f509a9ab77d66de742bc7468d774c22953418881c590b8d0b994c8b"
+sha256 = "1762cd15a6a2b7ead64d162156abf3e69e0959db6f6a32cb8625c5ec024f0f23"
 size_bytes = 8656
 marked = true
 
 [[files]]
 path = "tools/verify-evidence.py"
-sha256 = "f4c112006ec21bbcced9a0b252a7676afce8f99280a2c1a8720adf7d9cbdad34"
+sha256 = "99faed64d478cd20ada0788a54de41b7c633312acc872bc481d51858541b6053"
 size_bytes = 24488
 marked = true
 
 [[files]]
 path = "tools/verify-source-tree.py"
-sha256 = "4fee59a7595b96dd6115db62d7e75fde96b71450e41810118660d886862a40b3"
+sha256 = "d426b1e5d01e76974b4574e4e0bc34d86918553b2e33e4a57bd956083d8aa4bf"
 size_bytes = 17304
 marked = true
 
-# FVPROV1 256885 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiI4ZjNmY2UyOTNjZTI5NzlhZDRjZmYzMWZjY2MyM2RjNzg5OWE1OGY4OTk2OTlmZDJlMjA5YjlkMWNjNGNhY2RmIiwiY29weV9pZCI6InYwLjUuMC1hbHBoYS4yIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC41LjAtYWxwaGEuMiIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlLXRyZWUifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiJmMjYyZGU4NmY3Y2I5OGQzNWFkOGQ1NzFlNzJmYmFlMGYxOTI2NmZhNzIyNTA4N2RkNzNkM2RhZTJiYTU1ZWQxZjU3YzMyNmM5N2QzNGExNDQ4ZGZhNzg5NmM0OTM2NjRhNjBkMDJkNWIwMTBjYTAyZjliM2FlMjkxMWMzZGMwYyJ9XX1d FVPROV1-END
+# FVPROV1 256885 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiJlYTkzODQ2YTk4YWQ3OTBlNTY4NTUxMGI5OWQ1YjJhZjU2MzI1ZTA0NDE4NDNhNDVkZWViOTUwYTA5Yzg1Y2FmIiwiY29weV9pZCI6InYwLjUuMC1hbHBoYS4zIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC41LjAtYWxwaGEuMyIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlLXRyZWUifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiJjODQzZWYyNDQ3OTU0ZmIzZWE4ZGEzNzIxODNhMmZkMDNkMjZhNDQ5MmY4MjY1MDE4MzE1ODYzM2Q2NmI3ODc4YzM3N2JiNGI5Y2VhNDQzMzY3NzVlNGZhYTk2NTdmNWFjYmExZjY2ZjEwODM0MTZkZWJiM2Q1NTQ3OTEwZGIwMSJ9XX1d FVPROV1-END
