@@ -147,6 +147,8 @@ pub struct SyncOptions {
     pub force_full_scan: bool,
     /// Bounded observed build/source metadata, signed with this generation.
     pub observations: serde_json::Value,
+    /// Fresh-byte SHA-256 preconditions enforced before Sync can sign or publish.
+    pub expected_source_sha256: std::collections::BTreeMap<String, String>,
 }
 
 /// Supplied by the MCP broker from its existing authorization, never by a config.

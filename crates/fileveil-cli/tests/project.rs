@@ -348,3 +348,78 @@ fn project_init_template_restores_fixed_identity_and_public_provenance() {
     assert_ne!(code, 0);
     assert!(!project._directory.path().join("rejected.json").exists());
 }
+
+#[test]
+fn expected_source_hashes_gate_publication_before_a_generation_is_committed() {
+    let project = Project::new();
+    project.init(None);
+    let config: Value = serde_json::from_slice(&fs::read(&project.config).unwrap()).unwrap();
+    let namespace = project.output.join(config["project_id"].as_str().unwrap());
+    let committed = || {
+        fs::read_dir(&namespace)
+            .map(|entries| {
+                entries
+                    .filter_map(Result::ok)
+                    .filter(|entry| entry.path().join("COMMITTED").is_file())
+                    .count()
+            })
+            .unwrap_or(0)
+    };
+    let source = project.source.join("main.rs");
+    let original = fs::read(&source).unwrap();
+    let expected = json!({"main.rs":fileveil_core::digest(&original)});
+    for invalid in [
+        json!({"main.rs":123}),
+        json!([]),
+        json!(null),
+        json!({"main.rs":"invalid"}),
+        json!({"../outside":"a".repeat(64)}),
+    ] {
+        let mut request = project.command("sync");
+        request
+            .arg("--expected-sources-json")
+            .arg(invalid.to_string());
+        let (code, report) = execute(request);
+        assert_ne!(code, 0, "{report}");
+        assert!(
+            matches!(report["result"].as_str(), Some("failed" | "blocked")),
+            "{report}"
+        );
+        assert_eq!(committed(), 0);
+        assert_eq!(fs::read(&source).unwrap(), original);
+    }
+    let mut request = project.command("sync");
+    request
+        .arg("--expected-sources-json")
+        .arg(expected.to_string());
+    let accepted = success(request);
+    assert_eq!(accepted["advanced"]["project"]["published"], true);
+    assert_eq!(committed(), 1);
+    fs::write(
+        &source,
+        "fn main() { println!(\"changed after authentication\"); }\n",
+    )
+    .unwrap();
+    let mut request = project.command("sync");
+    request
+        .arg("--expected-sources-json")
+        .arg(expected.to_string());
+    let (code, report) = execute(request);
+    assert_ne!(code, 0, "{report}");
+    assert!(
+        matches!(report["result"].as_str(), Some("failed" | "blocked")),
+        "{report}"
+    );
+    assert_eq!(
+        committed(),
+        1,
+        "A rejected source must leave the existing signed generation intact"
+    );
+    let mut request = project.command("sync");
+    request
+        .arg("--expected-sources-json")
+        .arg(json!({"main.rs":fileveil_core::digest(&fs::read(&source).unwrap())}).to_string());
+    assert_eq!(success(request)["advanced"]["project"]["published"], true);
+    assert_eq!(committed(), 2);
+    success(project.command("verify"));
+}

@@ -205,6 +205,9 @@ fn registry_ci_generates_portable_configuration_without_executing_or_overwriting
         serde_json::from_slice::<Value>(&config).unwrap()["work_id"],
         "synthetic-ci"
     );
+    let exported: Value = serde_json::from_slice(&config).unwrap();
+    assert_eq!(exported["policy"], "manifest_only");
+    assert_eq!(exported["rules"].as_array().unwrap().len(), 6);
     let (code, _) = execute(invocation());
     assert_ne!(code, 0);
     assert_eq!(fs::read(output.join("fileveil-ci.json")).unwrap(), config);
@@ -212,4 +215,57 @@ fn registry_ci_generates_portable_configuration_without_executing_or_overwriting
         fs::read(output.join(".github/workflows/fileveil-release.yml")).unwrap(),
         workflow
     );
+}
+
+#[test]
+fn registry_ci_preserves_selected_policy_rules_and_compiler_configuration() {
+    let rules = json!([{"pattern":"images/**/*.png","mode":"invisible","strength":12}]);
+    let compiler = json!({"targets":[{"input":"original.ll","output":"marked.bin","backend":"llvm_ir"}],"optimization":"O2"});
+    let mut command = Command::new(env!("CARGO_BIN_EXE_fileveil"));
+    command
+        .args([
+            "--json",
+            "registry",
+            "ci",
+            "--work-id",
+            "synthetic-ci-policy",
+            "--author",
+            "Synthetic",
+            "--policy",
+            "hybrid",
+            "--rules-json",
+        ])
+        .arg(rules.to_string())
+        .arg("--compiler-json")
+        .arg(compiler.to_string());
+    let (code, bundle) = execute(command);
+    assert_eq!(code, 0, "{bundle}");
+    let config: Value = serde_json::from_str(bundle["config_json"].as_str().unwrap()).unwrap();
+    assert_eq!(config["policy"], "hybrid");
+    assert_eq!(config["rules"], rules);
+    assert_eq!(config["compiler"]["targets"], compiler["targets"]);
+    for (flag, invalid) in [
+        (
+            "--compiler-json",
+            json!({"private_key":"synthetic-private-value"}),
+        ),
+        ("--rules-json", json!({"pattern":"**"})),
+    ] {
+        let mut rejected = Command::new(env!("CARGO_BIN_EXE_fileveil"));
+        rejected
+            .args([
+                "--json",
+                "registry",
+                "ci",
+                "--work-id",
+                "synthetic-ci-policy",
+                "--author",
+                "Synthetic",
+            ])
+            .arg(flag)
+            .arg(invalid.to_string());
+        let (code, report) = execute(rejected);
+        assert_ne!(code, 0);
+        assert!(!report.to_string().contains("synthetic-private-value"));
+    }
 }

@@ -1,0 +1,312 @@
+# SPDX-License-Identifier: MPL-2.0
+name: Reusable project copyright
+on:
+  workflow_call:
+    inputs:
+      config:
+        type: string
+        default: fileveil-ci.json
+      engine-ref:
+        type: string
+        required: true
+      policy:
+        type: string
+        default: manifest_only
+      runner:
+        type: string
+        default: ubuntu-latest
+    secrets:
+      signing-key-base64:
+        required: true
+    outputs:
+      artifact-name:
+        value: ${{ jobs.copyright.outputs.artifact-name }}
+      build-artifact-name:
+        value: ${{ jobs.copyright.outputs.artifact-name }}
+permissions:
+  contents: read
+env:
+  FILEVEIL_CI_VERSION: ci.${{ github.run_id }}.${{ github.run_attempt }}
+concurrency:
+  group: fileveil-reusable-${{ github.workflow }}-${{ inputs.config }}-${{ inputs.runner }}
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: 90
+    outputs:
+      namespace: ${{ steps.context.outputs.namespace }}
+      edition: ${{ steps.context.outputs.edition }}
+    env:
+      PYTHONUTF8: '1'
+    steps:
+      - name: Require isolated hosted jobs
+        env:
+          FILEVEIL_RUNNER: ${{ inputs.runner }}
+        shell: python {0}
+        run: |
+          import os
+          assert os.environ['FILEVEIL_RUNNER'] in ('ubuntu-latest', 'macos-latest', 'windows-latest'), 'Use a supported ephemeral hosted runner for CI secret isolation'
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: J-x-Z/fileveil
+          ref: ${{ inputs.engine-ref }}
+          path: .fileveil-engine
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Bind project transfer namespace
+        id: context
+        env:
+          FILEVEIL_CONFIG: ${{ inputs.config }}
+          FILEVEIL_POLICY: ${{ inputs.policy }}
+        shell: python {0}
+        run: |
+          import hashlib, json, os, pathlib
+          config = json.loads(pathlib.Path(os.environ['FILEVEIL_CONFIG']).read_text(encoding='utf-8'))
+          policy = os.environ['FILEVEIL_POLICY']
+          assert policy in ('manifest_only', 'asset_watermark', 'compiler_watermark', 'hybrid'), 'Unknown project policy'
+          assert config.get('policy', 'manifest_only') == policy, 'Workflow policy must match the project configuration'
+          namespace = hashlib.sha256(os.environ['FILEVEIL_CONFIG'].encode()).hexdigest()[:16] + '-' + os.environ['RUNNER_OS']
+          edition = hashlib.sha256((config['work_id'] + '\0' + config['copy_id'] + '\0' + os.environ['RUNNER_OS']).encode()).hexdigest()[:32]
+          with pathlib.Path(os.environ['GITHUB_OUTPUT']).open('a', encoding='utf-8') as stream:
+              stream.write('namespace=' + namespace + '\n')
+              stream.write('edition=' + edition + '\n')
+      - name: Install fixed compiler SDK
+        if: inputs.policy == 'compiler_watermark' || inputs.policy == 'hybrid'
+        run: python .fileveil-engine/tools/project-ci-llvm.py fileveil-llvm
+      - name: Prepare compiler inputs without the signing key
+        if: inputs.policy == 'compiler_watermark' || inputs.policy == 'hybrid'
+        env:
+          FILEVEIL_CONFIG: ${{ inputs.config }}
+        shell: python {0}
+        run: |
+          import os, subprocess, sys
+          subprocess.run([sys.executable, '.fileveil-engine/tools/project-ci-compiler.py', 'prepare', '--config', os.environ['FILEVEIL_CONFIG'], '--output', 'fileveil-build.zip', '--llvm-directory', 'fileveil-llvm', '--version', os.environ['FILEVEIL_CI_VERSION']], check=True)
+      - name: Build test and freeze original artifacts
+        if: inputs.policy == 'manifest_only' || inputs.policy == 'asset_watermark'
+        env:
+          FILEVEIL_CONFIG: ${{ inputs.config }}
+        shell: python {0}
+        run: |
+          import os, subprocess, sys
+          subprocess.run([sys.executable, '.fileveil-engine/tools/project-ci-stage.py', 'prepare', os.environ['FILEVEIL_CONFIG'], 'fileveil-build.zip'], check=True)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fileveil-build-${{ steps.context.outputs.namespace }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: fileveil-build.zip
+          if-no-files-found: error
+          retention-days: 1
+  compiler-mark:
+    needs: build
+    if: inputs.policy == 'compiler_watermark' || inputs.policy == 'hybrid'
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: 90
+    env:
+      CARGO_INCREMENTAL: '0'
+      CARGO_BUILD_JOBS: '2'
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: J-x-Z/fileveil
+          ref: ${{ inputs.engine-ref }}
+          path: .fileveil-engine
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/download-artifact@v4
+        with:
+          name: fileveil-build-${{ needs.build.outputs.namespace }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: fileveil-build-transfer
+      - name: Receive bounded compiler input
+        run: python .fileveil-engine/tools/project-ci-stage.py receive fileveil-build-transfer/fileveil-build.zip fileveil-input
+      - name: Install fixed compiler SDK
+        run: python .fileveil-engine/tools/project-ci-llvm.py fileveil-llvm
+      - name: Build trusted FileVeil CLI and compiler pass
+        shell: python {0}
+        run: |
+          import pathlib, subprocess
+          sdk = pathlib.Path('fileveil-llvm').resolve()
+          subprocess.run(['cargo', 'build', '--locked', '--release', '-p', 'fileveil-cli'], cwd='.fileveil-engine', check=True)
+          subprocess.run(['cmake', '-S', '.fileveil-engine/tools/software-watermark', '-B', 'fileveil-pass', '-DLLVM_DIR=' + str(sdk / 'lib/cmake/llvm'), '-DCMAKE_BUILD_TYPE=Release'], check=True)
+          subprocess.run(['cmake', '--build', 'fileveil-pass', '--config', 'Release', '--parallel', '2'], check=True)
+      - name: Sign and mark IR with the trusted pass
+        env:
+          FILEVEIL_SIGNING_KEY_BASE64: ${{ secrets.signing-key-base64 }}
+        shell: python {0}
+        run: |
+          import os, pathlib, subprocess, sys
+          root = pathlib.Path('.fileveil-engine')
+          executable = root / 'target/release' / ('fileveil.exe' if os.name == 'nt' else 'fileveil')
+          suffix = '.dll' if os.name == 'nt' else '.dylib' if sys.platform == 'darwin' else '.so'
+          plugins = list(pathlib.Path('fileveil-pass').rglob('*FileVeilWatermark' + suffix))
+          assert len(plugins) == 1, 'Trusted compiler pass is unavailable'
+          subprocess.run([sys.executable, str(root / 'tools/project-ci-compiler.py'), 'mark', '--input', 'fileveil-input', '--config', 'fileveil-input/ci-config.json', '--output', 'fileveil-marked.zip', '--fileveil', str(executable), '--llvm-directory', 'fileveil-llvm', '--plugin', str(plugins[0]), '--version', os.environ['FILEVEIL_CI_VERSION']], check=True)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fileveil-marked-${{ needs.build.outputs.namespace }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: fileveil-marked.zip
+          if-no-files-found: error
+          retention-days: 1
+  compiler-build:
+    needs: [build, compiler-mark]
+    if: inputs.policy == 'compiler_watermark' || inputs.policy == 'hybrid'
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: 90
+    env:
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: J-x-Z/fileveil
+          ref: ${{ inputs.engine-ref }}
+          path: .fileveil-engine
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/download-artifact@v4
+        with:
+          name: fileveil-marked-${{ needs.build.outputs.namespace }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: fileveil-marked-transfer
+      - name: Receive marked IR without the signing key
+        run: python .fileveil-engine/tools/project-ci-stage.py receive fileveil-marked-transfer/fileveil-marked.zip fileveil-input
+      - name: Install fixed compiler SDK
+        run: python .fileveil-engine/tools/project-ci-llvm.py fileveil-llvm
+      - name: Build and test independently of the signing job
+        shell: python {0}
+        run: |
+          import subprocess, sys
+          subprocess.run([sys.executable, '.fileveil-engine/tools/project-ci-compiler.py', 'build', '--input', 'fileveil-input', '--project-root', '.', '--output', 'fileveil-build.zip', '--llvm-directory', 'fileveil-llvm'], check=True)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fileveil-compiled-${{ needs.build.outputs.namespace }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: fileveil-build.zip
+          if-no-files-found: error
+          retention-days: 1
+  copyright:
+    needs: [build, compiler-build]
+    if: always() && needs.build.result == 'success' && (((inputs.policy == 'compiler_watermark' || inputs.policy == 'hybrid') && needs.compiler-build.result == 'success') || ((inputs.policy == 'manifest_only' || inputs.policy == 'asset_watermark') && needs.compiler-build.result == 'skipped'))
+    concurrency:
+      group: fileveil-project-chain-${{ needs.build.outputs.edition }}
+      cancel-in-progress: false
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      artifact-name: fileveil-evidence-${{ needs.build.outputs.namespace }}-${{ github.run_id }}-${{ github.run_attempt }}
+    env:
+      CARGO_INCREMENTAL: '0'
+      CARGO_BUILD_JOBS: '2'
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: J-x-Z/fileveil
+          ref: ${{ inputs.engine-ref }}
+          path: .fileveil-engine
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ (inputs.policy == 'compiler_watermark' || inputs.policy == 'hybrid') && 'fileveil-compiled' || 'fileveil-build' }}-${{ needs.build.outputs.namespace }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: fileveil-build-transfer
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Build FileVeil CLI
+        working-directory: .fileveil-engine
+        run: cargo build --locked --release -p fileveil-cli
+      - name: Resolve engine revision
+        shell: python {0}
+        run: |
+          import os, pathlib, subprocess
+          revision = subprocess.check_output(['git', '-C', '.fileveil-engine', 'rev-parse', 'HEAD'], text=True).strip()
+          with pathlib.Path(os.environ['GITHUB_ENV']).open('a', encoding='utf-8') as stream:
+              stream.write('FILEVEIL_ENGINE_REVISION=' + revision + '\n')
+      - name: Receive original artifacts
+        run: python .fileveil-engine/tools/project-ci-stage.py receive fileveil-build-transfer/fileveil-build.zip fileveil-input
+      - name: Locate retained signed history
+        id: history
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: python {0}
+        run: |
+          import hashlib, json, os, pathlib, subprocess
+          config = json.loads(pathlib.Path('fileveil-input/ci-config.json').read_text(encoding='utf-8'))
+          identity = config['work_id'] + '\0' + config['copy_id'] + '\0' + os.environ['RUNNER_OS']
+          name = 'fileveil-history-' + hashlib.sha256(identity.encode()).hexdigest()[:32]
+          found = None
+          expired = False
+          for page in range(1, 11):
+              payload = subprocess.check_output(['gh', 'api', 'repos/' + os.environ['GITHUB_REPOSITORY'] + '/actions/artifacts?name=' + name + '&per_page=100&page=' + str(page)], text=True, encoding='utf-8')
+              entries = json.loads(payload)['artifacts']
+              for artifact in entries:
+                  if artifact['name'] != name:
+                      continue
+                  if artifact['expired']:
+                      expired = True
+                  else:
+                      found = artifact
+                      break
+              if found or len(entries) < 100:
+                  break
+          if expired and found is None:
+              raise SystemExit('Retained signed history expired. Restore its metadata before continuing this chain.')
+          with pathlib.Path(os.environ['GITHUB_OUTPUT']).open('a', encoding='utf-8') as stream:
+              stream.write('name=' + name + '\n')
+              stream.write('artifact-id=' + (str(found['id']) if found else '') + '\n')
+              stream.write('run-id=' + (str(found['workflow_run']['id']) if found else '') + '\n')
+      - uses: actions/download-artifact@v4
+        if: steps.history.outputs.artifact-id != ''
+        with:
+          artifact-ids: ${{ steps.history.outputs.artifact-id }}
+          run-id: ${{ steps.history.outputs.run-id }}
+          github-token: ${{ github.token }}
+          path: fileveil-history-transfer
+          merge-multiple: true
+      - name: Restore signed public history
+        if: steps.history.outputs.artifact-id != ''
+        run: python .fileveil-engine/tools/project-ci-stage.py receive fileveil-history-transfer/history.zip fileveil-input/copyright --history-only
+      - name: Sync verify and export in isolated signing job
+        env:
+          FILEVEIL_SIGNING_KEY_BASE64: ${{ secrets.signing-key-base64 }}
+          FILEVEIL_HISTORY_RESTORE_SCOPE: ${{ steps.history.outputs.artifact-id != '' && 'restored_signed_metadata' || 'no_retained_history_found' }}
+        shell: python {0}
+        run: |
+          import os, pathlib, subprocess, sys
+          root = pathlib.Path('.fileveil-engine')
+          executable = root / 'target/release' / ('fileveil.exe' if os.name == 'nt' else 'fileveil')
+          arguments = [sys.executable, str(root / 'tools/project-postprocess.py'), '--fileveil', str(executable), '--config', 'fileveil-input/ci-config.json', '--after-build', '--build-context', 'fileveil-input/build-context.json', '--version', os.environ['FILEVEIL_CI_VERSION']]
+          if pathlib.Path('fileveil-input/compiler-context.json').is_file():
+              arguments += ['--compiler-context', 'fileveil-input/compiler-context.json']
+          subprocess.run(arguments, check=True)
+      - name: Freeze signed public history
+        run: python .fileveil-engine/tools/project-ci-stage.py history fileveil-input/copyright history.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.history.outputs.name }}
+          path: history.zip
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fileveil-evidence-${{ needs.build.outputs.namespace }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            fileveil-evidence/fileveil-evidence.zip
+            fileveil-evidence/fileveil-build.zip
+            fileveil-evidence/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 14

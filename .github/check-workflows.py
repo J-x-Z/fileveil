@@ -29,8 +29,15 @@ SCHEMA = {
             "minProperties": 1,
             "additionalProperties": {
                 "type": "object",
-                "required": ["runs-on", "timeout-minutes", "steps"],
+                "oneOf": [
+                    {"required": ["runs-on", "timeout-minutes", "steps"]},
+                    {"required": ["uses"], "not": {"anyOf": [
+                        {"required": ["runs-on"]}, {"required": ["steps"]},
+                        {"required": ["timeout-minutes"]}
+                    ]}},
+                ],
                 "properties": {
+                    "uses": {"type": "string", "minLength": 1},
                     "runs-on": {"type": "string"},
                     "if": {"type": "string"},
                     "steps": {
@@ -67,6 +74,9 @@ def main():
         validator.validate(workflow)
         workflows[path.name] = workflow
         for job in workflow["jobs"].values():
+            if "uses" in job:
+                assert job["uses"].startswith("./.github/workflows/") or "@" in job["uses"]
+                continue
             assert 0 < int(job["timeout-minutes"]) <= 90
             for step in job["steps"]:
                 settings = step.get("with", {})
@@ -101,5 +111,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-# FVPROV1 3971 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiIyY2JmMjBlOThlZjAyODFhMjllYTVjMWU4YTQxMDRlMmFmOGQzNjMwZDczNzcxMDU3MDNhNTA5MzVkYjlmMDg1IiwiY29weV9pZCI6InYwLjUuMC1hbHBoYS4zIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC41LjAtYWxwaGEuMyIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlLy5naXRodWIvY2hlY2std29ya2Zsb3dzLnB5In0sInNpZ25hdHVyZXMiOlt7ImtleV9pZCI6Ijk5ZWE2M2VmY2NmZDBmZGJkNjhlMTZlZDhmMDNkMzM3ZjE1ZWMyZTRhNmEzZDY0ZTExZDcxNGVhMWU1NDI1MzMiLCJwdWJsaWNfa2V5X2hleCI6ImFkYjNlMTdjZDEyZjk1NmQwMDcwZTE2NjNmNTMxNTM3ZmNlZGY3MzA4ZDAxNjU4ZmVhNDU2ZmVlYThmN2ZiYzUiLCJzaWduYXR1cmVfaGV4IjoiNjM3YzJjNDJmNDNjYWZkZGNmYmM0NWM2N2YzYjZkZDdhMDBlZWI5YzBjOGNjYjU5NzIwODc3Y2IyY2Q3NjI2NmFhY2E5YWY0Y2QzOGZlNjE3M2QyY2Y3MjE0YjM2NTU5MGMxMzJjNGM1ZWFiMTA4MDhjYTY2OTc3MWY4NDE0MDcifV19XQ== FVPROV1-END

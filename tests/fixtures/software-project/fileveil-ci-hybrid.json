@@ -1,0 +1,55 @@
+{
+  "name": "FileVeil isolated hybrid acceptance",
+  "work_id": "fileveil-test-fixture-isolated-v1",
+  "author": "FileVeil test fixture",
+  "copy_id": "hybrid-acceptance",
+  "artifact_directory": "dist",
+  "output_directory": "copyright",
+  "build_argv": [
+    "python",
+    "build.py"
+  ],
+  "test_argv": [
+    "ctest",
+    "--test-dir",
+    "build",
+    "-C",
+    "Release",
+    "--output-on-failure"
+  ],
+  "engine_ref": "main",
+  "runner": "ubuntu-latest",
+  "policy": "hybrid",
+  "compiler": {
+    "targets": [
+      {
+        "input": "main.c",
+        "output": "bin/fileveil-c.exe",
+        "backend": "clang_source"
+      },
+      {
+        "input": "main.cpp",
+        "output": "bin/fileveil-cpp.exe",
+        "backend": "clang_source"
+      }
+    ],
+    "optimization": "O2",
+    "compiler_arguments": [],
+    "allow_execution": true,
+    "test_arguments": [
+      [
+        "7"
+      ],
+      [
+        "-3"
+      ]
+    ]
+  },
+  "rules": [
+    {
+      "pattern": "**/*.png",
+      "mode": "structure",
+      "strength": 12
+    }
+  ]
+}

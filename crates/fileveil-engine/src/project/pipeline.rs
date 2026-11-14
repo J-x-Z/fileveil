@@ -447,6 +447,16 @@ impl Context {
             budget.file_bytes = budget.file_bytes.min(limits.max_file_bytes);
             budget.total_bytes = budget.total_bytes.min(limits.max_uncompressed_bytes);
         }
+        if request.options.expected_source_sha256.len() > budget.files {
+            return Err(files::blocked(
+                "Expected-source constraints exceed the project file budget",
+            ));
+        }
+        for (path, expected) in &request.options.expected_source_sha256 {
+            if files::relative_name(Path::new(path))? != *path || !valid_sha256(expected) {
+                return Err(Error::Input("Expected-source constraints require canonical relative paths and SHA-256 digests".into()));
+            }
+        }
         let patterns = |values: &[String]| -> Result<Vec<glob::Pattern>> {
             values
                 .iter()
@@ -2255,8 +2265,20 @@ fn sync(
     context.approved(&Some(state.clone()), request.options.automatic)?;
     let mut history = current_history(&context, Some(&state), request.options.force_full_scan)?;
     let previous = history.latest.as_ref();
-    let cache = validated_index(&state, previous, request.options.force_full_scan);
+    let mut cache = validated_index(&state, previous, request.options.force_full_scan);
+    cache.retain(|path, _| !request.options.expected_source_sha256.contains_key(path));
     let inventory = context.inventory_cached(true, Some(&cache), flag)?;
+    for (path, expected) in &request.options.expected_source_sha256 {
+        if inventory
+            .samples
+            .get(path)
+            .is_none_or(|sample| !sample.sha256.eq_ignore_ascii_case(expected))
+        {
+            return Err(Error::Verification(
+                "A selected source differs from its required pre-signing SHA-256 snapshot".into(),
+            ));
+        }
+    }
     let (mut entries, changes, unchanged) = changes(&inventory, previous)?;
     let mut source_names = BTreeSet::new();
     if entries
@@ -2347,6 +2369,25 @@ fn sync(
         })
         .transpose()?;
     let rotation = rotation.filter(|(_, key)| key.public_key().key_id != active);
+    let missing_copies = previous
+        .map(|previous| {
+            previous
+                .manifest
+                .files
+                .iter()
+                .filter(|entry| entry.output_sha256.is_some())
+                .try_fold(false, |missing, entry| {
+                    match fs::symlink_metadata(previous.path.join("files").join(&entry.path)) {
+                        Ok(_) => Ok(missing),
+                        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(true),
+                        Err(_) => Err(files::blocked(
+                            "Could not inspect a retained project release copy",
+                        )),
+                    }
+                })
+        })
+        .transpose()?
+        .unwrap_or(false);
     let dirty = previous.is_none_or(|previous| {
         previous.manifest.source_fingerprint != inventory.fingerprint
             || previous.manifest.config_sha256 != context.config_sha256
@@ -2356,7 +2397,8 @@ fn sync(
             || previous.manifest.git_commit != request.options.git_ref
             || previous.manifest.derived_artifacts != derived
             || previous.manifest.observations != request.options.observations
-    }) || rotation.is_some();
+    }) || rotation.is_some()
+        || missing_copies;
     if !dirty {
         let mut result = details(
             &context, request, &history, &inventory, &changes, unchanged, recovered,
@@ -2447,16 +2489,23 @@ fn sync(
         let target = stage_path.join("files").join(&entry.path);
         if rule.mode != ProjectFileMode::External || context.config.copy_external_files {
             let prior = previous.and_then(|previous| {
-                previous.manifest.files.iter().find(|old| {
-                    old.file_id == entry.file_id
-                        && old.source_sha256 == entry.source_sha256
-                        && old.mode == rule.mode
-                        && old.output_sha256.is_some()
-                        && (old.signer_key_id.is_none()
-                            || old.signer_key_id.as_deref()
-                                == Some(mark_key.public_key().key_id.as_str()))
-                        && previous.manifest.copy_id == copy_id
-                })
+                previous
+                    .manifest
+                    .files
+                    .iter()
+                    .find(|old| {
+                        old.file_id == entry.file_id
+                            && old.source_sha256 == entry.source_sha256
+                            && old.mode == rule.mode
+                            && old.output_sha256.is_some()
+                            && (old.signer_key_id.is_none()
+                                || old.signer_key_id.as_deref()
+                                    == Some(mark_key.public_key().key_id.as_str()))
+                            && previous.manifest.copy_id == copy_id
+                    })
+                    .filter(|old| {
+                        fs::symlink_metadata(previous.path.join("files").join(&old.path)).is_ok()
+                    })
             });
             if let Some(prior) = prior {
                 let input = previous.unwrap().path.join("files").join(&prior.path);

@@ -1,0 +1,12 @@
+{
+  "name": "FileVeil native project acceptance",
+  "work_id": "fileveil-test-fixture-cmake-v1",
+  "author": "FileVeil test fixture",
+  "copy_id": "acceptance",
+  "artifact_directory": "dist",
+  "output_directory": "copyright",
+  "build_argv": ["python", "build.py"],
+  "test_argv": ["ctest", "--test-dir", "build", "-C", "Release", "--output-on-failure"],
+  "engine_ref": "main",
+  "runner": "ubuntu-latest"
+}

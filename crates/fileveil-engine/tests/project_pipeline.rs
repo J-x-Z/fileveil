@@ -729,3 +729,86 @@ fn complete_history_export_freezes_the_verified_raw_metadata_of_each_generation(
         );
     }
 }
+
+#[test]
+fn missing_marked_copies_are_regenerated_from_originals_after_metadata_only_history_restore() {
+    let fixture = Fixture::new();
+    let image = fixture.source.join("asset.png");
+    image::RgbImage::from_pixel(16, 16, image::Rgb([20, 30, 40]))
+        .save(&image)
+        .unwrap();
+    let original = fs::read(&image).unwrap();
+    fixture.init(|config| {
+        config.rules = vec![ProjectRule {
+            pattern: "**/*.png".into(),
+            mode: ProjectFileMode::Structure,
+            ..Default::default()
+        }]
+    });
+    let first = fixture.execute(ProjectAction::Sync);
+    fs::remove_dir_all(fixture.generation(details(&first)).join("files")).unwrap();
+    let recovered = fixture.execute(ProjectAction::Sync);
+    assert_eq!(recovered.result, Outcome::VerifiedWithinScope);
+    assert_eq!(details(&recovered)["revision"], 2);
+    assert!(
+        fixture
+            .generation(details(&recovered))
+            .join("files/asset.png")
+            .is_file()
+    );
+    assert_eq!(fs::read(&image).unwrap(), original);
+    assert_eq!(
+        fixture.execute(ProjectAction::Verify).result,
+        Outcome::VerifiedWithinScope
+    );
+}
+
+#[test]
+fn expected_source_snapshots_are_fresh_commit_preconditions_and_never_publish_mismatches() {
+    let fixture = Fixture::new();
+    fixture.init(|_| {});
+    let mut request = fixture.request(ProjectAction::Sync);
+    request
+        .options
+        .expected_source_sha256
+        .insert("main.rs".into(), digest(b"different program"));
+    assert!(matches!(
+        run(&request, &Limits::default(), &AtomicBool::new(false)),
+        Err(fileveil_core::Error::Verification(_))
+    ));
+    assert!(!fixture.output.exists());
+    request
+        .options
+        .expected_source_sha256
+        .insert("main.rs".into(), digest(b"fn main() {}\n").to_uppercase());
+    let first = run(&request, &Limits::default(), &AtomicBool::new(false)).unwrap();
+    assert_eq!(first.result, Outcome::VerifiedWithinScope);
+    let repeated = run(&request, &Limits::default(), &AtomicBool::new(false)).unwrap();
+    assert_eq!(details(&repeated)["published"], false);
+    assert_eq!(details(&repeated)["fresh_hash_count"], 1);
+    fs::write(
+        fixture.source.join("main.rs"),
+        b"replacement without the checked watermark\n",
+    )
+    .unwrap();
+    assert!(matches!(
+        run(&request, &Limits::default(), &AtomicBool::new(false)),
+        Err(fileveil_core::Error::Verification(_))
+    ));
+    let committed = fs::read_dir(
+        fixture
+            .output
+            .join(details(&first)["project_id"].as_str().unwrap()),
+    )
+    .unwrap()
+    .filter_map(|entry| entry.ok())
+    .filter(|entry| entry.path().join("COMMITTED").exists())
+    .count();
+    assert_eq!(committed, 1);
+    request.options.expected_source_sha256.clear();
+    request
+        .options
+        .expected_source_sha256
+        .insert("../escape".into(), digest(b"x"));
+    assert!(run(&request, &Limits::default(), &AtomicBool::new(false)).is_err());
+}

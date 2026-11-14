@@ -138,6 +138,11 @@ pub struct SyncArguments {
         help = "Stream SHA-256 for every source instead of reusing metadata-guarded cache entries"
     )]
     full_rescan: bool,
+    #[arg(
+        long,
+        help = "JSON object binding source-relative paths to required SHA-256 digests"
+    )]
+    expected_sources_json: Option<String>,
     #[arg(long, default_value = "")]
     version: String,
     #[arg(long, default_value = "")]
@@ -295,6 +300,18 @@ pub(super) fn sync_options(arguments: &SyncArguments) -> Result<SyncOptions> {
         allow_work_migration: arguments.allow_work_migration,
         trusted_keys: trusted_keys(arguments.trusted_keys.as_ref())?,
         force_full_scan: arguments.full_rescan,
+        expected_source_sha256: arguments
+            .expected_sources_json
+            .as_deref()
+            .map(serde_json::from_str)
+            .transpose()
+            .map_err(|_| {
+                Error::Input(
+                    "Expected sources must be a JSON object mapping paths to SHA-256 strings"
+                        .into(),
+                )
+            })?
+            .unwrap_or_default(),
         ..Default::default()
     })
 }

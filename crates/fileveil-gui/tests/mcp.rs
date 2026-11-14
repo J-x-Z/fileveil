@@ -308,11 +308,12 @@ fn negotiation_tool_discovery_capabilities_and_protocol_errors() {
         let mut client = Client::new(version);
         let listed = client.request("tools/list", json!({}));
         let tools = listed["result"]["tools"].as_array().unwrap();
-        assert_eq!(tools.len(), 33);
+        assert_eq!(tools.len(), 34);
         for tool in tools {
             let read_only = matches!(
                 tool["name"].as_str().unwrap(),
                 "fileveil_scan"
+                    | "fileveil_ci_generate"
                     | "fileveil_verify"
                     | "fileveil_capabilities"
                     | "fileveil_detect_watermark"
@@ -761,4 +762,57 @@ fn home_case_alias_is_rejected_before_starting_the_stdio_server() {
             assert!(String::from_utf8_lossy(&result.stderr).contains("user-home root"));
         }
     }
+}
+
+#[test]
+fn ci_generation_is_read_only_without_grants_and_rejects_private_or_oversized_configuration() {
+    let mut client = Client::new("2025-11-25");
+    let config = json!({
+        "name":"Synthetic CI", "work_id":"synthetic-ci", "author":"Synthetic",
+        "artifact_directory":"missing-artifact-directory", "output_directory":"unused-output-directory",
+        "policy":"hybrid",
+        "rules":[{"pattern":"images/**/*.png","mode":"invisible","strength":12}],
+        "compiler":{"targets":[{"input":"original.ll","output":"marked.bin","backend":"llvm_ir"}],"optimization":"O2"},
+        "build_argv":["program-that-must-not-execute","--build"],
+        "test_argv":["program-that-must-not-execute","--test"]
+    });
+    let generated = client.call(
+        "fileveil_ci_generate",
+        json!({"config_json":config.to_string()}),
+    );
+    let bundle = report(&generated);
+    assert!(
+        bundle["workflow_yaml"]
+            .as_str()
+            .unwrap()
+            .contains("project-release.yml")
+    );
+    let exported: Value = serde_json::from_str(bundle["config_json"].as_str().unwrap()).unwrap();
+    assert_eq!(exported["policy"], "hybrid");
+    assert_eq!(exported["rules"], config["rules"]);
+    assert_eq!(
+        exported["compiler"]["targets"],
+        config["compiler"]["targets"]
+    );
+    assert_eq!(exported["build_argv"], config["build_argv"]);
+    let mut private = config.clone();
+    private["private_key"] = "synthetic-secret-that-must-not-be-returned".into();
+    for invalid in [private.to_string(), "{".into(), "x".repeat(256 * 1024 + 1)] {
+        let rejected = client.call("fileveil_ci_generate", json!({"config_json":invalid}));
+        assert_eq!(rejected["result"]["isError"], true, "{rejected}");
+        assert!(
+            !rejected
+                .to_string()
+                .contains("synthetic-secret-that-must-not-be-returned")
+        );
+    }
+    let rejected = client.call("fileveil_ci_generate", json!({"config_json":true}));
+    assert_eq!(rejected["result"]["isError"], true, "{rejected}");
+    let capabilities = client.call("fileveil_capabilities", json!({}));
+    let access = &report(&capabilities)["mcp_access"];
+    assert_eq!(access["read_root_count"], 0);
+    assert_eq!(access["write_root_count"], 0);
+    assert_eq!(access["signing_key_count"], 0);
+    assert_eq!(access["operations_used"], 0);
+    assert_eq!(client.close(), 0);
 }

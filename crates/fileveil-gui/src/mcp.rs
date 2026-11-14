@@ -315,6 +315,12 @@ impl Server {
             capabilities["mcp_access"] = self.access.summary();
             return self.result(id, tool_result(capabilities, false));
         }
+        if name == "fileveil_ci_generate" {
+            return match generate_ci_bundle(arguments) {
+                Ok(bundle) => self.result(id, tool_result(bundle, false)),
+                Err(message) => self.tool_error(id, name, &message),
+            };
+        }
         if self.active.is_some() {
             return self.tool_error(
                 id,
@@ -354,6 +360,7 @@ impl Server {
     }
     fn tool_error(&mut self, id: Value, name: &str, message: &str) -> io::Result<()> {
         let operation = match name {
+            "fileveil_ci_generate" => "ci_generate",
             name if name.starts_with("fileveil_registry_") => "registry",
             name if name.starts_with("fileveil_software_") => "software",
             "fileveil_project_sync" | "fileveil_project_status" | "fileveil_project_verify" => {
@@ -380,6 +387,7 @@ impl Server {
     }
     fn permission_error(&mut self, id: Value, name: &str, message: &str) -> io::Result<()> {
         let operation = match name {
+            "fileveil_ci_generate" => "ci_generate",
             name if name.starts_with("fileveil_registry_") => "registry",
             name if name.starts_with("fileveil_software_") => "software",
             "fileveil_project_sync" | "fileveil_project_status" | "fileveil_project_verify" => {
@@ -423,6 +431,24 @@ fn tool_result(data: Value, failed: bool) -> Value {
         "isError":failed
     })
 }
+fn generate_ci_bundle(arguments: &Map<String, Value>) -> Result<Value, String> {
+    let encoded = arguments
+        .get("config_json")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "config_json must contain a public CI configuration".to_owned())?;
+    if encoded.len() > 256 * 1024 {
+        return Err("CI configuration exceeds 256 KiB".into());
+    }
+    let config: fileveil_engine::project::ci::CiConfig =
+        serde_json::from_str(encoded).map_err(|_| {
+            "Invalid public CI configuration JSON. Private keys and unknown fields are rejected"
+                .to_owned()
+        })?;
+    let bundle =
+        fileveil_engine::project::ci::generate(&config).map_err(|error| error.to_string())?;
+    serde_json::to_value(bundle).map_err(|_| "CI bundle could not be serialized".into())
+}
+
 fn integer(arguments: &Map<String, Value>, name: &str, default: u64) -> u64 {
     arguments
         .get(name)
@@ -992,8 +1018,12 @@ fn tools() -> Vec<Value> {
         definitions.push((name,title,"Bounded binary inspection and known nonexecuting structural-carrier cleaning. Programs, compilers and input code are never executed by MCP.",
             json!({"path":file,"output":file,"reference":file,"options_json":{"type":"string","description":"SoftwareRequest JSON limited to local byte inspection, trusted public keys and structure cleaning. Toolchain overrides, compiler arguments and execution are rejected."}}),vec!["path"],read_only));
     }
+    definitions.push(("fileveil_ci_generate", "Generate release CI configuration",
+        "Generate a public workflow, local command and typed configuration offline. This operation reads no files, writes no files, executes no commands and requires no directory or signing grants.",
+        json!({"config_json":{"type":"string","minLength":1,"maxLength":262144,"description":"Strict public CiConfig JSON. Secret keys and unrecognized fields are rejected. Paths and commands are generated as configuration only."}}),
+        vec!["config_json"],true));
     definitions.into_iter().map(|(name, title, description, mut properties, required, read_only)| {
-        if name != "fileveil_capabilities" {
+        if !matches!(name, "fileveil_capabilities" | "fileveil_ci_generate") {
             properties.as_object_mut().expect("tool properties").extend(limits.as_object().expect("limit properties").clone());
         }
         json!({

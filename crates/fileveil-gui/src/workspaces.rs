@@ -50,6 +50,8 @@ pub struct Workspaces {
     active: Option<JobHandle>,
     result: Option<JobResult>,
     result_workspace: Workspace,
+    result_registry_section: bool,
+    result_lab_section: u8,
     result_input: Option<PathBuf>,
     result_samples: Vec<PathBuf>,
     last_write: Option<(PathBuf, SanitizeOptions)>,
@@ -78,6 +80,8 @@ impl Default for Workspaces {
             active: None,
             result: None,
             result_workspace: Workspace::Files,
+            result_registry_section: false,
+            result_lab_section: 0,
             result_input: None,
             result_samples: Vec::new(),
             last_write: None,
@@ -139,7 +143,9 @@ impl Workspaces {
         }
         if project {
             self.result_workspace = Workspace::Projects;
+            self.result_registry_section = false;
         }
+        self.notice = None;
         self.preview_textures.clear();
         if self.result_workspace == Workspace::Deep && result.report.operation == "sanitize" {
             self.last_output = result.output_path.clone();
@@ -213,11 +219,14 @@ impl Workspaces {
         }
         let probe = matches!(&kind, JobKind::Project { request, .. } if request.action == fileveil_engine::project::ProjectAction::WatchProbe);
         if !probe {
-            self.result_workspace = if matches!(&kind, JobKind::Project { .. }) {
-                Workspace::Projects
-            } else {
-                self.selected
-            };
+            self.result_workspace =
+                if matches!(&kind, JobKind::Project { .. } | JobKind::Registry { .. }) {
+                    Workspace::Projects
+                } else {
+                    self.selected
+                };
+            self.result_registry_section = matches!(&kind, JobKind::Registry { .. });
+            self.result_lab_section = self.lab_section;
             self.result_samples = match &kind {
                 JobKind::Lab { paths } | JobKind::LabGrouped { paths, .. } => paths.clone(),
                 _ => Vec::new(),
@@ -435,6 +444,7 @@ impl Workspaces {
                 }
             }
             Workspace::Lab => {
+                let previous_section = self.lab_section;
                 ui.horizontal_wrapped(|ui| {
                     ui.selectable_value(
                         &mut self.lab_section,
@@ -452,6 +462,9 @@ impl Workspaces {
                         t(language, "二进制取证", "Binary forensics"),
                     );
                 });
+                if self.lab_section != previous_section {
+                    self.notice = None;
+                }
                 ui.add_space(8.0);
                 let job = match self.lab_section {
                     1 => self
@@ -580,6 +593,7 @@ impl Workspaces {
                 }
             }
             Workspace::Projects => {
+                let previous_section = self.registry_section;
                 ui.horizontal_wrapped(|ui| {
                     ui.selectable_value(
                         &mut self.registry_section,
@@ -592,12 +606,22 @@ impl Workspaces {
                         t(language, "项目注册表", "Project registry"),
                     );
                 });
+                if self.registry_section != previous_section {
+                    self.notice = None;
+                }
                 ui.add_space(8.0);
+                let previous_project = self.registry_panel.selection_id().map(str::to_owned);
                 let job = if self.registry_section {
                     self.registry_panel.ui(ui, language, idle)
                 } else {
                     self.project_panel.ui(ui, language, idle)
                 };
+                if self.registry_section
+                    && self.registry_panel.selection_id() != previous_project.as_deref()
+                {
+                    self.result = None;
+                    self.notice = None;
+                }
                 if let Some(job) = job {
                     self.start(job, session, ui.ctx());
                 }
@@ -883,7 +907,7 @@ impl Workspaces {
         }
     }
     fn result_ui(&mut self, ui: &mut egui::Ui, language: Language, idle: bool, session: &Session) {
-        if self.result_workspace != self.selected {
+        if !self.result_belongs_to_view() {
             return;
         }
         let Some(result) = &self.result else {
@@ -1260,6 +1284,17 @@ impl Workspaces {
         });
         if verify_requested && let Some(verification) = verification {
             self.start(verification, session, ui.ctx());
+        }
+    }
+
+    fn result_belongs_to_view(&self) -> bool {
+        if self.result_workspace != self.selected {
+            return false;
+        }
+        match self.selected {
+            Workspace::Projects => self.registry_section == self.result_registry_section,
+            Workspace::Lab => self.lab_section == self.result_lab_section,
+            _ => true,
         }
     }
 }
@@ -2168,6 +2203,34 @@ mod tests {
             exit_code: 0,
             output_path: output,
         }
+    }
+
+    #[test]
+    fn nested_workspace_reports_keep_their_operation_origin() {
+        let mut workspaces = Workspaces {
+            selected: Workspace::Projects,
+            result_workspace: Workspace::Projects,
+            result: Some(result("project", None)),
+            ..Default::default()
+        };
+        assert!(workspaces.result_belongs_to_view());
+        workspaces.registry_section = true;
+        assert!(!workspaces.result_belongs_to_view());
+        assert!(workspaces.registry_panel.selection_id().is_none());
+        workspaces.registry_section = false;
+        assert!(workspaces.result_belongs_to_view());
+        assert!(workspaces.result.is_some());
+        workspaces.result_registry_section = true;
+        assert!(!workspaces.result_belongs_to_view());
+        workspaces.registry_section = true;
+        assert!(workspaces.result_belongs_to_view());
+        workspaces.selected = Workspace::Lab;
+        workspaces.result_workspace = Workspace::Lab;
+        workspaces.result_lab_section = 1;
+        workspaces.lab_section = 2;
+        assert!(!workspaces.result_belongs_to_view());
+        workspaces.lab_section = 1;
+        assert!(workspaces.result_belongs_to_view());
     }
 
     #[test]

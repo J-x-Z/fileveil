@@ -39,11 +39,11 @@ class ProjectCiLlvmTests(unittest.TestCase):
 
     def test_fixed_platform_assets_and_download_urls_match(self):
         expected = {
-            ("linux", "x86_64"): "LLVM-21.1.8-Linux-X64.tar.xz",
-            ("darwin", "arm64"): "LLVM-21.1.8-macOS-ARM64.tar.xz",
-            ("win32", "amd64"): "clang+llvm-21.1.8-x86_64-pc-windows-msvc.tar.xz",
+            ("linux", "x86_64"): "LLVM-23.1.5-Linux-X64.tar.xz",
+            ("darwin", "arm64"): "LLVM-23.1.5-macOS-ARM64.tar.xz",
+            ("win32", "amd64"): "clang+llvm-23.1.5-x86_64-pc-windows-msvc.tar.xz",
         }
-        self.assertEqual(INSTALLER.VERSION, "21.1.8")
+        self.assertEqual(INSTALLER.VERSION, "23.1.5")
         self.assertEqual(set(INSTALLER.ASSETS), set(expected))
         for platform_id, asset in expected.items():
             with self.subTest(platform=platform_id), tempfile.TemporaryDirectory() as name:
@@ -57,7 +57,7 @@ class ProjectCiLlvmTests(unittest.TestCase):
                         patch.object(INSTALLER.urllib.request, "urlopen", return_value=io.BytesIO(self.payload)) as download:
                     self.assertEqual(INSTALLER.install(destination), destination)
                 download.assert_called_once_with(
-                    "https://github.com/llvm/llvm-project/releases/download/llvmorg-21.1.8/" + asset,
+                    "https://github.com/llvm/llvm-project/releases/download/llvmorg-23.1.5/" + asset,
                     timeout=120,
                 )
                 self.assertEqual((destination / "bin/clang").read_bytes(), b"synthetic compiler bytes, never executed\n")

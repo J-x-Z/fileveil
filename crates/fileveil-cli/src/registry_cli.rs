@@ -40,6 +40,12 @@ pub enum RegistryCommand {
         build_argv_json: String,
         #[arg(long, default_value = "[]")]
         test_argv_json: String,
+        #[arg(long, value_enum, default_value = "manifest-only")]
+        policy: Policy,
+        #[arg(long)]
+        rules_json: Option<String>,
+        #[arg(long)]
+        compiler_json: Option<String>,
         #[arg(long, default_value = "main")]
         engine_ref: String,
         #[arg(long, default_value = "ubuntu-latest")]
@@ -296,6 +302,9 @@ pub fn run(command: &RegistryCommand, cli: &super::Cli, limits: &Limits) -> Resu
         output,
         build_argv_json,
         test_argv_json,
+        policy,
+        rules_json,
+        compiler_json,
         engine_ref,
         runner,
         write_directory,
@@ -317,6 +326,14 @@ pub fn run(command: &RegistryCommand, cli: &super::Cli, limits: &Limits) -> Resu
                 })?,
                 engine_ref: engine_ref.clone(),
                 runner: runner.clone(),
+                policy: (*policy).into(),
+                rules: rules_json
+                    .as_deref()
+                    .map(serde_json::from_str)
+                    .transpose()
+                    .map_err(|_| Error::Input("Project rules must be a JSON array".into()))?
+                    .unwrap_or_else(fileveil_engine::project::ci::default_asset_rules),
+                compiler: compiler(compiler_json.as_ref())?,
             })?;
         if let Some(path) = write_directory {
             write_ci_bundle(path, &bundle)?;

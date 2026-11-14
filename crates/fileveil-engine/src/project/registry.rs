@@ -28,6 +28,17 @@ pub enum RegistryPolicy {
     Hybrid,
 }
 
+pub fn default_asset_rules() -> Vec<ProjectRule> {
+    ["jpg", "jpeg", "png", "heic", "heif", "avif"]
+        .iter()
+        .map(|extension| ProjectRule {
+            pattern: format!("**/*.{extension}"),
+            mode: ProjectFileMode::Structure,
+            ..Default::default()
+        })
+        .collect()
+}
+
 #[derive(Debug, Default, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum ProjectKind {
@@ -378,16 +389,11 @@ fn effective_config(
         policy(registry, entry),
         RegistryPolicy::AssetWatermark | RegistryPolicy::Hybrid
     ) {
-        entry.overrides.rules.clone().unwrap_or_else(|| {
-            ["jpg", "jpeg", "png", "heic", "heif", "avif"]
-                .iter()
-                .map(|extension| ProjectRule {
-                    pattern: format!("**/*.{extension}"),
-                    mode: ProjectFileMode::Structure,
-                    ..Default::default()
-                })
-                .collect()
-        })
+        entry
+            .overrides
+            .rules
+            .clone()
+            .unwrap_or_else(default_asset_rules)
     } else {
         Vec::new()
     };

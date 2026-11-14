@@ -8,7 +8,7 @@ use crate::{
 use eframe::egui;
 use fileveil_core::Report;
 use fileveil_engine::project::{
-    SyncOptions,
+    ProjectRule, SyncOptions,
     registry::{
         CompilerBackend, ProjectOverrides, RegistryAction, RegistryCompilerConfig,
         RegistryCompilerTarget, RegistryDefaults, RegistryPolicy, RegistryRequest,
@@ -92,6 +92,9 @@ impl Default for RegistryPanel {
     }
 }
 impl RegistryPanel {
+    pub fn selection_id(&self) -> Option<&str> {
+        self.selected.as_deref()
+    }
     pub fn record_result(&mut self, report: &Report) {
         let Some(registry) = report
             .advanced
@@ -175,6 +178,9 @@ impl RegistryPanel {
             .build_argv
             .clone()
             .unwrap_or_else(|| self.defaults.build_argv.clone());
+        self.ci.policy = row.overrides.policy.unwrap_or(self.defaults.policy);
+        self.ci.rules = asset_rules(self.ci.policy, row.overrides.rules.as_deref());
+        self.ci.compiler = row.compiler.clone();
         self.ci_build = serde_json::to_string(&self.ci.build_argv).unwrap_or_else(|_| "[]".into());
         self.ci.artifact_directory = PathBuf::from("target/release");
         self.ci.output_directory = PathBuf::from("dist/fileveil-ci");
@@ -357,12 +363,24 @@ impl RegistryPanel {
     fn ci_ui(&mut self, ui: &mut egui::Ui, language: Language) {
         egui::CollapsingHeader::new(t(language, "持续集成与本地发布", "Continuous integration and local release")).show(ui, |ui| {
             ui.small(t(language,"生成工作流与本地配置。签名密钥由实际运行环境提供。","Generate a workflow and local configuration. The execution environment supplies signing keys."));
+            let policy=self.effective_policy();
+            ui.strong(format!("{} · {}",t(language,"生成策略","Generated policy"),policy_label(language,policy)));
+            let rules=asset_rules(policy,self.overrides.rules.as_deref());
+            let targets=if matches!(policy,RegistryPolicy::CompilerWatermark|RegistryPolicy::Hybrid){self.compiler.targets.len()}else{0};
+            ui.small(format!("{} {} · {} {}",t(language,"资产规则","Asset rules"),rules.len(),t(language,"编译目标","Compiler targets"),targets));
+            ui.small(t(language,"策略、规则和编译目标沿用当前项目设置。","Policy, rules and compiler targets use the current project settings."));
             ui.label(t(language,"作品 ID","Work ID"));
             ui.text_edit_singleline(&mut self.ci.work_id);
             ui.label(t(language,"作者声明","Author declaration"));
             ui.text_edit_singleline(&mut self.ci.author);
             ui.label(t(language,"发行副本 ID","Copy ID"));
             ui.text_edit_singleline(&mut self.ci.copy_id);
+            ui.horizontal(|ui|{
+                ui.label(t(language,"CI 平台","CI platform"));
+                egui::ComboBox::from_id_salt("project_ci_runner").selected_text(&self.ci.runner).show_ui(ui,|ui|{
+                    for runner in ["ubuntu-latest","macos-latest","windows-latest"]{ui.selectable_value(&mut self.ci.runner,runner.into(),runner);}
+                });
+            });
             ui.label(t(language,"构建产物相对目录","Relative build artifact directory"));
             let mut artifact=self.ci.artifact_directory.to_string_lossy().into_owned();
             if ui.text_edit_singleline(&mut artifact).changed(){self.ci.artifact_directory=artifact.into();}
@@ -400,6 +418,16 @@ impl RegistryPanel {
     }
 
     fn generate_ci(&mut self) -> Result<(), String> {
+        self.ci.policy = self.effective_policy();
+        self.ci.rules = asset_rules(self.ci.policy, self.overrides.rules.as_deref());
+        self.ci.compiler = if matches!(
+            self.ci.policy,
+            RegistryPolicy::CompilerWatermark | RegistryPolicy::Hybrid
+        ) {
+            Some(self.configured_compiler().map_err(str::to_owned)?)
+        } else {
+            None
+        };
         self.ci.build_argv = serde_json::from_str(&self.ci_build)
             .map_err(|_| "Build command must be a JSON array of arguments".to_owned())?;
         self.ci.test_argv = serde_json::from_str(&self.ci_test)
@@ -455,11 +483,14 @@ impl RegistryPanel {
         let mut overrides = self.overrides.clone();
         overrides.policy = self.override_policy.then_some(self.policy);
         let effective = overrides.policy.unwrap_or(defaults.policy);
-        let mut compiler = self.compiler.clone();
-        compiler.compiler_arguments = serde_json::from_str(&self.compiler_args)
-            .map_err(|_| "Compiler arguments must be a JSON array of strings")?;
-        compiler.test_arguments = serde_json::from_str(&self.compiler_tests)
-            .map_err(|_| "Test arguments must be a JSON array of arrays")?;
+        let compiler = if matches!(
+            effective,
+            RegistryPolicy::CompilerWatermark | RegistryPolicy::Hybrid
+        ) {
+            Some(self.configured_compiler()?)
+        } else {
+            None
+        };
         Ok(RegistryRequest {
             action,
             registry_path: self.registry_path.clone(),
@@ -487,15 +518,40 @@ impl RegistryPanel {
                 version: self.version.trim().into(),
                 ..Default::default()
             },
-            compiler: matches!(
-                effective,
-                RegistryPolicy::CompilerWatermark | RegistryPolicy::Hybrid
-            )
-            .then_some(compiler),
+            compiler,
             all: batch,
             legacy_state_directory: self.legacy_state.clone(),
             ..Default::default()
         })
+    }
+
+    fn effective_policy(&self) -> RegistryPolicy {
+        if self.override_policy {
+            self.policy
+        } else {
+            self.defaults.policy
+        }
+    }
+
+    fn configured_compiler(&self) -> Result<RegistryCompilerConfig, &'static str> {
+        let mut compiler = self.compiler.clone();
+        compiler.compiler_arguments = serde_json::from_str(&self.compiler_args)
+            .map_err(|_| "Compiler arguments must be a JSON array of strings")?;
+        compiler.test_arguments = serde_json::from_str(&self.compiler_tests)
+            .map_err(|_| "Test arguments must be a JSON array of arrays")?;
+        Ok(compiler)
+    }
+}
+fn asset_rules(policy: RegistryPolicy, rules: Option<&[ProjectRule]>) -> Vec<ProjectRule> {
+    if matches!(
+        policy,
+        RegistryPolicy::AssetWatermark | RegistryPolicy::Hybrid
+    ) {
+        rules
+            .map(<[ProjectRule]>::to_vec)
+            .unwrap_or_else(fileveil_engine::project::ci::default_asset_rules)
+    } else {
+        Vec::new()
     }
 }
 fn policy_picker(ui: &mut egui::Ui, language: Language, id: &str, value: &mut RegistryPolicy) {
@@ -526,6 +582,12 @@ fn policy_label(language: Language, value: RegistryPolicy) -> &'static str {
 }
 pub fn report_ui(ui: &mut egui::Ui, language: Language, value: &serde_json::Value) {
     ui.strong(t(language, "注册表执行结果", "Registry operation result"));
+    if let Some(action) = value["action"].as_str() {
+        ui.label(format!(
+            "{} · {action}",
+            t(language, "注册表操作", "Registry operation")
+        ));
+    }
     ui.label(format!(
         "{}  {}",
         t(language, "已登记项目", "Registered projects"),
@@ -587,6 +649,93 @@ mod tests {
         assert_eq!(
             std::fs::read(parent.path().join("existing.json")).unwrap(),
             b"preserved"
+        );
+    }
+
+    #[test]
+    fn ci_export_preserves_selected_policy_rules_and_compiler_targets() {
+        let id = "a".repeat(32);
+        let rules = vec![ProjectRule {
+            pattern: "assets/**/*.png".into(),
+            mode: fileveil_engine::project::ProjectFileMode::Structure,
+            ..Default::default()
+        }];
+        let compiler = RegistryCompilerConfig {
+            targets: vec![RegistryCompilerTarget {
+                input: "src/main.c".into(),
+                output: "target/release/demo".into(),
+                backend: CompilerBackend::ClangSource,
+            }],
+            optimization: "O2".into(),
+            compiler_arguments: vec!["-DDEMO=1".into()],
+            ..Default::default()
+        };
+        let mut panel = RegistryPanel {
+            defaults: RegistryDefaults {
+                author: "Author".into(),
+                ..Default::default()
+            },
+            projects: vec![ProjectRow {
+                project_id: id.clone(),
+                name: "Demo".into(),
+                overrides: ProjectOverrides {
+                    policy: Some(RegistryPolicy::Hybrid),
+                    rules: Some(rules),
+                    ..Default::default()
+                },
+                compiler: Some(compiler),
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+        panel.select(id);
+        assert_eq!(panel.ci.policy, RegistryPolicy::Hybrid);
+        panel.generate_ci().unwrap();
+        let config: serde_json::Value = serde_json::from_str(&panel.ci_json).unwrap();
+        assert_eq!(config["policy"], "hybrid");
+        assert_eq!(config["rules"][0]["pattern"], "assets/**/*.png");
+        assert_eq!(config["compiler"]["targets"][0]["input"], "src/main.c");
+        assert_eq!(config["compiler"]["compiler_arguments"][0], "-DDEMO=1");
+        panel.policy = RegistryPolicy::ManifestOnly;
+        panel.compiler_args = "irrelevant invalid JSON".into();
+        panel.generate_ci().unwrap();
+        let config: serde_json::Value = serde_json::from_str(&panel.ci_json).unwrap();
+        assert_eq!(config["policy"], "manifest_only");
+        assert!(config["rules"].as_array().unwrap().is_empty());
+        assert!(config["compiler"].is_null());
+    }
+
+    #[test]
+    fn ci_asset_rules_preserve_explicit_empty_overrides() {
+        let id = "b".repeat(32);
+        let mut panel = RegistryPanel {
+            defaults: RegistryDefaults {
+                author: "Author".into(),
+                policy: RegistryPolicy::AssetWatermark,
+                ..Default::default()
+            },
+            projects: vec![ProjectRow {
+                project_id: id.clone(),
+                name: "Assets".into(),
+                overrides: ProjectOverrides {
+                    rules: Some(Vec::new()),
+                    ..Default::default()
+                },
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+        panel.select(id);
+        assert!(panel.ci.rules.is_empty());
+        panel.generate_ci().unwrap();
+        let config: serde_json::Value = serde_json::from_str(&panel.ci_json).unwrap();
+        assert_eq!(config["policy"], "asset_watermark");
+        assert!(config["rules"].as_array().unwrap().is_empty());
+        panel.overrides.rules = None;
+        panel.generate_ci().unwrap();
+        assert_eq!(
+            panel.ci.rules,
+            fileveil_engine::project::ci::default_asset_rules()
         );
     }
 }

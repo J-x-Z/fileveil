@@ -17,7 +17,7 @@ import tempfile
 
 CATALOG = "provenance/source-catalog.toml"
 EVIDENCE = "provenance/source-catalog.evidence.json"
-SOURCE_SUFFIXES = {".rs", ".py", ".swift", ".sh", ".toml", ".yml", ".yaml"}
+SOURCE_SUFFIXES = {".rs", ".py", ".swift", ".sh", ".toml", ".yml", ".yaml", ".c", ".h", ".cc", ".cpp", ".hpp"}
 MARKER = re.compile(rb"(?:\/\/|#|--|;) FVPROV1 [0-9]+ ([A-Za-z0-9+/=]+) FVPROV1-END\n\Z")
 
 
@@ -161,5 +161,3 @@ if __name__ == "__main__":
         main()
     except (KeyError, ValueError, OSError, subprocess.SubprocessError) as error:
         raise SystemExit(f"Source release preparation failed. {error}") from None
-
-# FVPROV1 8434 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiJkNWRjZmFiYWM4ZjMxNmMzZTNiMGIwMDU0MDc2ODRiZWE4NjBhMGRhMTczYjdhOGM0NDJkMTRhYmUwMzc0M2RmIiwiY29weV9pZCI6InYwLjUuMC1hbHBoYS4zIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC41LjAtYWxwaGEuMyIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL3Rvb2xzL21hcmstc291cmNlLXRyZWUucHkifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiIzMjliNTY5YmQyNDZjZDVkYjNjMGJlOTczODVmMDhmMGJkYjVkMWE2NjY3NzM3Y2ZhMzg0MjczNzNlNzdlM2NkYjc3NjU1NzdjZTczNmI1MTI5ODhkYmRiOTAyNjliOGU3ZTFjZGJmMTEwOWQ4MWI2ODMzNGZiZDU1NzMwOTcwMSJ9XX1d FVPROV1-END
