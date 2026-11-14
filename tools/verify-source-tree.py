@@ -36,6 +36,7 @@ MAX_FILE_BYTES = 64 * 1024 * 1024
 MAX_TOTAL_BYTES = 512 * 1024 * 1024
 MAX_CATALOG_BYTES = 8 * 1024 * 1024
 MAX_RUNTIME_SECONDS = 120
+WINDOWS = sys.platform == "win32"
 
 # Execute the adjacent reviewed source directly. Excluded bytecode caches must
 # not replace the cryptographic verifier through Python's import cache.
@@ -81,6 +82,21 @@ def no_link(info):
 
 def identity(info):
     return (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+
+
+def matches_opened_file(opened, by_path):
+    if not no_link(opened) or not stat.S_ISREG(opened.st_mode):
+        return False
+    if not WINDOWS:
+        return identity(opened) == identity(by_path)
+    # CPython 3.12+ path stat exposes creation time as ctime, while fstat
+    # exposes ChangeTime. Compare file IDs and compatible metadata across
+    # these APIs. Full ctime checks remain within each API before/after I/O.
+    # https://github.com/python/cpython/issues/157671
+    fields = ("st_dev", "st_ino", "st_size", "st_mtime_ns", "st_birthtime_ns")
+    return tuple(getattr(opened, field, None) for field in fields) == tuple(
+        getattr(by_path, field, None) for field in fields
+    )
 
 
 class TreeReader:
@@ -134,10 +150,11 @@ class TreeReader:
         require(self.total_bytes <= MAX_TOTAL_BYTES, "Source tree exceeds aggregate byte budget")
         descriptor = self.open_file(parts, path)
         with os.fdopen(descriptor, "rb") as stream:
-            require(identity(os.fstat(stream.fileno())) == identity(before), f"File identity changed at {name}")
+            opened = os.fstat(stream.fileno())
+            require(matches_opened_file(opened, before), f"File identity changed at {name}")
             data = stream.read(limit + 1)
             require(len(data) <= limit, f"File exceeds byte budget at {name}")
-            require(identity(os.fstat(stream.fileno())) == identity(before), f"File changed during verification at {name}")
+            require(identity(os.fstat(stream.fileno())) == identity(opened), f"File changed during verification at {name}")
         for observed_path, original_identity in observed:
             current = observed_path.lstat()
             require(no_link(current) and identity(current) == original_identity, f"Path changed during verification at {name}")
@@ -317,5 +334,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-# FVPROV1 15284 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiIyZTUxYWFlNjE1NTNmZWFhYzM0NzQ5M2FkNGJjZTU5NDg3MGYyNjI5YjQzNTQzZmFkMjJmMmZlMDc3YWFkNTJlIiwiY29weV9pZCI6InYwLjUuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC41LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL3Rvb2xzL3ZlcmlmeS1zb3VyY2UtdHJlZS5weSJ9LCJzaWduYXR1cmVzIjpbeyJrZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwicHVibGljX2tleV9oZXgiOiJhZGIzZTE3Y2QxMmY5NTZkMDA3MGUxNjYzZjUzMTUzN2ZjZWRmNzMwOGQwMTY1OGZlYTQ1NmZlZWE4ZjdmYmM1Iiwic2lnbmF0dXJlX2hleCI6Ijc5ZDEzNTRlNDI4YWZiNzBiYjk4ZDk0M2E0NmE1YTM3YmM1MjdjYjg5N2M1NGYyY2I1YWFjYTNkZjlhZTIwMWYyNWMxZjkzZmM4OTY3ODFlY2ZhZGFiYTc1MWZjNWU5OGZmMTViMWYwMmUwN2YwMWYwMTdhNTE0YzliOTcwZjA0In1dfV0= FVPROV1-END

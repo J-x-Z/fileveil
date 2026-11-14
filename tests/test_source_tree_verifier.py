@@ -9,13 +9,16 @@ import hashlib
 import importlib.util
 import json
 import marshal
+import os
 from pathlib import Path
+import stat
 import subprocess
 import struct
 import sys
 import tempfile
 import unittest
 from unittest import mock
+from types import SimpleNamespace
 
 
 SCRIPT = Path(__file__).resolve().parents[1] / "tools/verify-source-tree.py"
@@ -291,8 +294,82 @@ class SourceTreeTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(json.loads(result.stdout)["catalog_signature"], "valid")
 
+    def test_windows_cross_api_binding_retains_identity_fields(self):
+        values = dict(st_dev=7, st_ino=11, st_size=19, st_mtime_ns=23,
+                      st_ctime_ns=29, st_birthtime_ns=29, st_mode=stat.S_IFREG,
+                      st_file_attributes=0)
+        by_path = SimpleNamespace(**values)
+        opened_values = dict(values, st_ctime_ns=31)
+        opened = SimpleNamespace(**opened_values)
+        with mock.patch.object(VERIFY, "WINDOWS", True):
+            self.assertTrue(VERIFY.matches_opened_file(opened, by_path))
+            for field in ("st_dev", "st_ino", "st_size", "st_mtime_ns", "st_birthtime_ns"):
+                with self.subTest(field=field):
+                    changed = dict(opened_values)
+                    changed[field] += 1
+                    self.assertFalse(VERIFY.matches_opened_file(SimpleNamespace(**changed), by_path))
+            reparse = dict(opened_values, st_file_attributes=0x400)
+            self.assertFalse(VERIFY.matches_opened_file(SimpleNamespace(**reparse), by_path))
+            pipe = dict(opened_values, st_mode=stat.S_IFIFO)
+            self.assertFalse(VERIFY.matches_opened_file(SimpleNamespace(**pipe), by_path))
+        with mock.patch.object(VERIFY, "WINDOWS", False):
+            self.assertFalse(VERIFY.matches_opened_file(opened, by_path))
+
+    def test_windows_distinct_ctime_semantics_allow_an_unchanged_read(self):
+        reader = VERIFY.TreeReader(self.root)
+        actual_fstat = os.fstat
+
+        def descriptor_info(descriptor):
+            actual = actual_fstat(descriptor)
+            fields = ("st_dev", "st_ino", "st_size", "st_mtime_ns", "st_ctime_ns", "st_mode")
+            result = {field: getattr(actual, field) for field in fields}
+            result["st_ctime_ns"] += 100
+            result["st_birthtime_ns"] = getattr(actual, "st_birthtime_ns", None)
+            result["st_file_attributes"] = getattr(actual, "st_file_attributes", 0)
+            return SimpleNamespace(**result)
+
+        with mock.patch.object(VERIFY, "WINDOWS", True), mock.patch.object(VERIFY.os, "fstat", side_effect=descriptor_info):
+            self.assertEqual(reader.read("third-party.bin"), (self.root / "third-party.bin").read_bytes())
+
+    def test_open_descriptor_ctime_changes_are_still_refused(self):
+        reader = VERIFY.TreeReader(self.root)
+        actual_fstat = os.fstat
+        observations = 0
+
+        def descriptor_info(descriptor):
+            nonlocal observations
+            actual = actual_fstat(descriptor)
+            fields = ("st_dev", "st_ino", "st_size", "st_mtime_ns", "st_ctime_ns", "st_mode")
+            result = {field: getattr(actual, field) for field in fields}
+            observations += 1
+            result["st_ctime_ns"] += observations * 100
+            result["st_birthtime_ns"] = getattr(actual, "st_birthtime_ns", None)
+            result["st_file_attributes"] = getattr(actual, "st_file_attributes", 0)
+            return SimpleNamespace(**result)
+
+        with mock.patch.object(VERIFY, "WINDOWS", True), mock.patch.object(VERIFY.os, "fstat", side_effect=descriptor_info):
+            with self.assertRaisesRegex(ValueError, "File changed during verification"):
+                reader.read("third-party.bin")
+
+    def test_native_path_and_descriptor_metadata_binding(self):
+        path = self.root / "third-party.bin"
+        data = path.read_bytes()
+        path.write_bytes(data)
+        by_path = path.lstat()
+        with path.open("rb") as stream:
+            opened = os.fstat(stream.fileno())
+            if sys.platform == "win32":
+                fields = ("st_dev", "st_ino", "st_size", "st_mtime_ns", "st_ctime_ns", "st_birthtime_ns")
+                print(json.dumps({
+                    "windows_stat_binding": {
+                        "path": {field: getattr(by_path, field, None) for field in fields},
+                        "descriptor": {field: getattr(opened, field, None) for field in fields},
+                    }
+                }), flush=True)
+            self.assertTrue(VERIFY.matches_opened_file(opened, by_path))
+            self.assertEqual(VERIFY.identity(os.fstat(stream.fileno())), VERIFY.identity(opened))
+        self.assertEqual(VERIFY.TreeReader(self.root).read("third-party.bin"), data)
+
 
 if __name__ == "__main__":
     unittest.main()
-
-# FVPROV1 13810 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiJhMTJmYWEyOTZiOGZmN2NlM2ZkMzkwNjZhNTVhODJjYmVkNTNkN2IxMTlhMjZlYzZjODVmMTg1N2M5MGI4MzFiIiwiY29weV9pZCI6InYwLjUuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC41LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL3Rlc3RzL3Rlc3Rfc291cmNlX3RyZWVfdmVyaWZpZXIucHkifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiI4NDJiYjdmM2ExM2M1ODk4ZDIzNTg2ZmM4ZDBjNDEyYTVhMTU4N2MxYTYzOWY0NDVmMjFkYzRiMzdlMTkzY2UwMjhmM2JlYjIyNWI1NmFiNGE3NjUzMGEzYjI5MTllMTRiMjc2MTVhNjIwZTFjYzk5MjkxZjZhMzkwZDFiMDIwYiJ9XX1d FVPROV1-END
