@@ -173,15 +173,20 @@ jobs:
           key = work / 'identity.key'
           subprocess.run([str(cli), '--json', 'heritage-keygen', '--output', str(key)], check=True, capture_output=True)
           for system, names in [('cmake', ['fv-calculate', 'fv-compress']), ('cargo', ['fv-rust-calculate', 'fv-rust-report'])]:
-              source = work / (system + '-source')
-              shutil.copytree(root / 'tools/software-watermark/fixtures' / ('project-' + system), source)
-              command = [sys.executable, str(root / 'tools/software-watermark/project-build.py'), '--build-system', system, '--source', str(source), '--output', str(work / (system + '-O2')), '--fileveil', str(cli), '--key', str(key), '--llvm-directory', str(sdk), '--plugin', str(artifact), '--work-id', 'fileveil-v07-' + system + '-acceptance', '--copy-id', 'native-ci', '--author', 'FileVeil acceptance', '--version', 'v1', '--created-at', '2026-11-15', '--optimization', 'O2', '--allow-execution', '--strip', '--test-arguments-json', '[["0"],["10"],["1000"],["99999"]]']
-              for name in names:
-                  command += ['--target', name]
-              if system == 'cargo':
-                  command += ['--cargo-target-directory', str(root / 'target')]
-              with (work / (system + '-O2.log')).open('w', encoding='utf-8') as log:
-                  subprocess.run(command, stdout=log, stderr=subprocess.STDOUT, check=True, timeout=600)
+              for case, optimization, lto in [('O0', 'O0', False), ('O2', 'O2', False), ('O3', 'O3', False), ('ThinLTO', 'O2', True)]:
+                  case_work = work / (system + '-' + case)
+                  case_work.mkdir(mode=0o700)
+                  source = case_work / 'source'
+                  shutil.copytree(root / 'tools/software-watermark/fixtures' / ('project-' + system), source)
+                  command = [sys.executable, str(root / 'tools/software-watermark/project-build.py'), '--build-system', system, '--source', str(source), '--output', str(case_work / 'result'), '--fileveil', str(cli), '--key', str(key), '--llvm-directory', str(sdk), '--plugin', str(artifact), '--work-id', 'fileveil-v07-' + system + '-acceptance', '--copy-id', 'native-ci', '--author', 'FileVeil acceptance', '--version', 'v1', '--created-at', '2026-11-15', '--optimization', optimization, '--allow-execution', '--strip', '--test-arguments-json', '[["0"],["10"],["1000"],["99999"]]']
+                  if lto:
+                      command += ['--lto']
+                  for name in names:
+                      command += ['--target', name]
+                  if system == 'cargo':
+                      command += ['--cargo-target-directory', str(root / 'target')]
+                  with (case_work / 'build.log').open('w', encoding='utf-8') as log:
+                      subprocess.run(command, stdout=log, stderr=subprocess.STDOUT, check=True, timeout=600)
           key.unlink()
       - name: Save native software project evidence
         uses: actions/upload-artifact@v4
@@ -190,9 +195,8 @@ jobs:
           name: software-project-acceptance-${{ needs.build.outputs.namespace }}-${{ github.run_id }}-${{ github.run_attempt }}
           retention-days: 7
           path: |
-            software-acceptance/cmake-O2/report.json
-            software-acceptance/cargo-O2/report.json
-            software-acceptance/*-O2.log
+            software-acceptance/*/result/report.json
+            software-acceptance/*/build.log
       - name: Sign and mark IR with the trusted pass
         env:
           FILEVEIL_SIGNING_KEY_BASE64: ${{ secrets.signing-key-base64 }}
@@ -395,4 +399,4 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-# FVPROV1 21381 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiI3YTc2MTk5Nzc2ZDNhM2NkNTcyYzIyZTM4ZjkyNjM5MjQxNGM4OGEzOTdkZmE4NWRhNWNiYmNmYTBiY2E1YjRkIiwiY29weV9pZCI6InYwLjcuMC1iZXRhLjEiLCJjcmVhdGVkX2F0IjoiMjAyNi0xMS0xNSIsImVkaXRpb24iOiJiZXRhIiwiaXNzdWVyX3BvbGljeSI6bnVsbCwia2luZCI6ImNyZWF0ZSIsIm1vZGUiOiJzZWxmX3NpZ24iLCJwYXJlbnRfdmVyc2lvbiI6bnVsbCwicHJldmlvdXNfcmVjb3JkX3NoYTI1NiI6bnVsbCwic2NoZW1hIjoiZmlsZXZlaWwucHJvdmVuYW5jZS5zaWduYXR1cmUudjIiLCJzZXF1ZW5jZSI6MCwidHJhbnNmZXJfdG9fa2V5X2lkIjpudWxsLCJ2ZXJzaW9uIjoidjAuNy4wLWJldGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlLy5naXRodWIvd29ya2Zsb3dzL3Byb2plY3QtcmVsZWFzZS55bWwifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiJhM2EwNzhmNTFiMDNlM2RjNGNhNWVmMmFhODhlZWRmNzMyYzdmMDg5ZjkxNzlkMzliYWY2OTljYjE3ZGM0M2RjNjkxNGE1OTY0NGU2NjdiOGEyNGY5YzYxNzM5YjI0OGZkZDA0ZTk4NWU3ZWNmNWEzMDE3Mzg5MWIwYmFkZGUwNSJ9XX1d FVPROV1-END
+# FVPROV1 21670 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiIxOWM5ZDFmZmM5NzRlZjZmMzc5ZDVlNTRjNzRhM2NkMmQ4NzNkNmRmMjU2ZWM1YTkxY2IxZTM0ODZjYjllYTU4IiwiY29weV9pZCI6InYwLjcuMC1iZXRhLjEiLCJjcmVhdGVkX2F0IjoiMjAyNi0xMS0xNSIsImVkaXRpb24iOiJiZXRhIiwiaXNzdWVyX3BvbGljeSI6bnVsbCwia2luZCI6ImNyZWF0ZSIsIm1vZGUiOiJzZWxmX3NpZ24iLCJwYXJlbnRfdmVyc2lvbiI6bnVsbCwicHJldmlvdXNfcmVjb3JkX3NoYTI1NiI6bnVsbCwic2NoZW1hIjoiZmlsZXZlaWwucHJvdmVuYW5jZS5zaWduYXR1cmUudjIiLCJzZXF1ZW5jZSI6MCwidHJhbnNmZXJfdG9fa2V5X2lkIjpudWxsLCJ2ZXJzaW9uIjoidjAuNy4wLWJldGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlLy5naXRodWIvd29ya2Zsb3dzL3Byb2plY3QtcmVsZWFzZS55bWwifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiJlOTZkMTMwZTk5OTQ3NjNiNTY3ZWQ3YWIwMDllYzk0MDM0MzlmZTkyZjg0OGMxZjFhMzZiNDE4ZTA0MmI0ZTcxZDQ5OWU1M2FmNGQ1OWQ1NGYwNzAzYzE1YmViOWMxNTkxODVlYjhjZWU5MWU4ZDU3YmFkYzVjNDc0NDQ1NmUwMiJ9XX1d FVPROV1-END
