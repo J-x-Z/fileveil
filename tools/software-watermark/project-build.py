@@ -259,6 +259,22 @@ def mark_companion(args, output):
     return obj, {"mark": metrics, "compile": compile_metrics, "packet": report["advanced"]["software"]["packet"]}
 
 
+def cmake_lto_arguments(llvm_directory, lto, system=None):
+    if not lto:
+        return []
+    arguments = ["-DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON"]
+    system = system or platform.system()
+    if system in ("Linux", "Windows"):
+        linker = Path(llvm_directory) / "bin" / ("lld-link.exe" if system == "Windows" else "ld.lld")
+        if not linker.is_file():
+            raise ValueError("CMake LTO requires the LLVM SDK linker: " + str(linker))
+        # SDK Clang finds lld in its own bin directory, avoiding host ld.bfd's
+        # unavailable LLVMgold plugin. Darwin retains its existing ld64 path.
+        arguments.extend("-DCMAKE_" + kind + "_LINKER_FLAGS=-fuse-ld=lld"
+                         for kind in ("EXE", "SHARED", "MODULE"))
+    return arguments
+
+
 def compile_targets(args, mode, directory, companion, expected_packet=None):
     directory.mkdir()
     metrics = []
@@ -312,8 +328,7 @@ def compile_targets(args, mode, directory, companion, expected_packet=None):
                      "-DCMAKE_C_COMPILER=" + str(clang), "-DCMAKE_CXX_COMPILER=" + str(clangxx),
                      "-DCMAKE_C_FLAGS_RELEASE=-" + args.optimization,
                      "-DCMAKE_CXX_FLAGS_RELEASE=-" + args.optimization]
-        if args.lto:
-            configure.append("-DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON")
+        configure.extend(cmake_lto_arguments(args.llvm_directory, args.lto))
         if companion:
             hook = directory / "fileveil.cmake"
             hook.write_text(cmake_hook(args.target, companion), encoding="utf-8")
@@ -476,4 +491,4 @@ def main():
 if __name__ == "__main__":
     raise SystemExit(main())
 
-# FVPROV1 26675 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiIwMWI2OGIwNjgxZmFmMjlkMDUxYmNmNjQ1NTEyYjdiZjkxNWJlNGMxNjZkNjY1MDczNDc5NDBhYmM5NTQ2YjhmIiwiY29weV9pZCI6InYwLjcuMC1iZXRhLjEiLCJjcmVhdGVkX2F0IjoiMjAyNi0xMS0xNSIsImVkaXRpb24iOiJiZXRhIiwiaXNzdWVyX3BvbGljeSI6bnVsbCwia2luZCI6ImNyZWF0ZSIsIm1vZGUiOiJzZWxmX3NpZ24iLCJwYXJlbnRfdmVyc2lvbiI6bnVsbCwicHJldmlvdXNfcmVjb3JkX3NoYTI1NiI6bnVsbCwic2NoZW1hIjoiZmlsZXZlaWwucHJvdmVuYW5jZS5zaWduYXR1cmUudjIiLCJzZXF1ZW5jZSI6MCwidHJhbnNmZXJfdG9fa2V5X2lkIjpudWxsLCJ2ZXJzaW9uIjoidjAuNy4wLWJldGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL3Rvb2xzL3NvZnR3YXJlLXdhdGVybWFyay9wcm9qZWN0LWJ1aWxkLnB5In0sInNpZ25hdHVyZXMiOlt7ImtleV9pZCI6Ijk5ZWE2M2VmY2NmZDBmZGJkNjhlMTZlZDhmMDNkMzM3ZjE1ZWMyZTRhNmEzZDY0ZTExZDcxNGVhMWU1NDI1MzMiLCJwdWJsaWNfa2V5X2hleCI6ImFkYjNlMTdjZDEyZjk1NmQwMDcwZTE2NjNmNTMxNTM3ZmNlZGY3MzA4ZDAxNjU4ZmVhNDU2ZmVlYThmN2ZiYzUiLCJzaWduYXR1cmVfaGV4IjoiNGI1NDBhZWRhMDQwZDRlNmEyYWRkMjUxODhkZWU4OWRiZjNhOThjYTVjOWU1NGQ5MmIyYTJlMzJjZTFjMTg3MjY1NmVkNGU5MjRmODYwOGY5NzgzZWUyYjYxOGU4MzEzNmYzZTdhYjZiYTFkNWVkNjcwMDNlMTc0MDk4OWQ4MDEifV19XQ== FVPROV1-END
+# FVPROV1 27434 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiJlMmUzM2QyNDlhNjU0NmQ5NzVkZmMwNWQ5MjdiMjdkZTg4YWE1ZDQ1NmUyMWQ2ODU2NWNhMDc0ZWNmNGE3YTRiIiwiY29weV9pZCI6InYwLjcuMC1iZXRhLjEiLCJjcmVhdGVkX2F0IjoiMjAyNi0xMS0xNSIsImVkaXRpb24iOiJiZXRhIiwiaXNzdWVyX3BvbGljeSI6bnVsbCwia2luZCI6ImNyZWF0ZSIsIm1vZGUiOiJzZWxmX3NpZ24iLCJwYXJlbnRfdmVyc2lvbiI6bnVsbCwicHJldmlvdXNfcmVjb3JkX3NoYTI1NiI6bnVsbCwic2NoZW1hIjoiZmlsZXZlaWwucHJvdmVuYW5jZS5zaWduYXR1cmUudjIiLCJzZXF1ZW5jZSI6MCwidHJhbnNmZXJfdG9fa2V5X2lkIjpudWxsLCJ2ZXJzaW9uIjoidjAuNy4wLWJldGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL3Rvb2xzL3NvZnR3YXJlLXdhdGVybWFyay9wcm9qZWN0LWJ1aWxkLnB5In0sInNpZ25hdHVyZXMiOlt7ImtleV9pZCI6Ijk5ZWE2M2VmY2NmZDBmZGJkNjhlMTZlZDhmMDNkMzM3ZjE1ZWMyZTRhNmEzZDY0ZTExZDcxNGVhMWU1NDI1MzMiLCJwdWJsaWNfa2V5X2hleCI6ImFkYjNlMTdjZDEyZjk1NmQwMDcwZTE2NjNmNTMxNTM3ZmNlZGY3MzA4ZDAxNjU4ZmVhNDU2ZmVlYThmN2ZiYzUiLCJzaWduYXR1cmVfaGV4IjoiODBmYjg1ODQwNTQ0YzgxMzQ0NjEyNTJkNGNiZjdlNjhmMmI3NDRkZmQyYTg5NjgxMTRjMzA0Yjg0ZDEyZDViNmEzMTUxMGU3NzAxMGZmODIxNmY0OTVkNjEwNzk4YWQ4YzViNzc2NTcxYzgwOGYzYWY4M2Y2M2EzY2ZhYzU1MDYifV19XQ== FVPROV1-END

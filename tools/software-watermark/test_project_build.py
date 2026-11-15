@@ -3,6 +3,7 @@
 import importlib.util
 from pathlib import Path
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -32,6 +33,47 @@ class ProjectBuildTests(unittest.TestCase):
             args = build.cmake_generator_arguments(windows=True)
             self.assertEqual(args[:2], ["-G", "Ninja"])
         self.assertEqual(build.cmake_generator_arguments(windows=False), [])
+
+    def test_cmake_lto_selects_sdk_lld_in_the_configure_command(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for system, linker in (("Linux", "ld.lld"), ("Windows", "lld-link.exe")):
+                with self.subTest(system=system):
+                    sdk = root / system
+                    (sdk / "bin").mkdir(parents=True)
+                    (sdk / "bin" / linker).touch()
+                    args = SimpleNamespace(build_system="cmake", build_tool="cmake", llvm_directory=sdk,
+                                           source=root / "source", optimization="O2", lto=True, timeout=1)
+                    with patch.object(build.platform, "system", return_value=system), \
+                            patch.object(build, "cmake_generator_arguments", return_value=[]), \
+                            patch.object(build, "execute", side_effect=RuntimeError("configure observed")) as command:
+                        with self.assertRaisesRegex(RuntimeError, "configure observed"):
+                            build.compile_targets(args, "baseline", root / ("case-" + system), None)
+                    configure = command.call_args.args[0]
+                    self.assertIn("-DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON", configure)
+                    for kind in ("EXE", "SHARED", "MODULE"):
+                        self.assertIn("-DCMAKE_" + kind + "_LINKER_FLAGS=-fuse-ld=lld", configure)
+
+    def test_cmake_lto_rejects_missing_sdk_linker_without_using_the_other_platforms(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for system, missing, other in (("Linux", "ld.lld", "lld-link.exe"),
+                                            ("Windows", "lld-link.exe", "ld.lld")):
+                with self.subTest(system=system):
+                    sdk = root / system
+                    (sdk / "bin").mkdir(parents=True)
+                    (sdk / "bin" / other).touch()
+                    with self.assertRaisesRegex(ValueError, "requires the LLVM SDK linker") as error:
+                        build.cmake_lto_arguments(sdk, True, system=system)
+                    self.assertIn(missing, str(error.exception))
+
+    def test_cmake_lto_preserves_darwin_and_all_non_lto_linkers(self):
+        with tempfile.TemporaryDirectory() as directory:
+            missing_sdk = Path(directory) / "absent-sdk"
+            self.assertEqual(build.cmake_lto_arguments(missing_sdk, True, system="Darwin"),
+                             ["-DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON"])
+            for system in ("Linux", "Windows", "Darwin"):
+                self.assertEqual(build.cmake_lto_arguments(missing_sdk, False, system=system), [])
 
     def test_cmake_rejects_ignored_compiler_selection(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -129,4 +171,4 @@ class ProjectBuildTests(unittest.TestCase):
 if __name__ == "__main__":
     unittest.main()
 
-# FVPROV1 6687 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiJiNWJmZjI1ZDJmMGQwYTYxZGJmNjAzYTE5Y2VkNDIyZjFlOTM5MDA1YzdmZWJlZDBhMjhmNDI3ODUyODAzZGVjIiwiY29weV9pZCI6InYwLjcuMC1iZXRhLjEiLCJjcmVhdGVkX2F0IjoiMjAyNi0xMS0xNSIsImVkaXRpb24iOiJiZXRhIiwiaXNzdWVyX3BvbGljeSI6bnVsbCwia2luZCI6ImNyZWF0ZSIsIm1vZGUiOiJzZWxmX3NpZ24iLCJwYXJlbnRfdmVyc2lvbiI6bnVsbCwicHJldmlvdXNfcmVjb3JkX3NoYTI1NiI6bnVsbCwic2NoZW1hIjoiZmlsZXZlaWwucHJvdmVuYW5jZS5zaWduYXR1cmUudjIiLCJzZXF1ZW5jZSI6MCwidHJhbnNmZXJfdG9fa2V5X2lkIjpudWxsLCJ2ZXJzaW9uIjoidjAuNy4wLWJldGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL3Rvb2xzL3NvZnR3YXJlLXdhdGVybWFyay90ZXN0X3Byb2plY3RfYnVpbGQucHkifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiJlZWUyNzNjODczMTkzNDZmZDAxYzdlNTc3ZGRhNjAxNzdlYTNjOTA0MzA1NTUyNjlkMWQ1ZjNlNjUxN2VmODg4MWMxMmU0N2RkN2IxNWM0NzhjYTMyZjAyOTNhNTljNzk2Y2NmYWJmYmU5NmEwZjUwZTM1YzlhNjRiMGIwYjYwYiJ9XX1d FVPROV1-END
+# FVPROV1 9472 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiI5ZDNmNGE3MDYyYjM4YTBiMmFkMGMwNDU3ZDMwNDBiZWIxZThiZWNmMzQ0YjdlZTFjOTE2ODU2NmM0YTg3NDI2IiwiY29weV9pZCI6InYwLjcuMC1iZXRhLjEiLCJjcmVhdGVkX2F0IjoiMjAyNi0xMS0xNSIsImVkaXRpb24iOiJiZXRhIiwiaXNzdWVyX3BvbGljeSI6bnVsbCwia2luZCI6ImNyZWF0ZSIsIm1vZGUiOiJzZWxmX3NpZ24iLCJwYXJlbnRfdmVyc2lvbiI6bnVsbCwicHJldmlvdXNfcmVjb3JkX3NoYTI1NiI6bnVsbCwic2NoZW1hIjoiZmlsZXZlaWwucHJvdmVuYW5jZS5zaWduYXR1cmUudjIiLCJzZXF1ZW5jZSI6MCwidHJhbnNmZXJfdG9fa2V5X2lkIjpudWxsLCJ2ZXJzaW9uIjoidjAuNy4wLWJldGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL3Rvb2xzL3NvZnR3YXJlLXdhdGVybWFyay90ZXN0X3Byb2plY3RfYnVpbGQucHkifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiIxN2RhMjc2Zjc0MjM3ODUyYzliMWIyZTBjMDIyNDc0OTZhMmRjNTBkYjI3MGQ0M2I1YzMwMDk1MjAxYmNlZDBmNTYyM2EyZjlkNjc3ODlhNjU3YmU4YThhMzA0MzdkZTUwZGM3NDY1M2U4MDRiMGUyMDRhOTZkZDMzYzdiOGEwMCJ9XX1d FVPROV1-END
