@@ -67,6 +67,8 @@ cargo build --locked --release -p fileveil-gui -p fileveil-cli
 
 在 Windows 上，请运行 `target\release\` 中对应的 `.exe` 文件。打包方式和桌面工作流详见 [GUI 指南](docs/GUI.md)。
 
+当前源码版支持项目注册、持续续签和可复用 CI 工作流，使用方式见[项目工作流指南](docs/PROJECT_SOFTWARE_WATERMARK.md)。
+
 ## 快速开始
 
 **扫描并净化文件**

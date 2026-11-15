@@ -81,7 +81,7 @@ ManifestOnly 和资产策略下，入口复用后处理脚本执行配置中的 
 
 独立调用底层 `project-postprocess.py` 时，`--after-build` 接收已完成的构建产物，`--build-context` 记录独立上游 job 的观测范围。Compiler/Hybrid 还需要 `--compiler-context`，用于核对已标记产物与构建记录。
 
-GitHub Actions 使用 `FILEVEIL_SIGNING_KEY_BASE64` Secret 保存整个 FileVeil 私钥文件的 Base64 编码。工作流仅接受 Linux、macOS、Windows 的临时托管 runner。ManifestOnly/Asset 使用独立的 Build 和 FinalSign 两个 job。Compiler/Hybrid 已实现以下四阶段流程，真实 GitHub Actions 执行与三平台 SDK、插件加载仍待 CI 验收。
+GitHub Actions 使用 `FILEVEIL_SIGNING_KEY_BASE64` Secret 保存整个 FileVeil 私钥文件的 Base64 编码。工作流仅接受 Linux、macOS、Windows 的临时托管 runner。ManifestOnly/Asset 使用独立的 Build 和 FinalSign 两个 job。Compiler/Hybrid 的四阶段流程已经在三平台实际执行，Linux 和 macOS 的记录来自 run 43652428388，Windows 来自 run 43654901466。三平台发行 fixture 的证据及提供资产另经独立 Python/OpenSSL 验证。
 
 | 阶段 | 实际操作 | 签名 Secret |
 | --- | --- | --- |
@@ -120,7 +120,7 @@ python /path/to/fileveil/tools/project-ci-stage.py \
 | `compiler` | C/C++ 或显式 IR 经 pass 与本机编译器产生新二进制 | 通过签名绑定的无标记源码/IR受控重编，可选运行指定测试向量比较 |
 | `structure` | 对支持的无平台签名容器加入已绑定原始摘要的编码 footer，或审计已有数据区 | 已知 footer 可恢复原字节，已知非执行 section 载体可以清理，语义候选保留 |
 
-Pass 实现需要匹配本机平台、架构和 LLVM major。构建产物附有 ABI 元数据。SDK 静态链接 LLVM 或禁用动态插件时，构建器将同一 ModulePass 编译为独立驱动器，报告中的 `pass_execution_kind` 标明实际后端。驱动器使用固定的 Mark、Clean、Inspect 参数，并沿用现有水印协议。Windows 官方 SDK 的独立驱动路径正在接受原生 CI 验证。下面使用 macOS 的 LLVM 路径，输入 `main.c` 应为已有的可构建程序。
+Pass 实现需要匹配本机平台、架构和 LLVM major。构建产物附有 ABI 元数据。SDK 静态链接 LLVM 或禁用动态插件时，构建器将同一 ModulePass 编译为独立驱动器，报告中的 `pass_execution_kind` 标明实际后端。驱动器使用固定的 Mark、Clean、Inspect 参数，并沿用现有水印协议。Windows 官方 SDK 的独立驱动路径已经通过原生 CI 的植入、构建、执行比较和证据导出。Windows 静态 SDK 的开发环境还需要匹配的 ZLIB、Zstandard 和 CMake 配置，可复用工作流通过 vcpkg 提供这些开发依赖。下面使用 macOS 的 LLVM 路径，输入 `main.c` 应为已有的可构建程序。
 
 ```sh
 export FILEVEIL_LLVM_DIR=/opt/homebrew/opt/llvm

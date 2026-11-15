@@ -67,6 +67,8 @@ cargo build --locked --release -p fileveil-gui -p fileveil-cli
 
 On Windows, launch the corresponding `.exe` files from `target\release\`. See the [GUI guide](docs/GUI.md) for packaging and desktop workflows.
 
+Current source builds include project registration, continuous signing, and reusable CI workflows. See the [project workflow guide](docs/PROJECT_SOFTWARE_WATERMARK.md).
+
 ## Quick start
 
 **Scan and clean a file:**

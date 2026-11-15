@@ -366,3 +366,19 @@ macOS 本机发行包使用 Rust 1.99 构建，严格 ad-hoc 签名验证通过�
 ### 构建空间
 
 复用现有 Cargo target，仅删除经文件身份、单硬链接、时间和进程占用检查确认的 20 个旧版项目测试可执行文件，实际释放 1,953,134,504 字节，约 1.82 GiB。源码、全部旧版发行归档和有效测试证据保留，清理收据为 `work/v05-cache-cleanup.json`。语料源图约 88.93 MiB，攻击中间文件自动回收。
+
+## 0.6 项目工作流与软件水印验收
+
+0.6 合并了 Project Registry 与软件水印实验入口。Project、Registry、GUI、CLI、MCP 和可复用 CI 使用同一后端。正常项目回归 27 项、CI 脚本回归 85 项、源码相关回归 30 项通过，Clippy 零警告。实际双状态同步恢复到连续 revision 1、2、3，签名历史经 ZIP 迁移后继续产生 revision 4。默认 Manifest Only 按原始文件摘要签署清单。
+
+第一轮实证审计修复了共享发行目录的版本分叉、取消后编译进程残留、构建产物替换授权声明、平台及 GitHub 上下文替换、旧历史前缀回放、Windows 深层输出路径误拒和 Unicode 私有目录隔离。第二轮按冻结源码复核相应修复及正反例。发行包复核另发现 Windows C/C++ 和 CMake 源码 CRLF 转换导致签名库存失配，修复 LF 属性并增加原生 CI 的打包后独立源码验证。
+
+最终三平台原生构建、测试、GUI、打包、安装、替换和卸载均通过，构建提交为 `224d852196004808941ee151ffb31138e4164c97`。Linux/Windows 有真实系统指针事件，macOS 有原生 framebuffer，本机 Project Watch 和 Registry 操作另有此前的交互记录。[三平台 CI 43659647195](https://github.com/J-x-Z/fileveil/actions/runs/43659647195)
+
+下载的三个原包均通过独立源码 ZIP 安全预检及 Python/OpenSSL 验签，各含 1,539 个 ZIP 项、1,537 个库存文件和 183 份源码签名。包内 CPP/CMake 的 LF 字节与构建提交一致，源码 ZIP SHA-256 与 CI 的 `packaged-source-verification.json` 一致。发行附件、安装器和截图摘要按各平台记录复核。记录位于 `work/project-mode-v06/final-native-delivery-matrix.json`。
+
+三平台 Hybrid fixture 已实际执行 Build、IRMark、FinalBuild、FinalSign。独立 Python/OpenSSL 验证当前及所供历史证据、清单和全部发行成员。Linux 恢复一旧代并产生 revision 2，macOS/Windows 各产生 revision 1。验证使用独立 CI 测试身份，其公钥与源码发布公钥分开。范围和摘要记录于 `work/project-mode-v06/final-ci-independent/summary.json`。[Linux/macOS Hybrid 任务](https://github.com/J-x-Z/fileveil/actions/runs/43652428388) [Windows Hybrid 任务](https://github.com/J-x-Z/fileveil/actions/runs/43654901466)
+
+软件水印结论覆盖已知协议、受控源码/IR 配方及实际测试向量。任意程序语义等价、未知协议和生产级 rustc 自动插件仍需另行评估。多个独立私有状态交错中断时可能安全阻断，需要恢复私有绑定。自定义命令所启动后台服务的生命周期由调用方管理。macOS 包为 ad-hoc 签名且 Gatekeeper 拒绝，Windows 为 NotSigned，Linux DEB 要求 glibc 2.43 或更高版本。
+
+本轮确认无活动 Rust 编译和打开句柄后，清除现有 `target/debug/incremental` 的约 308 MiB 可再生缓存。操作收据位于 `work/project-mode-v06/incremental-cache-cleanup.json`。
