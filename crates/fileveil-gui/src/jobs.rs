@@ -31,6 +31,9 @@ const MAX_REPORT_BYTES: u64 = 16 * 1024 * 1024;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "operation", rename_all = "snake_case")]
 pub enum JobKind {
+    Compute {
+        request: Box<fileveil_engine::compute::ComputeRequest>,
+    },
     Registry {
         request: Box<fileveil_engine::project::registry::RegistryRequest>,
     },
@@ -100,6 +103,7 @@ pub enum JobKind {
 impl JobKind {
     pub fn operation(&self) -> &'static str {
         match self {
+            Self::Compute { .. } => "compute_fingerprint",
             Self::Project { .. } => "project",
             Self::Registry { .. } => "registry",
             Self::Software { .. } => "software",
@@ -734,6 +738,9 @@ fn execute_worker(request: &JobRequest) -> fileveil_core::Result<Report> {
 fn execute_bound_worker(request: &JobRequest) -> fileveil_core::Result<Report> {
     request.validate()?;
     match &request.kind {
+        JobKind::Compute { request: options } => {
+            fileveil_engine::compute::report(options, &std::sync::atomic::AtomicBool::new(false))
+        }
         JobKind::Registry { request: options } => fileveil_engine::project::registry::run(
             options,
             &request.limits,
@@ -854,5 +861,3 @@ fn execute_bound_worker(request: &JobRequest) -> fileveil_core::Result<Report> {
         ),
     }
 }
-
-// FVPROV1 31081 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiI1YTAxNDU1YWVlM2UyOWVlYzcxZjgwOTU2ODFhZWVjNWYzNDRhMTljZjVhNzEzZTlkNjU3Zjc1Mjk2Nzc2MmRiIiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL2NyYXRlcy9maWxldmVpbC1ndWkvc3JjL2pvYnMucnMifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiJiZjU3MTYwYzgxZmIwZTZmOWQ0MjJjNWNlOTk2ZjI1ODIwZWRkOWFhM2ZhOGRlNjU0NzE2MGE0YmY5ZjNlNzM1YjhhNzE3YWI0OTRmZjAyYjc3NmYwNjA2NTNhOWEwMjNmZTk1NmFkYmE4YTVmMjE5N2FiYjE5OGMxMjAzMWYwNiJ9XX1d FVPROV1-END

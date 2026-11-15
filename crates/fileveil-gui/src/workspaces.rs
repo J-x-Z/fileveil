@@ -63,6 +63,7 @@ pub struct Workspaces {
     registry_panel: crate::registry_ui::RegistryPanel,
     software_panel: crate::software_ui::SoftwarePanel,
     forensics_panel: crate::software_ui::SoftwarePanel,
+    compute_panel: crate::compute_ui::ComputePanel,
     lab_section: u8,
     registry_section: bool,
 }
@@ -93,6 +94,7 @@ impl Default for Workspaces {
             registry_panel: Default::default(),
             software_panel: Default::default(),
             forensics_panel: Default::default(),
+            compute_panel: Default::default(),
             lab_section: 0,
             registry_section: false,
         }
@@ -232,6 +234,7 @@ impl Workspaces {
                 _ => Vec::new(),
             };
             self.result_input = match &kind {
+                JobKind::Compute { request } => Some(request.path.clone()),
                 JobKind::SanitizeAdvanced { input, .. }
                 | JobKind::Sanitize { input, .. }
                 | JobKind::ProcessImage { input, .. } => Some(input.clone()),
@@ -461,12 +464,22 @@ impl Workspaces {
                         2,
                         t(language, "二进制取证", "Binary forensics"),
                     );
+                    ui.selectable_value(
+                        &mut self.lab_section,
+                        3,
+                        t(
+                            language,
+                            "计算指纹 · 实验",
+                            "Compute fingerprint · Experimental",
+                        ),
+                    );
                 });
                 if self.lab_section != previous_section {
                     self.notice = None;
                 }
                 ui.add_space(8.0);
                 let job = match self.lab_section {
+                    3 => self.compute_panel.ui(ui, language, idle),
                     1 => self
                         .software_panel
                         .ui(ui, language, idle, path.as_deref(), false),
@@ -993,6 +1006,9 @@ impl Workspaces {
             }
             if let Some(software) = details.get("software") {
                 crate::software_ui::report_ui(ui, language, software);
+            }
+            if let Some(compute) = details.get("compute_fingerprint") {
+                crate::compute_ui::report_ui(ui, language, compute);
             }
             if let Some(project) = details.get("project") {
                 crate::project_ui::report_ui(ui, language, project);
@@ -2645,5 +2661,3 @@ mod tests {
         }
     }
 }
-
-// FVPROV1 118990 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiJhZDYzMjU5NTZlNDdlMjc5MjcxZGNmYTE5NzY3NWQ2OGFjN2ViYjljZjJkY2FiNGNkMDcwNjA1ZTAxMWFmOTE2IiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL2NyYXRlcy9maWxldmVpbC1ndWkvc3JjL3dvcmtzcGFjZXMucnMifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiJlNjExM2Q5NzZmZWFlNTExMzc0Y2ZiYWI3NjYwZjc1YWU2MGU2ZGFkNDUzYmI4ZDliZjg3MjAzMmFmZTY3YzM1MWM1ZTU4OTNiYWJhYmU3MjdmM2U1ZmZjMzY1Mjg1NTk2NmZlZjYxMTU1YTU2Nzg3NDk5Zjg3N2E3YzczNWMwNyJ9XX1d FVPROV1-END

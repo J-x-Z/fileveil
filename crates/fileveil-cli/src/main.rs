@@ -42,6 +42,24 @@ struct Cli {
 }
 #[derive(Subcommand, Debug)]
 enum Command {
+    /// Experimental, streaming Philox initialization-layout comparison (never executes a model)
+    Compute {
+        path: PathBuf,
+        #[arg(long)]
+        tensor: String,
+        #[arg(long, value_delimiter = ',', num_args = 1..=64)]
+        rows: Vec<u64>,
+        #[arg(long, value_delimiter = ',', num_args = 1..=16)]
+        seeds: Vec<u64>,
+        #[arg(long, value_delimiter = ',', default_value = "108,132,148,152", num_args = 1..=256)]
+        sm_counts: Vec<u32>,
+        #[arg(long, default_value_t = 0)]
+        philox_offset: u64,
+        #[arg(long)]
+        rows_per_shard: Option<u64>,
+        #[arg(long, default_value_t = 0)]
+        seed_per_rank: u64,
+    },
     /// Manage the unified local project registry
     Registry {
         #[command(subcommand)]
@@ -818,6 +836,7 @@ fn print_error(error: &Error, json: bool, operation: &str) {
 }
 fn operation(command: &Command) -> &'static str {
     match command {
+        Command::Compute { .. } => "compute_fingerprint",
         Command::Project { .. } => "project",
         Command::Registry { .. } => "registry",
         Command::Software { .. } => "software",
@@ -835,6 +854,28 @@ fn operation(command: &Command) -> &'static str {
 }
 fn execute(cli: &Cli, limits: &Limits) -> Result<i32> {
     let report = match &cli.command {
+        Command::Compute {
+            path,
+            tensor,
+            rows,
+            seeds,
+            sm_counts,
+            philox_offset,
+            rows_per_shard,
+            seed_per_rank,
+        } => fileveil_engine::compute::report(
+            &fileveil_engine::compute::ComputeRequest {
+                path: path.clone(),
+                tensor: tensor.clone(),
+                rows: rows.clone(),
+                seeds: seeds.clone(),
+                sm_counts: sm_counts.clone(),
+                philox_offset: *philox_offset,
+                rows_per_shard: *rows_per_shard,
+                seed_per_rank: *seed_per_rank,
+            },
+            &AtomicBool::new(false),
+        )?,
         Command::Project { .. } | Command::Registry { .. } | Command::Software { .. } => {
             return Err(Error::Input(
                 "Project command requires its project dispatcher".into(),
@@ -1081,6 +1122,52 @@ fn supervise_with_cancellation(cli: &Cli, cancelled: &AtomicBool) -> Result<i32>
         .as_ref()
         .map(|directory| directory.path().join("verified-artifact.png"));
     match &cli.command {
+        Command::Compute {
+            path,
+            tensor,
+            rows,
+            seeds,
+            sm_counts,
+            philox_offset,
+            rows_per_shard,
+            seed_per_rank,
+        } => {
+            command
+                .arg("compute")
+                .arg("--tensor")
+                .arg(tensor)
+                .arg("--rows")
+                .arg(
+                    rows.iter()
+                        .map(u64::to_string)
+                        .collect::<Vec<_>>()
+                        .join(","),
+                )
+                .arg("--seeds")
+                .arg(
+                    seeds
+                        .iter()
+                        .map(u64::to_string)
+                        .collect::<Vec<_>>()
+                        .join(","),
+                )
+                .arg("--sm-counts")
+                .arg(
+                    sm_counts
+                        .iter()
+                        .map(u32::to_string)
+                        .collect::<Vec<_>>()
+                        .join(","),
+                )
+                .arg("--philox-offset")
+                .arg(philox_offset.to_string())
+                .arg("--seed-per-rank")
+                .arg(seed_per_rank.to_string());
+            if let Some(rows) = rows_per_shard {
+                command.arg("--rows-per-shard").arg(rows.to_string());
+            }
+            command.arg("--").arg(path);
+        }
         Command::Project { .. } => {
             command.arg("project").arg("__run");
         }
@@ -1403,5 +1490,3 @@ fn main() -> ExitCode {
     };
     ExitCode::from(code as u8)
 }
-
-// FVPROV1 50982 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiI0OGJmMjVlY2ZjN2E2Y2RkODkxMWY2Y2FlZDAwMDIzNmI3MmQzN2JkNDAzYjRlMGExMjUyZDM2OTljZGMxZTUyIiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL2NyYXRlcy9maWxldmVpbC1jbGkvc3JjL21haW4ucnMifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiI1NmQ0ODQwNmY2YTg4ZGVlNGQzMjQxNTM3ODliZTk0NzIzNzg5Mzk4N2FmMTQzNzM3MWU1NTQ4NTQ3NTJjYjVjMzk5ZDMxNWI3MjQwY2Q1MzdjNTY5NGIyMjMzMzg4ZGFmZTA3ZDVhMmE5ODNlMmUzMWUxN2ZmYjNmZjVjZjgwMSJ9XX1d FVPROV1-END

@@ -3,6 +3,7 @@
 pub mod access_guard;
 pub mod advanced;
 pub mod audits;
+pub mod compute;
 pub mod heritage;
 pub mod image_processing;
 pub mod lab;
@@ -860,6 +861,8 @@ pub fn capabilities(limits: &Limits) -> serde_json::Value {
         "offline": true, "telemetry": false, "profiles": {"safe": "available", "deep": "selective", "research": "experimental_signal_processing"},
         "pdf": pdf::capabilities(), "provenance": provenance::capabilities(), "watermark_detectors": crate::watermark_engine::descriptors(), "media_pixels": crate::media_pixels::capabilities(),
         "external_provenance_interfaces": provenance::external_interfaces(),
+        "software_watermark": software::capabilities(),
+        "compute_fingerprint": {"status":"experimental","default_scan":false,"offline":true,"formats":["safetensors","safetensors.index.json"],"method":"philox4x32_10_cuda_normal_layout_v1","max_header_bytes":1048576,"max_sample_values":65536,"max_candidate_draws":32000000,"physical_gpu_identity":"not_assessed","model_code_execution":false},
         "heritage": {"actions":["detect","mark","clean","verify","trace","lab","c2pa_mark","checkpoint","evidence_export","evidence_verify","timestamp_query","timestamp_verify","transfer_prepare","transfer_accept"],"formats":["jpeg","png","pdf","docx","xlsx","pptx","heic","avif","mp4","mov"],"legacy":{"redstar_des":"reference_samples_and_static_binary_key_profiles","woolim_selfsign":"published_structure_only_crypto_not_assessed","pyongyang_natisign":"hash_matched_static_abi_decode_320_byte_boundary_checked_clean_rsa_not_assessed","woolim_natisign":"abi_equivalence_and_original_signed_specimen_unavailable"},"modern":{"self_sign":"ed25519","nati_sign":"distinct_local_trusted_issuer_threshold","chain":"ed25519_v2_rotation_two_party_transfer_checkpoint_and_rfc3161","carriers":"native_reversible_structure","robust":"keyed_dct_bch_v2_periodic_geometry_with_v1_compatibility","c2pa_create":"offline_es256_user_certificate"},"mcp_signing":"explicit_identity_bound_key_whitelist_default_empty","historical_completeness":"external_checkpoints_required","privacy":"no_automatic_device_identifiers"},
         "difference_lab":{"available":true,"min_samples":2,"max_samples":8,"methods":["pixel_difference","rgb_lsb","entropy","dct","dft"],"oem_attribution":"not_assessed"},
         "image_processing": {"low_bits": "available", "signal": "experimental", "input": ["jpeg", "png"], "output": "png", "unknown_keyed_watermark_verification": "not_assessed", "changes_pixels": true},
@@ -937,5 +940,3 @@ mod snapshot_audit_tests {
         assert!(Snapshot::open_file(&path).is_err());
     }
 }
-
-// FVPROV1 40081 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiI5YjRiZGNlOTBlODBmZTg1NzNiMzgwYjVkZDgzNGQ0YjBjYjJmNzNhYjc1MjBhMGQ1NjBmMDViOWI2OGIxYWZhIiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL2NyYXRlcy9maWxldmVpbC1lbmdpbmUvc3JjL2xpYi5ycyJ9LCJzaWduYXR1cmVzIjpbeyJrZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwicHVibGljX2tleV9oZXgiOiJhZGIzZTE3Y2QxMmY5NTZkMDA3MGUxNjYzZjUzMTUzN2ZjZWRmNzMwOGQwMTY1OGZlYTQ1NmZlZWE4ZjdmYmM1Iiwic2lnbmF0dXJlX2hleCI6ImU5YmM2NGRkYzJhYjUxOTY1YWYyNzllMThmODhkMTNhYjUyNDE1NzNjZWRmMjRjNzVjNTM3MzhlMjBmNGUyZTUzNGJmOTcxNjhjNTEyNmE1NzM5MjEzNzMyYjZhYzQyYWQwOTY5NzI2ZDU5NmQ5ZGVkYzM5MjFmYWZhOTQxYTBlIn1dfV0= FVPROV1-END

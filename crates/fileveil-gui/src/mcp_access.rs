@@ -315,6 +315,11 @@ impl AccessPolicy {
                 }
                 job.request.kind = JobKind::Registry { request };
             }
+            JobKind::Compute { .. } => {
+                return Err(denied(
+                    "Compute Fingerprint Lab is an explicit desktop-only experiment; MCP grants do not authorize model shard access",
+                ));
+            }
             JobKind::Software { mut request } => {
                 use fileveil_engine::software::{SoftwareAction, SoftwareMode};
                 if request.allow_execution
@@ -1927,5 +1932,3 @@ mod tests {
         );
     }
 }
-
-// FVPROV1 76960 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiIzZDlkMTBlNjUzNGMyOWRhOGM3MmZiM2EzZWUzNTE5YjY0OWMxNWMwYjZmZmVjMzEwZWRjZjNlMmI4Y2RlOTgwIiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL2NyYXRlcy9maWxldmVpbC1ndWkvc3JjL21jcF9hY2Nlc3MucnMifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiI3NjQ4M2Y5MTUyYjA0ODY4ZjkxY2MxYTJhMzY2ZTk1ZGUxY2Q4YTg1NzU4Y2QwZGVhNGQ4MjUzZjMxMjgzYjE0ZmM3MTk5MDE4MmIxZjU2Mjk3OGZmMTJiYTZhMDRjMzRhNmQyZGRhMGNjOTE3Mzc1YjE4Zjc3NzBjNTMyOWMwMiJ9XX1d FVPROV1-END
