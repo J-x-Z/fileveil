@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: MPL-2.0
+[package]
+name = "fileveil-real-cargo-acceptance"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "MPL-2.0"
+
+[workspace]
+
+[dependencies]
+serde_json = "1"
+
+[[bin]]
+name = "fv-rust-calculate"
+path = "src/bin/calculate.rs"
+
+[[bin]]
+name = "fv-rust-report"
+path = "src/bin/report.rs"

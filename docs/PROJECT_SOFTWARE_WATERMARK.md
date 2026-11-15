@@ -30,7 +30,7 @@ fileveil project verify fileveil.project.json
 
 增量索引记录新增、修改、删除和可识别的重命名，未变化文件跳过重复处理。连续执行相同输入保持幂等。处理过的副本与原件分开保存，避免反复叠加有损水印。自定义私有状态目录时，各次命令需要传入同一个 `--state-directory`。
 
-初始化会在发行目录的项目命名空间中保留空的 `.lock` 运行时文件，跨私有状态的写入共用该锁。发行是否提交以 `COMMITTED` 和签名验证为准。多个私有状态交错同步，并在写入提交标记前中断时，旧绑定可能安全阻断，需要从已验证发行链恢复私有绑定。
+初始化会在发行目录的项目命名空间中保留空的 `.lock` 运行时文件，跨私有状态的写入共用该锁。发行是否提交以 `COMMITTED` 和签名验证为准。多个私有状态交错同步，并在写入提交标记前中断时，若另一已授权状态已提交后续版本，将完整复验发行链、原始公钥锚和未提交版本的准确前驱后续接当前链。旧的未提交分支保持未提交，不被改写或冒充历史。未提交元数据损坏、原始公钥锚不同或前驱缺失时继续阻断。
 
 集中登记与批量验证使用 Registry。
 
@@ -146,7 +146,7 @@ CRT 设计直接提炼自 Dalla Preda/Ianni 的公开论文机制。论文利用
 
 ## 已取得的实证范围
 
-- Rust 1.99、LLVM 23 的 `no_std` 导出 `u64` 函数经显式 IR Mark、Clean、重链接为 macOS 原生 dylib，12 个向量在原始、标记、清理版本中一致，原 IR 保持不变，独立 Python 验签与解密通过。任意 Cargo 工程自动集成及生产级 rustc 插件状态为 `not_assessed`。
+- Rust 1.99、LLVM 23 的 `no_std` 导出 `u64` 函数经显式 IR Mark、Clean、重链接为 macOS 原生 dylib，12 个向量在原始、标记、清理版本中一致，原 IR 保持不变，独立 Python 验签与解密通过。这组旧记录未覆盖 Cargo 工程。0.7 的 Cargo companion 流程见下文；生产级 rustc 插件仍未得到验证。
 - Rust 1.98.0-nightly 自带 LLVM 22.1.7 的同一夹具另经 LLVM 22.1.8 本机 pass 完成显式 IR 植入、清理与重链接。macOS ARM64 dylib 的相同 12 个边界向量一致，独立验签、解密及实际九残差 CRT 探针通过，错误 challenge 未恢复目标 witness，原源码和 IR 摘要保持不变。
 - LLVM 21.1.8 与 23.1.2 各有 24 条矩阵记录，每组包含 12 条 macOS ARM64 原生 baseline/marked/clean 运行和 12 条 x86_64/ARM64 ELF、COFF 交叉对象检查。LLVM 23 另验证了 12 个链接后的 ELF/PE 及 strip。Windows/Linux 在这组矩阵中的范围为交叉产物结构和链接检查。
 - 原生 CLI Lab 的 O0/O2/O3/LTO 四条 case 均保留已知载体，strip、重链接和受控清理重建复检通过。四个干净重建对照均未检出该已知载体。实际 CRT 探针运行在由同一 IR 编译的 shared companion 中，最终 EXE 内部探针的直接调用状态为 `not_assessed`。
@@ -167,3 +167,53 @@ CRT 设计直接提炼自 Dalla Preda/Ianni 的公开论文机制。论文利用
 ## MCP 授权范围
 
 `fileveil_software_inspect/detect/verify/compare` 提供受限字节审计，`fileveil_software_clean` 允许显式 `structure` 净化副本。编译器、插件加载配置和程序执行请求受到阻断。Project/Registry 的同步、状态和验证继续使用已有授权目录、读写分离与独立签名密钥 grants，连接本身不会扩大权限。默认处理离线执行。
+
+## 多目标依赖工程验收
+
+`tools/project-acceptance.py` 在全新隔离目录中复制 `tests/fixtures/registry-zlib-project`，构建一个链接真实 ZLIB 依赖的 C/C++ 文件压缩工具工程，包含静态库及两个命令行程序。四项 CTest 通过 Python zlib 进行独立压缩、解压和 CRC 对照，并检查空文件、UTF-8 文本、二进制及损坏输入。运行需要已安装的 CMake、C/C++、Python 和 zlib 开发文件。
+
+```sh
+python tools/project-acceptance.py --fileveil target/debug/fileveil \
+  --output work/project-registry-acceptance-new
+```
+
+验收依次覆盖三个 CI 发行版本、两个 Registry 发行版本、重复同步、唯一重命名、新增、删除、修改、构建失败阻断以及独立 Python/OpenSSL 证据检查。私有测试密钥放在隔离工程之外，继承的 CI Secret 不传入构建；默认策略下，原始源码及发行文件保持原字节。macOS 另外验证两个程序已有的 ad-hoc 代码签名。EFI 和 kernel 文件在此仅作为不透明字节保留对照，不代表启动或内核运行验收。该本地入口与可复用 CI 共享实际后处理器。运行范围、CLI 摘要、耗时及各命令结果写入 `summary.json`，具体平台是否通过以该记录为准。
+
+## 0.7 工程级编译集成
+
+`tools/software-watermark/project-build.py` 为明确选择的 CMake/Cargo 可执行目标提供完整的 baseline → signed companion → marked build → independent detection/decode → strip → clean rebuild → behavior comparison。它复用 Rust 的 Ed25519、ChaCha20Poly1305 和 CRT IR 协议，原源码不作修改。Cargo 使用标准 `cargo rustc --bin` 链接已验证的 companion object；不依赖不稳定的 rustc 插件 ABI，也不将此路径描述为对 Rust 原 IR 的变换。CMake 以配置期 hook 给指定目标添加同一 object。Cargo 的优化与 LTO 通过 profile 传递给整个依赖图，避免仅对末级 crate 设置 LTO 导致缺失 bitcode。
+
+输出必须是与源目录分离的新目录，签名密钥须在源码与输出之外。Cargo 显式复用已有 target。源目录带符号链接、目标名称歧义、超出资源限制、编译失败或行为不一致时安全失败，报告保留 `failed`。外部构建与程序执行仅适用于用户明确选择的本地项目，MCP 不因此获得编译或执行权限。程序执行需 `--allow-execution`；未执行时只能得到部分验证。Windows 的自建后台进程生命周期仍需项目自行管理。
+
+```sh
+python tools/software-watermark/project-build.py \
+  --build-system cargo --source /path/to/concrete-package \
+  --target application --cargo-target-directory /path/to/existing/target \
+  --output /path/to/new-evidence --fileveil /path/to/fileveil \
+  --llvm-directory /path/to/llvm --plugin /path/to/FileVeilWatermark.dylib \
+  --key /private/author.key --work-id example --copy-id release \
+  --author Author --version v1 --created-at 2026-11-15 \
+  --optimization O2 --strip --allow-execution --test-arguments-json '[[],["10"]]'
+```
+
+`--independent-crypto` 增加 Python cryptography 独立验签和解密；默认独立容器提取器只使用 Python 标准库。最终二进制完整字节仍需 `Project Sync` 的外部签名清单绑定。Companion 的签名只绑定其自身规范 IR，不能单独证明其附着的整个程序身份。
+
+本机验收使用隔离副本中的真实多文件 C/C++ CMake 工程（Zlib、静态库、两个可执行目标），以及标准 Cargo 工程（serde_json、库、两个可执行目标）。macOS ARM64、Clang/LLVM 23.1.2、Rust/Cargo 1.99.0 下，两个工程分别完成 O0/O2/O3/ThinLTO。完整证据位于忽略的 `work/software-v07/summary.json`。
+
+| 指标 | 本机实测 |
+| --- | --- |
+| 已知水印识别 | 16/16 |
+| strip 后保留 | 16/16 |
+| 干净 baseline 与 clean 误报 | 0/32 |
+| 去标记重建后残留 | 0/16 |
+| 错误密钥被区分 | 16/16 |
+| 程序输出比较 | 192/192 与各自 baseline 相同，共 256 次运行观察 |
+| CMake 目标体积增加 | 16,944–33,456 B |
+| Cargo 目标体积增加 | 432–16,960 B |
+| CMake marked 构建墙钟 | 1.612–1.634 s（含配置） |
+| Cargo marked 构建墙钟 | 0.270–1.891 s（共享缓存） |
+| marked 程序峰值 RSS | 1.86–2.46 MiB |
+
+构建时间包含共享缓存影响和不同依赖重编，不是随机化性能实验。每个程序的少量短执行受启动开销及 CPU 计时精度影响，不能据此保证固定的运行开销上限。CMake 的两项 CTest、Cargo 的依赖/计算单元测试及独立提取器测试另行通过。
+
+支持等级分项公开在每份软件报告的 `capabilities`。已知 packet 密码学验证与已认证 footer 的精确原字节恢复是 Stable；源码/IR 变换、compiler companion、抵抗主动删除能力保持 Experimental。rustc LLVM 插件明确为 Unsupported，任意语义等价和未知水印检测为 Not Assessed。这里的工程矩阵只取得 macOS ARM64 原生结果，新增 adapter 的 Windows/Linux 原生运行与其他架构不能借用旧流程的 CI 记录宣称完成。

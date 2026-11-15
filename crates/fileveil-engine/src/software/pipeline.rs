@@ -106,6 +106,7 @@ fn base_report(request: &SoftwareRequest, snapshot: &Snapshot) -> Report {
         "schema":"fileveil.software.report.v1", "action":request.action,
         "mode":request.mode,"execution_authorized":request.allow_execution,
         "experimental":true,"network_used":false,
+        "capabilities":super::capabilities(),
     }}));
     report
 }
@@ -2378,5 +2379,3 @@ int main(int argc,char **argv) {
         assert_eq!(fs::read(&source).unwrap(), source_bytes);
     }
 }
-
-// FVPROV1 86248 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiI2ZjljMjk5YjcwN2JmMGRlZjg3MjA1NjhjMDE3ZDA4MGRlZmE2NTI0NGI2YzJkNjA3NjY2ODk4Mzc3NTUzNmJjIiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL2NyYXRlcy9maWxldmVpbC1lbmdpbmUvc3JjL3NvZnR3YXJlL3BpcGVsaW5lLnJzIn0sInNpZ25hdHVyZXMiOlt7ImtleV9pZCI6Ijk5ZWE2M2VmY2NmZDBmZGJkNjhlMTZlZDhmMDNkMzM3ZjE1ZWMyZTRhNmEzZDY0ZTExZDcxNGVhMWU1NDI1MzMiLCJwdWJsaWNfa2V5X2hleCI6ImFkYjNlMTdjZDEyZjk1NmQwMDcwZTE2NjNmNTMxNTM3ZmNlZGY3MzA4ZDAxNjU4ZmVhNDU2ZmVlYThmN2ZiYzUiLCJzaWduYXR1cmVfaGV4IjoiOTY0NzdiNmMwMjNjODNhNzZiYWE3NDRiY2FlYmMzYjczZDk3Y2E3MjE5MDg4OWRhNzk0MWJmYjllNTI2MGExY2U4ZGI1Yjg4MmVlNTkyNmEwZDdlZGRjODdmNGM4NzliMTUxMmI1YmQwODNmM2RjMDE5OTE1ZWExYjUxM2E0MDUifV19XQ== FVPROV1-END

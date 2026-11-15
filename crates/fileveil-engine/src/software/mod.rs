@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MPL-2.0
-//! Explicit software-watermark experiments and bounded executable forensics.
+//! Versioned software-watermark protocols and bounded executable forensics.
 use crate::heritage::signing::PublicKey;
 use crate::project::ProjectKey;
 use fileveil_core::{Limits, Report, Result};
@@ -12,6 +12,34 @@ mod packet;
 mod pipeline;
 mod source;
 mod tools;
+
+/// Report support per operation instead of treating a valid signature as proof
+/// of arbitrary program behavior or watermark resistance.
+pub fn capabilities() -> serde_json::Value {
+    serde_json::json!({
+        "schema": "fileveil.software.capabilities.v1",
+        "known_packet_signature_and_keyed_decode": {
+            "status": "stable", "protocol": "fileveil.software.packet.v1",
+            "scope": "Ed25519 signature, ChaCha20Poly1305 claims and carrier checksum; issuer trust requires explicit anchors"
+        },
+        "known_structure_footer_roundtrip": {
+            "status": "stable", "protocol": "FVSWTAIL01/FVSWM01",
+            "scope": "exact authenticated original-byte restoration; signed platform containers protected; no program execution claim"
+        },
+        "source_and_llvm_ir_transform": {
+            "status": "experimental", "scope": "controlled source or canonical IR restoration with an explicit compatible toolchain"
+        },
+        "compiler_companion": {
+            "status": "experimental", "workflow": "tools/software-watermark/project-build.py",
+            "languages": ["C", "C++", "Rust"],
+            "scope": "named CMake or Cargo executable targets; independent extraction and optional behavior comparison; final artifact binding requires project manifest"
+        },
+        "rustc_llvm_plugin": {"status": "unsupported", "reason": "no validated stable rustc plugin ABI; the Cargo companion workflow does not inject a rustc pass"},
+        "unknown_watermark_detection": {"status": "not_assessed"},
+        "arbitrary_semantic_equivalence": {"status": "not_assessed"},
+        "anti_removal_strength": {"status": "experimental"}
+    })
+}
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -108,4 +136,25 @@ pub fn publish_staged(
     pipeline::publish_staged(input, staged, output, report, limits, request)
 }
 
-// FVPROV1 3113 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiIyZTgzMzcyYTNlNWI0NjFjNjRkZWQ0MzY5YTgzNTBkMjNmZTIwM2NjZWJlY2FlZTI0YWY3NTkzYjM3ZTcyZWM1IiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL2NyYXRlcy9maWxldmVpbC1lbmdpbmUvc3JjL3NvZnR3YXJlL21vZC5ycyJ9LCJzaWduYXR1cmVzIjpbeyJrZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwicHVibGljX2tleV9oZXgiOiJhZGIzZTE3Y2QxMmY5NTZkMDA3MGUxNjYzZjUzMTUzN2ZjZWRmNzMwOGQwMTY1OGZlYTQ1NmZlZWE4ZjdmYmM1Iiwic2lnbmF0dXJlX2hleCI6IjliNTgyMTA3ZjM2MzlhMmQxZmIyNTY5YzdhYzFiMjBiNzg5MmE4NGFlMmFhY2I2NzI2NGUxYmY0ZmQxNThjNzYwNWNmNmQ5NjE1ZDAxMWNmYzU2Y2U5NjVlODdjNTc3ZTVmOTMyZTNlMmUwOGNiZjUzMjBmMjA3NDAyOTE1ZTBkIn1dfV0= FVPROV1-END
+#[cfg(test)]
+mod capability_tests {
+    #[test]
+    fn stable_protocol_checks_do_not_claim_unassessed_compiler_strength() {
+        let value = super::capabilities();
+        assert_eq!(
+            value["known_packet_signature_and_keyed_decode"]["status"],
+            "stable"
+        );
+        assert_eq!(
+            value["known_structure_footer_roundtrip"]["status"],
+            "stable"
+        );
+        assert_eq!(value["rustc_llvm_plugin"]["status"], "unsupported");
+        assert_eq!(value["compiler_companion"]["status"], "experimental");
+        assert_eq!(value["anti_removal_strength"]["status"], "experimental");
+        assert_eq!(
+            value["arbitrary_semantic_equivalence"]["status"],
+            "not_assessed"
+        );
+    }
+}
