@@ -7,17 +7,17 @@
 
 [![CI](https://github.com/J-x-Z/fileveil/actions/workflows/ci.yml/badge.svg)](https://github.com/J-x-Z/fileveil/actions/workflows/ci.yml)
 [![许可证 MPL-2.0](https://img.shields.io/badge/license-MPL--2.0-blue)](LICENSE)
-![公开 Alpha](https://img.shields.io/badge/status-public%20alpha-orange)
+![公开 Beta](https://img.shields.io/badge/status-public%20beta-orange)
 
 FileVeil 是一个使用 Rust 编写的**离线优先、跨平台文件隐私与水印工具箱**。它可以检查隐藏元数据、生成经过验证的净化副本、嵌入自己的签名来源记录，并研究图像水印在编辑或清理后的保留情况。
 
-**Windows · macOS · Linux | 原生桌面 GUI · CLI · 本地 MCP**
+**Windows · macOS · Linux · Android | 原生桌面 GUI · CLI · 本地 MCP · Android 应用**
 
 **English · 简体中文 · 日本語 · 한국어 · Español · Français · Deutsch · Português · Русский**
 
 在 Settings 中选择界面语言。技术报告字段值及未识别的后端消息可能显示为英文。
 
-> **Alpha 提示**　FileVeil 目前处于实验阶段。验证结果仅适用于报告中明确列出的检查范围，其他隐藏水印或识别特征仍可能存在。请保留原始文件，并在分享重要文件前检查处理结果。
+> **Beta 提示**　FileVeil 目前处于公开测试阶段。验证结果仅适用于报告中明确列出的检查范围，其他隐藏水印或识别特征仍可能存在。请保留原始文件，并在分享重要文件前检查处理结果。
 
 ## 可以做什么
 
@@ -27,6 +27,7 @@ FileVeil 是一个使用 Rust 编写的**离线优先、跨平台文件隐私与
 | **Mark · 标记** | 添加具有版本标识的图像水印，可选择隐形嵌入，并添加签名文件记录、作品 ID 和副本 ID。 |
 | **Verify · 验证** | 检查受支持的水印信号、Ed25519 签名、内容绑定、C2PA 凭据及可独立验证的证据。 |
 | **Trace · 追踪** | 建立带签名的版本和交接记录，支持密钥轮换、双方共同签署的交接及外部检查点。 |
+| **Projects · 项目** | 登记项目、追踪变更，并通过本地工作流或可复用 CI 持续签署带版本的发行清单。 |
 | **Lab · 实验室** | 对比图像、可视化信号差异，并测试水印对 JPEG/AVIF/WebP 重压缩、裁剪、旋转、缩放、噪声及其他变换的耐受能力。 |
 
 文件默认在本地处理，无需账户，也不收集遥测。FileVeil 保留原始输入，将净化或标记后的副本写入新路径。GUI、CLI 和 MCP 共用 Rust 处理核心。
@@ -43,13 +44,16 @@ FileVeil 是一个使用 Rust 编写的**离线优先、跨平台文件隐私与
 
 ## 下载与运行
 
-从 [v0.5.0-alpha.4 Alpha 发布页](https://github.com/J-x-Z/fileveil/releases/tag/v0.5.0-alpha.4)下载 Windows、macOS 和 Linux 软件包。
+从 [v0.7.0-beta.1 Beta 发布页](https://github.com/J-x-Z/fileveil/releases/tag/v0.7.0-beta.1)下载 Windows、macOS、Linux 和 Android 软件包。
 
 - **macOS Apple Silicon** — `.dmg` 支持将应用拖入 Applications 安装，也提供 `.zip`。
 - **Windows x64** — `.exe` 安装程序或便携 `.zip`。
-- **Linux x64** — `.deb` 软件包或 `.tar.gz`。
+- **Linux x64** — `.deb` 软件包或 `.tar.gz`；当前预编译程序需要 **glibc 2.43+**，较旧系统可从源码构建。
+- **Android ARM64** — `.apk`，需要 Android 8.0/API 26 或更高版本，详见 [Android 指南](android/README.md)。
 
 macOS 构建使用临时签名（ad-hoc），Gatekeeper 会拒绝该构建。Windows 软件包未签名，可能显示未知发行者提示。目前缺少面向公开分发的正式签名证书。也可以从源码构建。
+
+Android 使用共享 Rust 核心处理 JPEG/PNG、Office 文档及其他受支持的核心格式，通过用户选择的文件副本完成处理，无需 root、网络或广泛存储权限。Android 应用不捆绑桌面外部工具，依赖外部 qpdf 后端的 PDF 重写不可用。
 
 构建需要 Rust **1.96+** 和 Cargo。PDF 重写使用 **qpdf**，独立的 PDF 显示与文本检查使用可选的 Poppler 工具。部分 HEIC/AVIF 和媒体功能依赖本地安装的编解码器或 FFmpeg。可选后端不可用时，FileVeil 会明确报告能力状态。
 
@@ -67,7 +71,11 @@ cargo build --locked --release -p fileveil-gui -p fileveil-cli
 
 在 Windows 上，请运行 `target\release\` 中对应的 `.exe` 文件。打包方式和桌面工作流详见 [GUI 指南](docs/GUI.md)。
 
-当前源码版支持项目注册、持续续签和可复用 CI 工作流，使用方式见[项目工作流指南](docs/PROJECT_SOFTWARE_WATERMARK.md)。
+**Projects** 工作区提供项目注册表、增量同步、持续续签和可复用 CI 工作流。默认的 manifest-only 策略保留源码与发行文件的原始字节，通过 Ed25519 签名版本记录绑定这些文件。使用方式见[项目工作流指南](docs/PROJECT_SOFTWARE_WATERMARK.md)。
+
+软件报告区分不同支持等级：已知 Ed25519 签名 packet 的密码学验证及已认证 footer 的精确原字节恢复为 **Stable**；源码/IR 变换与编译器 companion 工作流为 **Experimental**。CMake/Cargo companion 工作流支持明确配置的工具链，不是进程内 rustc pass，也不保证水印无法被删除。
+
+需主动启用的 **[Compute Fingerprint Lab（Experimental）](docs/COMPUTE_FINGERPRINT.md)** 将抽样嵌入行与用户提供的种子及候选初始化布局进行比较。匹配只说明在报告假设下布局相容，不能确认某块物理 GPU 或完整训练硬件历史。
 
 ## 快速开始
 
@@ -103,7 +111,7 @@ CLI 还提供 `trace`、`lab`、`provenance` 以及证据导出和验证功能�
 | v0.5 · Quality 12（默认） | **89.09%** | 0.9704 |
 | v0.5 · Robust 20 | **95.90%** | 0.9512 |
 
-基准包含无损对照和较困难的图像变换，各操作的表现差异较大。更强的鲁棒性可能增加画质损失和计算耗时。上述数据来自**固定测试集**，其他图片和处理条件仍需单独评估检测与清理效果。详见[完整方法与逐操作数据](docs/WATERMARK_BENCHMARK.md)。
+基准包含无损对照和较困难的图像变换，各操作的表现差异较大。提高对压缩和图像编辑的耐受能力，可能增加画质损失和计算耗时。上述数据来自**固定测试集**，其他图片和处理条件仍需单独评估检测与清理效果。详见[完整方法与逐操作数据](docs/WATERMARK_BENCHMARK.md)。
 
 ## 隐私、局限与安全
 
@@ -121,7 +129,7 @@ FileVeil 结合自主水印研究与公开格式兼容工作，其中包括针�
 
 ## 参与贡献
 
-欢迎提交可复现的问题报告、兼容性发现、基准数据集、翻译和范围明确的 pull request。请在 [issue](https://github.com/J-x-Z/fileveil/issues) 中提供操作系统、FileVeil 版本、文件格式、预期行为，以及最小化的非敏感样本或经过脱敏的报告。提交 PR 前请确认相关行为。随着 Alpha 版本发展，项目会补充社区贡献指南。
+欢迎提交可复现的问题报告、兼容性发现、基准数据集、翻译和范围明确的 pull request。请在 [issue](https://github.com/J-x-Z/fileveil/issues) 中提供操作系统、FileVeil 版本、文件格式、预期行为，以及最小化的非敏感样本或经过脱敏的报告。提交 PR 前请确认相关行为。随着 Beta 版本发展，项目会补充社区贡献指南。
 
 ## 许可证
 

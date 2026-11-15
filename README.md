@@ -7,17 +7,17 @@
 
 [![CI](https://github.com/J-x-Z/fileveil/actions/workflows/ci.yml/badge.svg)](https://github.com/J-x-Z/fileveil/actions/workflows/ci.yml)
 [![License: MPL-2.0](https://img.shields.io/badge/license-MPL--2.0-blue)](LICENSE)
-![Status: Public Alpha](https://img.shields.io/badge/status-public%20alpha-orange)
+![Status: Public Beta](https://img.shields.io/badge/status-public%20beta-orange)
 
 FileVeil is an **offline-first, cross-platform file privacy and watermark toolkit** written in Rust. It helps you inspect hidden metadata, create verified sanitized copies, embed your own signed provenance records, and study how image watermarks survive editing or removal.
 
-**Windows · macOS · Linux | Native desktop GUI · CLI · local MCP**
+**Windows · macOS · Linux · Android | Native desktop GUI · CLI · local MCP · Android app**
 
 **English · 简体中文 · 日本語 · 한국어 · Español · Français · Deutsch · Português · Русский**
 
 Select the interface language in Settings. Technical report values and unrecognized backend messages may be shown in English.
 
-> **Alpha notice:** FileVeil is experimental. Its verification results apply to explicitly reported checks, not to every possible hidden watermark or identifying feature. Keep your originals and review outputs before sharing important files.
+> **Beta notice:** FileVeil is a public beta. Its verification results apply to explicitly reported checks, not to every possible hidden watermark or identifying feature. Keep your originals and review outputs before sharing important files.
 
 ## What you can do
 
@@ -27,6 +27,7 @@ Select the interface language in Settings. Technical report values and unrecogni
 | **Mark** | Add versioned, optionally invisible image watermarks, signed file records, and work/copy identifiers. |
 | **Verify** | Check supported watermark signals, Ed25519 signatures, content binding, C2PA credentials, and independently verifiable evidence. |
 | **Trace** | Build signed version and custody records, including key rotation, countersigned transfers, and external checkpoints. |
+| **Projects** | Register projects, track changes, and continuously sign versioned release manifests through local workflows or reusable CI. |
 | **Lab** | Compare images, visualize signal differences, and benchmark watermark resilience against JPEG/AVIF/WebP recompression, cropping, rotation, resizing, noise, and other transforms. |
 
 File processing runs locally by default, without an account or telemetry. FileVeil preserves the original input and writes sanitized or marked copies to new paths. The GUI, CLI, and MCP interfaces share the Rust processing core.
@@ -43,13 +44,16 @@ Some formats support inspection but not every kind of cleanup. See the [format-b
 
 ## Download and run
 
-Download the [v0.5.0-alpha.4 Alpha packages](https://github.com/J-x-Z/fileveil/releases/tag/v0.5.0-alpha.4) for Windows, macOS, and Linux.
+Download the [v0.7.0-beta.1 Beta packages](https://github.com/J-x-Z/fileveil/releases/tag/v0.7.0-beta.1) for Windows, macOS, Linux, and Android.
 
 - **macOS Apple Silicon** — `.dmg` with drag-to-Applications installation, or `.zip`.
 - **Windows x64** — `.exe` installer or portable `.zip`.
-- **Linux x64** — `.deb` package or `.tar.gz`.
+- **Linux x64** — `.deb` package or `.tar.gz`; current binaries require **glibc 2.43+**. Build from source on older systems.
+- **Android ARM64** — `.apk` for Android 8.0/API 26 or later; see the [Android guide](android/README.md).
 
 The macOS build uses an ad-hoc signature and is rejected by Gatekeeper. Windows packages are unsigned and may show an unknown-publisher warning. Public-distribution signing certificates are currently unavailable. Building from source is also supported.
+
+Android uses the shared Rust core for JPEG/PNG, Office documents, and other supported core formats. It processes copies of user-selected files without root, Internet, or broad storage permissions. Desktop external tools are not bundled, so PDF rewriting requires an external qpdf backend and is unavailable in the Android app.
 
 **Build requirements:** Rust **1.96+** and Cargo. PDF rewriting uses **qpdf**; independent PDF visual/text checks use optional Poppler tools. Some HEIC/AVIF and media features depend on locally installed codecs or FFmpeg. FileVeil reports unavailable optional backends instead of silently claiming support.
 
@@ -67,7 +71,11 @@ cargo build --locked --release -p fileveil-gui -p fileveil-cli
 
 On Windows, launch the corresponding `.exe` files from `target\release\`. See the [GUI guide](docs/GUI.md) for packaging and desktop workflows.
 
-Current source builds include project registration, continuous signing, and reusable CI workflows. See the [project workflow guide](docs/PROJECT_SOFTWARE_WATERMARK.md).
+The **Projects** workspace includes a registry, incremental synchronization, continuous signing, and reusable CI workflows. Its default manifest-only policy preserves source and release bytes while binding them to Ed25519-signed version records. See the [project workflow guide](docs/PROJECT_SOFTWARE_WATERMARK.md).
+
+Software reports distinguish **Stable** verification of known Ed25519-signed packets and exact restoration of authenticated footers from **Experimental** source/IR transformations and compiler companion workflows. The CMake/Cargo companion workflow supports explicit toolchain profiles; it is not an in-process rustc pass or a guarantee against watermark removal.
+
+The opt-in **[Compute Fingerprint Lab (Experimental)](docs/COMPUTE_FINGERPRINT.md)** compares sampled embedding rows with supplied seeds and candidate initialization layouts. A match identifies a compatible layout under the reported assumptions, not a physical GPU or complete training-hardware history.
 
 ## Quick start
 
@@ -121,7 +129,7 @@ FileVeil combines original watermark research with compatibility work on publicl
 
 ## Contributing
 
-FileVeil welcomes reproducible bug reports, compatibility findings, benchmark datasets, translations, and focused pull requests. Open an [issue](https://github.com/J-x-Z/fileveil/issues) with your OS, FileVeil version, file format, expected behavior, and a minimal non-sensitive sample or redacted report. Confirm the relevant behavior before opening a PR; more community guidance will follow as the alpha develops.
+FileVeil welcomes reproducible bug reports, compatibility findings, benchmark datasets, translations, and focused pull requests. Open an [issue](https://github.com/J-x-Z/fileveil/issues) with your OS, FileVeil version, file format, expected behavior, and a minimal non-sensitive sample or redacted report. Confirm the relevant behavior before opening a PR; more community guidance will follow as the beta develops.
 
 ## License
 

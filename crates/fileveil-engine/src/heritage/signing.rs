@@ -257,7 +257,10 @@ impl SigningKey {
         Zeroizing::new(self.inner.to_bytes())
     }
 
-    pub(crate) fn from_secret_seed(seed: &[u8; 32]) -> Self {
+    /// Import a caller-owned Ed25519 seed, for example after Keystore unwrap.
+    /// The caller remains responsible for protecting and clearing its buffer.
+    /// Use `save_new` for platform-protected, no-replacement file storage.
+    pub fn from_secret_seed(seed: &[u8; 32]) -> Self {
         Self {
             inner: DalekSigningKey::from_bytes(seed),
         }

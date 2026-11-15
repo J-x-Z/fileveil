@@ -17,7 +17,7 @@ import tempfile
 
 CATALOG = "provenance/source-catalog.toml"
 EVIDENCE = "provenance/source-catalog.evidence.json"
-SOURCE_SUFFIXES = {".rs", ".py", ".swift", ".sh", ".toml", ".yml", ".yaml", ".c", ".h", ".cc", ".cpp", ".hpp"}
+SOURCE_SUFFIXES = {".rs", ".py", ".swift", ".sh", ".toml", ".yml", ".yaml", ".c", ".h", ".cc", ".cpp", ".hpp", ".kt", ".kts"}
 MARKER = re.compile(rb"(?:\/\/|#|--|;) FVPROV1 [0-9]+ ([A-Za-z0-9+/=]+) FVPROV1-END\n\Z")
 
 
@@ -65,6 +65,7 @@ def main():
     parser.add_argument("--renew-release", action="store_true", help="Verify and Clean older signatures by this release key before signing the new release")
     parser.add_argument("--apply", action="store_true", help="Replace project files only after staged checks pass")
     args = parser.parse_args()
+    edition = args.release.split("-", 1)[1].split(".", 1)[0] if "-" in args.release else "release"
     root = args.root.resolve()
     executable = args.executable.resolve()
     repository = subprocess.check_output(["git", "rev-parse", "--show-toplevel"], cwd=root, text=True).strip()
@@ -116,7 +117,7 @@ def main():
                 data = restored.read_bytes()
                 path = restored
             output = stage / f"{index}{path.suffix}"
-            options = json.dumps({"mark": {"version": args.release, "edition": "alpha"}})
+            options = json.dumps({"mark": {"version": args.release, "edition": edition}})
             report = command(executable, ["mark", str(path), "-o", str(output), *credential,
                 "--work-id", work_id, "--copy-id", args.release, "--author", "J-x-Z/FileVeil",
                 "--created-at", args.created_at, "--options-json", options])
@@ -143,7 +144,7 @@ def main():
         require_signature(command(executable, ["mark", str(raw), "-o", str(signed), *credential,
             "--work-id", "https://github.com/J-x-Z/fileveil/source-tree", "--copy-id", args.release,
             "--author", "J-x-Z/FileVeil", "--created-at", args.created_at,
-            "--options-json", json.dumps({"mark": {"version": args.release, "edition": "alpha"}})]))
+            "--options-json", json.dumps({"mark": {"version": args.release, "edition": edition}})]))
         evidence = stage / "source-catalog.evidence.json"
         command(executable, ["evidence", "export", str(signed), "-o", str(evidence), *credential])
         for name, output in replacements.items():
@@ -161,5 +162,3 @@ if __name__ == "__main__":
         main()
     except (KeyError, ValueError, OSError, subprocess.SubprocessError) as error:
         raise SystemExit(f"Source release preparation failed. {error}") from None
-
-# FVPROV1 8469 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiI4NjgwZWIxYjliMzNhZDk5N2EzNDBlNGQ4ZmU2ZjgwN2FiZjEwMjBmNWJiNjI3NzY2YjExY2JiYWY1OTBmYTFjIiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL3Rvb2xzL21hcmstc291cmNlLXRyZWUucHkifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiI0MWJhZTNmMTQ2ZDQ4MjRkNDQyYzIxOWYzYjVkOTQ5Njg2NzY1ODA2MTc1MzliZjI5YWYwODY5ZDc5OGFmYzY2NGJkNmFjMDgzZGQxZjM5MzIxNmMzMjhjMjk0ZDllYjIzNThmYzA2MTUzM2VhMzY3YTFkNjAyZWUxZTdjM2MwYyJ9XX1d FVPROV1-END

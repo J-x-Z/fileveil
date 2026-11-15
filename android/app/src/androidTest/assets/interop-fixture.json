@@ -1,0 +1,9 @@
+{
+  "schema": "fileveil.android.interop.fixture.v1",
+  "producer": "FileVeil desktop CLI 0.6.0-alpha.1",
+  "original_sha256": "ac886497fbe72e3470e28736a56038d5156eaf0215f549b71642d75a357455ec",
+  "marked_sha256": "22fe2a8d510cba2b5e7bc2a159aaa5c2288a798ca67a0b25388472e8b47d62f7",
+  "key_id": "65b60673d6ed884bf01c2c222d82ada0740f29ac3355d6a925c81f17f47a27b8",
+  "key_kind": "public deterministic synthetic test identity",
+  "trust": "not_assessed"
+}

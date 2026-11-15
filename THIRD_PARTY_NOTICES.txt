@@ -4,7 +4,7 @@ This inventory covers registry packages in Cargo.lock across build and target co
 The accompanying assets/licenses directory preserves published license and attribution texts.
 Supplemental upstream texts record their exact retrieval source in assets/licenses/index.json.
 
-Cargo.lock SHA-256 4acabdf8cfac91af52bdaf97fe84614e08b03b272438865943c5ee56cc876a86
+Cargo.lock SHA-256 25ac099c3d678fdd07a0277469c461e4063f25484c7cec13cba66be4699f3311
 Registry package count 647
 
 Font notices
@@ -27,6 +27,15 @@ License MIT
 License text assets/licenses/external-invisible-watermark/LICENSE-MIT
 The adapted file retains its MIT license.
 Natural-photo fixture attribution crates/fileveil-engine/tests/fixtures/watermark/README.md
+
+Compute initialization-layout research
+Independent Rust implementation of the documented Philox4x32-10 / CUDA normal_ layout.
+Mechanism reference https://github.com/macrogrants/checkpoint-forensics/tree/b633870c4a8b0f85d70026b7f77f7d0858358f89
+Copyright (c) 2026 Checkpoint Forensics
+Upstream license MIT; text assets/licenses/external-checkpoint-forensics/LICENSE-MIT
+Independent comparison reference https://github.com/peterjliu/checkpoint-forensics-repro
+No upstream model code or full model weights are distributed.
+Android additional dependencies and Gradle wrapper notices: android/ANDROID_NOTICES.txt
 
 Registry packages
 

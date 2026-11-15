@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: MPL-2.0 -->
 # Source provenance
 
-The Alpha source distribution carries FileVeil Ed25519 signatures. Project-owned Rust, C/C++, Python, Swift, TOML and workflow sources contain a terminal ASCII comment with a signed content hash, file work identifier and release copy identifier. The source catalog covers the distributed files, including dependencies' license texts and fixtures under their existing licenses.
+The Beta source distribution carries FileVeil Ed25519 signatures. Project-owned Rust, C/C++, Kotlin, Kotlin build scripts, Python, Swift, TOML and workflow sources contain a terminal ASCII comment with a signed content hash, file work identifier and release copy identifier. The source catalog covers the distributed files, including dependencies' license texts and fixtures under their existing licenses.
 
 ## Verify a distribution
 
@@ -14,7 +14,9 @@ python3 tools/verify-source-tree.py . \
 
 The public key is in `provenance/release-key.json`. Compare the fingerprint with the publisher's release record before using it as a trust anchor. The verifier checks the signed TOML catalog, its evidence package, listed file bytes, additional files and per-source signatures. A changed file fails verification.
 
-The Alpha uses the asserted date `2026-11-14`. The signatures carry that declaration. Trusted external timestamp evidence can be supplied through FileVeil's RFC 3161 workflow.
+Run the inventory verifier from a clean extracted source distribution or clean Git archive. It intentionally rejects additional unlisted files; a development tree containing local Android build outputs or other caches is not a release snapshot.
+
+The Beta uses the asserted date `2026-11-15`. The signatures carry that declaration. Trusted external timestamp evidence can be supplied through FileVeil's RFC 3161 workflow.
 
 ## Verify or clean one source file
 
@@ -34,7 +36,7 @@ The publisher keeps the signing key in a local owner-only file outside the track
 python3 tools/mark-source-tree.py \
   --executable target/release/fileveil \
   --key /path/to/private/release-signing.key \
-  --release v0.6.0-alpha.1 --created-at 2026-11-14
+  --release v0.7.0-beta.1 --created-at 2026-11-15
 ```
 
 Add `--apply` to stage signatures, verify them, test byte-exact Clean roundtrips and update the project files. The tool also writes `provenance/source-catalog.toml` and `provenance/source-catalog.evidence.json`. Commit the verified tree before tagging a release. Editing published source requires a new signed distribution.

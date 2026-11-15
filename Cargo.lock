@@ -2058,8 +2058,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "64cd1e32ddd350061ae6edb1b082d7c54915b5c672c389143b9a63403a109f24"
 
 [[package]]
+name = "fileveil-android"
+version = "0.7.0-beta.1"
+dependencies = [
+ "fileveil-core",
+ "fileveil-engine",
+ "serde",
+ "serde_json",
+ "zeroize",
+]
+
+[[package]]
 name = "fileveil-cli"
-version = "0.6.0-alpha.1"
+version = "0.7.0-beta.1"
 dependencies = [
  "clap",
  "ctrlc",
@@ -2072,7 +2083,7 @@ dependencies = [
 
 [[package]]
 name = "fileveil-core"
-version = "0.6.0-alpha.1"
+version = "0.7.0-beta.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -2082,7 +2093,7 @@ dependencies = [
 
 [[package]]
 name = "fileveil-engine"
-version = "0.6.0-alpha.1"
+version = "0.7.0-beta.1"
 dependencies = [
  "base64",
  "c2pa",
@@ -2114,7 +2125,7 @@ dependencies = [
 
 [[package]]
 name = "fileveil-formats"
-version = "0.6.0-alpha.1"
+version = "0.7.0-beta.1"
 dependencies = [
  "crc32fast",
  "fileveil-core",
@@ -2130,7 +2141,7 @@ dependencies = [
 
 [[package]]
 name = "fileveil-gui"
-version = "0.6.0-alpha.1"
+version = "0.7.0-beta.1"
 dependencies = [
  "accesskit_consumer",
  "eframe",
@@ -2159,7 +2170,7 @@ checksum = "5905ec755cc8386d7928353e4d356d2be3e89e81e5ca01fe630a1ca4d08dc175"
 
 [[package]]
 name = "fixture-generator"
-version = "0.6.0-alpha.1"
+version = "0.7.0-beta.1"
 dependencies = [
  "crc32fast",
  "flate2",

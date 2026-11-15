@@ -309,7 +309,7 @@ macOS ad-hoc 严格签名验证通过，Gatekeeper 拒绝，当前 Developer ID 
 
 现代结构载体覆盖 JPEG、PNG、PDF、DOCX、XLSX、PPTX。正常入口回归覆盖精确 Mark/Clean 往返、两发行方本地信任阈值、转移后接收方修改及版本关联、篡改、既有输出保护和原件不变。MCP stdio 测试覆盖默认拒绝签名、逐密钥身份授权、辅助路径授权、输入上限和默认隐私值隐藏。C2PA 创建的正常入口支持 JPEG、PNG、PDF。
 
-NASA 照片上的 FileVeil 原创 DCT 协议实测包含八项 Lab 变体，七项检出，定向清理项按预期未检出。四个阴性对照均未检出。独立 OpenCV 对十二个实际 CLI 或独立编码文件复核，PNG 与 JPEG 70 的定向清理均未恢复帧。sigma 2 模糊由 Rust 报告无法判断，独立检测未检出，保留该分歧。该样本集用于可重复兼容验证，整体人群误报率与任意图片鲁棒性仍未标定。新嵌入的 RGB MSE 为 11.1107、PSNR 为 37.6734 dB。512×512 Lab 的单次 release worker 测量为 0.09 s CPU、峰值 RSS 29.0 MiB，测量对象为独立 worker 进程。GUI 完成任务后的三次 `ps` 观察均为 0.0% 进程平均 CPU、约 175.6 MiB RSS。
+NASA 照片上的 FileVeil 原创 DCT 协议实测包含八项 Lab 变体，七项检出，定向清理项按预期未检出。四个阴性对照均未检出。独立 OpenCV 对十二个实际 CLI 或独立编码文件复核，PNG 与 JPEG 70 的定向清理均未恢复帧。sigma 2 模糊由 Rust 报告无法判断，独立检测未检出，保留该分歧。该样本集用于可重复兼容验证，整体人群误报率与对任意图片变换的耐受能力仍未标定。新嵌入的 RGB MSE 为 11.1107、PSNR 为 37.6734 dB。512×512 Lab 的单次 release worker 测量为 0.09 s CPU、峰值 RSS 29.0 MiB，测量对象为独立 worker 进程。GUI 完成任务后的三次 `ps` 观察均为 0.0% 进程平均 CPU、约 175.6 MiB RSS。
 
 [依赖安全与许可工作流 43278101143](https://github.com/J-x-Z/fileveil/actions/runs/43278101143) 成功，检查 646 个 workspace 与依赖条目。640 个 registry 包的许可声明保留。RUSTSEC-2023-0071 沿用 `SECURITY.md` 记录的 RSA 公钥使用范围例外，四项维护状态提示继续记录。新增签名仅使用 Ed25519 和 ES256。
 

@@ -1,0 +1,23 @@
+FileVeil for Android third-party notices
+
+AndroidX Activity, Compose, Core, Lifecycle, DocumentFile and Test
+Copyright The Android Open Source Project.
+Licensed under the Apache License, Version 2.0.
+https://android.googlesource.com/platform/frameworks/support/
+
+Kotlin and Kotlin Coroutines
+Copyright JetBrains s.r.o. and respective contributors.
+Licensed under the Apache License, Version 2.0.
+https://github.com/JetBrains/kotlin
+https://github.com/Kotlin/kotlinx.coroutines
+
+Gradle Wrapper 8.14.3 (source distribution build tool)
+Copyright Gradle, Inc. and respective contributors.
+Licensed under the Apache License, Version 2.0.
+https://github.com/gradle/gradle/tree/v8.14.3
+
+Full Apache 2.0 license text accompanies this distribution under
+third-party-licenses/serde-1.0.229/LICENSE-APACHE and the source tree
+assets/licenses/serde-1.0.229/LICENSE-APACHE.
+Rust dependency license texts and notices accompany the application separately.
+The FileVeil project is MPL-2.0; third-party components retain their own licenses.
