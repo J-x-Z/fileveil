@@ -1001,25 +1001,29 @@ fn private_file(path: &Path, create: bool) -> Result<File> {
         },
     };
     let (parent, name) = key_path(path)?;
-    let mut directory = File::open("/")
-        .map_err(|_| Error::Io("Could not open signing-key filesystem root".into()))?;
+    // Android apps may search an ancestor without permission to read its
+    // directory entries. O_PATH preserves descriptor-relative no-follow walking
+    // without requesting that unrelated directory-read permission.
+    #[cfg(target_os = "android")]
+    let directory_flags = libc::O_PATH | libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC;
+    #[cfg(not(target_os = "android"))]
+    let directory_flags =
+        libc::O_RDONLY | libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC | libc::O_NONBLOCK;
+    let root_name = CString::new("/").expect("fixed root path");
+    let root_fd = unsafe { libc::open(root_name.as_ptr(), directory_flags) };
+    if root_fd < 0 {
+        return Err(Error::Io(
+            "Could not open signing-key filesystem root".into(),
+        ));
+    }
+    let mut directory = unsafe { File::from_raw_fd(root_fd) };
     for component in parent.components() {
         let std::path::Component::Normal(name) = component else {
             continue;
         };
         let name = CString::new(name.as_bytes())
             .map_err(|_| Error::Input("Invalid signing-key directory component".into()))?;
-        let fd = unsafe {
-            libc::openat(
-                directory.as_raw_fd(),
-                name.as_ptr(),
-                libc::O_RDONLY
-                    | libc::O_DIRECTORY
-                    | libc::O_NOFOLLOW
-                    | libc::O_CLOEXEC
-                    | libc::O_NONBLOCK,
-            )
-        };
+        let fd = unsafe { libc::openat(directory.as_raw_fd(), name.as_ptr(), directory_flags) };
         if fd < 0 {
             return Err(Error::Io(
                 "Could not bind signing-key directory without links".into(),
@@ -1428,5 +1432,3 @@ mod windows_private {
 #[cfg(test)]
 #[path = "signing_tests.rs"]
 mod tests;
-
-// FVPROV1 50399 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiJlMTlkY2Q1MDY5ZDVlOWU1ZjM4MjU2MWE0ZDViMjExMWEzMTg2NTgzOGY0OGMwNTAwODlmYzA1NjI5ZWM2YWE5IiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL2NyYXRlcy9maWxldmVpbC1lbmdpbmUvc3JjL2hlcml0YWdlL3NpZ25pbmcucnMifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiJhNDNmYTMyN2RiYjg1MzM5MGMzM2QzZGU1MWRiNmU2Y2ZlZjA1NTdiYTRmNDY1MjEzM2M0OTJiMTdlY2FmNDkzZDM4ZGQyYjhiZWYwZWQyNWQzMWNjMTI3NmUyNDc3OWMyZjU3MGE2Y2JkNTcxY2ZkNzA3MTU4NDdlYzI3NjYwNSJ9XX1d FVPROV1-END

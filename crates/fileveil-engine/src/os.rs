@@ -16,6 +16,7 @@ pub fn findings(attributes: &[Attribute]) -> Vec<Finding> {
             "com.apple.ResourceFork" => ("filesystem.resource_fork", "com.apple.ResourceFork".into(), Action::AskUser, "Resource fork present; safe rewriting requires a semantic-preservation backend"),
             "com.apple.quarantine" => ("filesystem.quarantine", "com.apple.quarantine".into(), Action::Preserve, "macOS quarantine security marker is preserved"),
             ":Zone.Identifier:$DATA" => ("filesystem.motw", "Zone.Identifier".into(), Action::Preserve, "Windows Mark-of-the-Web security marker is preserved"),
+            "security.selinux" => ("filesystem.selinux", "SELinux security label".into(), Action::Preserve, "The operating-system-assigned SELinux security label is preserved and verified"),
             "com.apple.metadata:kMDItemWhereFroms" => ("filesystem.download_origin", "com.apple.metadata:kMDItemWhereFroms".into(), Action::AskUser, "Download-origin attribute remains on the copy"),
             "com.apple.metadata:kMDItemDownloadedDate" => ("filesystem.download_date", "com.apple.metadata:kMDItemDownloadedDate".into(), Action::AskUser, "Download-date attribute remains on the copy"),
             "com.apple.lastuseddate#PS" | "com.apple.metadata:kMDItemLastUsedDate" => ("filesystem.usage_time", name.to_string(), Action::AskUser, "Last-use timestamp attribute remains on the copy"),
@@ -64,6 +65,22 @@ pub fn read(file: &File, _path: &Path, limits: &Limits) -> Result<Vec<Attribute>
 pub fn write(file: &File, _path: &Path, attributes: &[Attribute]) -> Result<()> {
     use xattr::FileExt;
     for attribute in attributes {
+        #[cfg(target_os = "android")]
+        if attribute.name == "security.selinux" {
+            // Android assigns app-private file labels. An unprivileged app may
+            // inspect its own label but cannot relabel a new file. Verify exact
+            // inherited equality instead of dropping the security marker or
+            // requesting an unnecessary privileged write.
+            let inherited = file.get_xattr(&attribute.name).map_err(|_| {
+                Error::Blocked("Could not verify inherited Android security label".into())
+            })?;
+            if inherited.as_deref() != Some(attribute.value.as_slice()) {
+                return Err(Error::Blocked(
+                    "Android output inherited a different security label".into(),
+                ));
+            }
+            continue;
+        }
         file.set_xattr(&attribute.name, &attribute.value)
             .map_err(|_| {
                 Error::Blocked("Could not preserve platform metadata and security markers".into())
@@ -220,5 +237,3 @@ pub fn write(_file: &File, _path: &Path, _attributes: &[Attribute]) -> Result<()
         "Platform security-marker preservation is unavailable".into(),
     ))
 }
-
-// FVPROV1 9386 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiIwZmU5ZDE2NmFlOWY3N2VjYTk0ODg1ZGMzZjkyY2M1MDRiMTcwMzA4MDk5NDE0ODU5YmI2NjQxM2M3MGY2YjBlIiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL2NyYXRlcy9maWxldmVpbC1lbmdpbmUvc3JjL29zLnJzIn0sInNpZ25hdHVyZXMiOlt7ImtleV9pZCI6Ijk5ZWE2M2VmY2NmZDBmZGJkNjhlMTZlZDhmMDNkMzM3ZjE1ZWMyZTRhNmEzZDY0ZTExZDcxNGVhMWU1NDI1MzMiLCJwdWJsaWNfa2V5X2hleCI6ImFkYjNlMTdjZDEyZjk1NmQwMDcwZTE2NjNmNTMxNTM3ZmNlZGY3MzA4ZDAxNjU4ZmVhNDU2ZmVlYThmN2ZiYzUiLCJzaWduYXR1cmVfaGV4IjoiZjUyZmY0NDZmYjFkODNiNmVkY2IwOGQ1OTk4NGI3MDA2MzI5M2MwZWRkMzljOWU2ZmZjOGQwMmUxZWU3ZGZkNWUxNzVkNWY0YjUyNDlmMTU3ZWIxM2VkZGFjYWI0ZWRiMmMyMTdhZTYyNTZhNjUxMjllY2NhMDFjYmE2NDNjMGYifV19XQ== FVPROV1-END

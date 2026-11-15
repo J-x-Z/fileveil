@@ -7,6 +7,7 @@ is linked into named executable targets. This is not a rustc LLVM plugin and
 does not claim semantic entanglement or resistance to deliberate removal.
 """
 import argparse
+from contextlib import contextmanager, nullcontext
 import hashlib
 import importlib.util
 import json
@@ -16,6 +17,7 @@ import platform
 import re
 import shutil
 import signal
+import stat
 import subprocess
 import sys
 import tempfile
@@ -113,8 +115,106 @@ def cmake_hook(target_names, companion):
     return "\n".join(lines) + "\n"
 
 
+def cmake_generator_arguments(windows=None):
+    if windows is None:
+        windows = os.name == "nt"
+    if not windows:
+        return []
+    ninja = shutil.which("ninja")
+    if not ninja:
+        raise ValueError("Windows compiler-companion builds require Ninja to select SDK Clang explicitly")
+    return ["-G", "Ninja", "-DCMAKE_MAKE_PROGRAM=" + str(Path(ninja).resolve())]
+
+
+def check_cmake_compilers(build, expected):
+    evidence = {}
+    for language, selected in expected.items():
+        candidates = list((build / "CMakeFiles").glob("*/CMake" + language + "Compiler.cmake"))
+        if not candidates:
+            continue
+        if len(candidates) != 1 or candidates[0].stat().st_size > 512 * 1024:
+            raise ValueError("CMake did not report one bounded compiler identity")
+        text = candidates[0].read_text(encoding="utf-8", errors="strict")
+        fields = {}
+        for suffix in ("", "_ID", "_VERSION"):
+            match = re.search(r'set\(CMAKE_' + language + r'_COMPILER' + suffix + r' "([^"\r\n]*)"\)', text)
+            if not match:
+                raise ValueError("CMake compiler identity is incomplete")
+            fields[suffix] = match.group(1)
+        if Path(fields[""]).resolve() != selected.resolve() or fields["_ID"] != "Clang":
+            raise ValueError("CMake selected a compiler other than the requested SDK Clang")
+        evidence[language] = {"path": fields[""], "id": fields["_ID"], "version": fields["_VERSION"]}
+    if not evidence:
+        raise ValueError("CMake did not configure a supported C or C++ compiler")
+    return evidence
+
+
+def cargo_executable(raw, package_id, target, target_directory):
+    paths = []
+    for line in raw.splitlines():
+        item = json.loads(line)
+        if (item.get("reason") == "compiler-artifact" and item.get("package_id") == package_id
+                and item.get("target", {}).get("name") == target and "bin" in item["target"].get("kind", [])
+                and item.get("executable") and not item.get("profile", {}).get("test")):
+            paths.append(Path(item["executable"]))
+    if len(paths) != 1 or not paths[0].is_absolute() or not paths[0].resolve().is_relative_to(target_directory.resolve()):
+        raise ValueError("Cargo did not report one executable inside the authorized shared target")
+    return paths[0]
+
+
+def require_packet(actual, expected):
+    if not expected or actual.get("packet_sha256") != expected:
+        raise ValueError("linked artifact does not contain this run's exact authenticated companion packet")
+
+
+@contextmanager
+def cargo_cache_lock(directory, timeout):
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / ".fileveil-companion.lock"
+    if path.is_symlink():
+        raise ValueError("Cargo companion lock must not be a link")
+    fd = os.open(path, os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0), 0o600)
+    locked = False
+    try:
+        metadata = os.fstat(fd)
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
+            raise ValueError("Cargo companion lock must be a regular single-link file")
+        if metadata.st_size == 0:
+            os.write(fd, b"\0")
+        started = time.monotonic()
+        while not locked:
+            try:
+                if os.name == "nt":
+                    import msvcrt
+                    os.lseek(fd, 0, os.SEEK_SET)
+                    msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+                else:
+                    import fcntl
+                    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                locked = True
+            except OSError:
+                if time.monotonic() - started >= timeout:
+                    raise ValueError("shared Cargo companion target is locked by another build")
+                time.sleep(0.05)
+        yield
+    finally:
+        if locked:
+            if os.name == "nt":
+                import msvcrt
+                os.lseek(fd, 0, os.SEEK_SET)
+                msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
+            else:
+                import fcntl
+                fcntl.flock(fd, fcntl.LOCK_UN)
+        os.close(fd)
+
+
 def snapshot(root):
-    """Fingerprint source inputs, excluding known build and VCS directories."""
+    """Fingerprint the selected source tree, excluding Git's internal database.
+
+    Build output is external. A directory merely named build/target might hold
+    real inputs, so it must not silently disappear from the immutability claim.
+    """
     result = {}
     count, total = 0, 0
     def fail(error):
@@ -123,7 +223,7 @@ def snapshot(root):
         for name in dirs:
             if (Path(directory) / name).is_symlink():
                 raise ValueError("source tree contains a directory link")
-        dirs[:] = sorted(d for d in dirs if d not in (".git", "target", "build", ".gradle"))
+        dirs[:] = sorted(d for d in dirs if d != ".git")
         for filename in sorted(files):
             path = Path(directory) / filename
             if path.is_symlink() or not path.is_file():
@@ -159,10 +259,11 @@ def mark_companion(args, output):
     return obj, {"mark": metrics, "compile": compile_metrics, "packet": report["advanced"]["software"]["packet"]}
 
 
-def compile_targets(args, mode, directory, companion):
+def compile_targets(args, mode, directory, companion, expected_packet=None):
     directory.mkdir()
     metrics = []
     artifact_paths = {}
+    configured_compilers = None
     if args.build_system == "cargo":
         # Cargo's per-invocation extra rustc arguments apply to the selected
         # binary, not build scripts/proc macros/dependencies. No RUSTC_WRAPPER,
@@ -195,11 +296,11 @@ def compile_targets(args, mode, directory, companion):
             # bounded recipe. Explicitly reject rather than silently override it.
             if any(env.get(k) for k in ("RUSTFLAGS", "CARGO_ENCODED_RUSTFLAGS", "RUSTC_WRAPPER", "RUSTC_WORKSPACE_WRAPPER")):
                 raise ValueError("clear ambient Rust flags/wrappers before a controlled build")
-            _, elapsed = execute([cargo, "rustc", "--locked", "--offline", "--manifest-path", root_manifest,
+            raw, elapsed = execute([cargo, "rustc", "--locked", "--offline", "--message-format", "json-render-diagnostics", "--manifest-path", root_manifest,
                                   "--target-dir", target_dir, "--profile", "release", "--bin", name, "--", *extra],
                                  args.source, args.timeout, env)
             metrics.append(elapsed)
-            artifact_paths[name] = target_dir / "release" / (name + (".exe" if os.name == "nt" else ""))
+            artifact_paths[name] = cargo_executable(raw, packages[0]["id"], name, target_dir)
     else:
         cmake = args.build_tool or shutil.which("cmake")
         if not cmake:
@@ -207,7 +308,7 @@ def compile_targets(args, mode, directory, companion):
         build = directory / "build"
         clang = args.llvm_directory / "bin" / ("clang.exe" if os.name == "nt" else "clang")
         clangxx = args.llvm_directory / "bin" / ("clang++.exe" if os.name == "nt" else "clang++")
-        configure = [cmake, "-S", args.source, "-B", build, "-DCMAKE_BUILD_TYPE=Release",
+        configure = [cmake, "-S", args.source, "-B", build, *cmake_generator_arguments(), "-DCMAKE_BUILD_TYPE=Release",
                      "-DCMAKE_C_COMPILER=" + str(clang), "-DCMAKE_CXX_COMPILER=" + str(clangxx),
                      "-DCMAKE_C_FLAGS_RELEASE=-" + args.optimization,
                      "-DCMAKE_CXX_FLAGS_RELEASE=-" + args.optimization]
@@ -219,6 +320,7 @@ def compile_targets(args, mode, directory, companion):
             configure.append("-DCMAKE_PROJECT_INCLUDE=" + str(hook))
         _, metric = execute(configure, args.source, args.timeout)
         metrics.append(metric)
+        configured_compilers = check_cmake_compilers(build, {"C": clang, "CXX": clangxx})
         _, metric = execute([cmake, "--build", build, "--config", "Release", "--parallel", "2", "--target", *args.target], args.source, args.timeout)
         metrics.append(metric)
         for name in args.target:
@@ -235,12 +337,14 @@ def compile_targets(args, mode, directory, companion):
         final = directory / (name + (".exe" if os.name == "nt" else ""))
         shutil.copyfile(path, final)
         final.chmod(0o700)
-        detected = oracle.inspect(final)["carrier_present"]
+        inspection = oracle.inspect(final)
+        detected = inspection["carrier_present"]
         if detected != (mode == "marked"):
             raise ValueError("independent known-carrier detection disagrees with build mode")
         row = {"sha256": sha(final), "bytes": final.stat().st_size, "carrier_detected": detected,
                "artifact": final.name, "execution": "not_assessed"}
         if detected:
+            require_packet(inspection, expected_packet)
             raw, _ = execute([args.fileveil, "--json", "software", "verify", final, "--key", args.key], directory, args.timeout, accepted_codes=(0, 4))
             verification = json.loads(raw)
             known = verification["advanced"]["software"]["binary"]["packets"]
@@ -268,6 +372,7 @@ def compile_targets(args, mode, directory, companion):
                             "execution": "not_assessed"}
             if not row["strip"]["carrier_detected"]:
                 raise ValueError("the selected strip recipe removed the known carrier")
+            require_packet(oracle.inspect(stripped), expected_packet)
             if args.allow_execution:
                 values = []
                 for vector in args.test_arguments:
@@ -277,7 +382,7 @@ def compile_targets(args, mode, directory, companion):
                     raise ValueError("stripping changed the selected program outputs")
                 row["strip"]["execution"] = values
         result[name] = row
-    return {"build": metrics, "targets": result}
+    return {"build": metrics, "configured_compilers": configured_compilers, "targets": result}
 
 
 def main():
@@ -334,12 +439,17 @@ def main():
                   "platform": platform.platform(), "machine": platform.machine(), "optimization": args.optimization,
                   "lto": args.lto, "work_id": args.work_id, "copy_id": args.copy_id,
                   "content_binding_scope": "signed_companion_IR; use Project Sync to bind final executable bytes",
+                  "process_lifecycle": "windows_running_leader_taskkill_only" if os.name == "nt" else "posix_session_cleanup",
+                  "background_services": "caller_managed; Windows descendants surviving an exited leader are not contained by this adapter",
                   "source_unchanged": False, "runtime_semantic_entanglement": "not_claimed"}
         try:
             obj, evidence = mark_companion(args, output)
             report["companion"] = evidence
-            for mode in ("baseline", "marked", "clean"):
-                report[mode] = compile_targets(args, mode, output / mode, obj if mode == "marked" else None)
+            lock = cargo_cache_lock(args.cargo_target_directory.resolve(), args.timeout) if args.build_system == "cargo" else nullcontext()
+            with lock:
+                for mode in ("baseline", "marked", "clean"):
+                    report[mode] = compile_targets(args, mode, output / mode, obj if mode == "marked" else None,
+                                                   evidence["packet"]["packet_sha256"] if mode == "marked" else None)
             for name in args.target:
                 rows = [report[m]["targets"][name] for m in ("baseline", "marked", "clean")]
                 if args.allow_execution:

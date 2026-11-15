@@ -722,6 +722,19 @@ fn print_report(report: &Report, json: bool) {
         }
     }
     if let Some(advanced) = &report.advanced {
+        if let Some(compute) = advanced.get("compute_fingerprint") {
+            println!(
+                "  Experimental compute layout · {}",
+                compute["status"].as_str().unwrap_or("unable_to_determine")
+            );
+            if let Some(best) = compute["candidates"].as_array().and_then(|v| v.first()) {
+                println!(
+                    "  Best supplied candidate · SMs {} · median r {}",
+                    best["sm_count"], best["median_correlation"]
+                );
+            }
+            println!("  Physical GPU identity and training location · not_assessed");
+        }
         if let Some(project) = advanced.get("project") {
             println!(
                 "  Project revision {} · added {} · modified {} · renamed {} · deleted {} · unchanged {}",

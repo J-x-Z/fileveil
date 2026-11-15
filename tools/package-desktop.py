@@ -190,6 +190,9 @@ def copy_resources(destination: Path) -> None:
         source = ROOT / name
         if source.is_file() and not has_private_key(source):
             shutil.copyfile(source, notices / name)
+    android_notices = ROOT / "android" / "ANDROID_NOTICES.txt"
+    if android_notices.is_file() and not android_notices.is_symlink() and not has_private_key(android_notices):
+        shutil.copyfile(android_notices, notices / "ANDROID_NOTICES.txt")
     for name in ("Cargo.lock", "docs/GUI.md"):
         source = ROOT / name
         if source.is_file() and not has_private_key(source):
@@ -213,9 +216,18 @@ def copy_resources(destination: Path) -> None:
     except (FileNotFoundError, subprocess.TimeoutExpired):
         pass
     with zipfile.ZipFile(destination / "FileVeil-source.zip", "w", zipfile.ZIP_DEFLATED) as archive:
-        for base in ["Cargo.toml", "Cargo.lock", "LICENSE", "README.md", "README.zh-CN.md", ".gitignore", ".gitattributes", ".github", "crates", "tools", "docs", "tests", "assets", "provenance", "THIRD_PARTY_NOTICES.txt"]:
+        for base in ["Cargo.toml", "Cargo.lock", "LICENSE", "README.md", "README.zh-CN.md", ".gitignore", ".gitattributes", ".github", "crates", "tools", "docs", "tests", "assets", "android", "provenance", "THIRD_PARTY_NOTICES.txt"]:
             source = ROOT / base
-            paths = source.rglob("*") if source.is_dir() else [source]
+            if base == "android":
+                # Source archives also work outside Git. Do not descend into
+                # Gradle/NDK outputs or app signing material in that fallback.
+                android_paths = []
+                for parent, directories, files in os.walk(source, followlinks=False):
+                    directories[:] = [name for name in directories if name not in {".gradle", ".cxx", "build", "jniLibs", ".kotlin", "__pycache__"} and not (Path(parent) / name).is_symlink()]
+                    android_paths.extend(Path(parent) / name for name in files if name != "local.properties" and not name.endswith((".jks", ".keystore", ".password")))
+                paths = android_paths
+            else:
+                paths = source.rglob("*") if source.is_dir() else [source]
             for path in sorted(paths):
                 relative = path.relative_to(ROOT)
                 if source_paths is not None and relative.as_posix() not in source_paths:
@@ -539,5 +551,3 @@ if __name__ == "__main__":
     except (PackagingError, OSError) as error:
         print(f"FileVeil packaging failed. {error}", file=sys.stderr)
         raise SystemExit(1)
-
-# FVPROV1 27353 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiJiMGU5MTY4ZTJjYWQxMDVhODg5MTk2MmEwYWQ4MDg3MmRmODJlZTk3ODEzNWIwOTMyYjY1YzBjMjk1ZDc3ODcyIiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL3Rvb2xzL3BhY2thZ2UtZGVza3RvcC5weSJ9LCJzaWduYXR1cmVzIjpbeyJrZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwicHVibGljX2tleV9oZXgiOiJhZGIzZTE3Y2QxMmY5NTZkMDA3MGUxNjYzZjUzMTUzN2ZjZWRmNzMwOGQwMTY1OGZlYTQ1NmZlZWE4ZjdmYmM1Iiwic2lnbmF0dXJlX2hleCI6IjRlN2Y2NTlmZmJmNjAwZTk0MjQwZGZkNzVjMzAxMWVjYmM4OWI0ZmM1ZTc0ZTBmYjQxNGY4M2UxYjBiMDZjMmI2YjE1NTNkZGExZWVhYTQwMTZmYzRjZTc2NTM0YTk2MWU2OTA4Nzk4ZjU4NTFjOTg4OWIyOTlkMzlmNTY3OTBiIn1dfV0= FVPROV1-END

@@ -198,7 +198,7 @@ pub fn analyze(request: &ComputeRequest, cancelled: &AtomicBool) -> Result<Value
         || request.seeds.len() > 16
         || request.sm_counts.len() < 2
         || request.sm_counts.len() > 256
-        || request.philox_offset % 4 != 0
+        || !request.philox_offset.is_multiple_of(4)
         || request.sm_counts.iter().any(|n| !(16..=512).contains(n))
         || request.rows_per_shard == Some(0)
     {
@@ -214,16 +214,16 @@ pub fn analyze(request: &ComputeRequest, cancelled: &AtomicBool) -> Result<Value
             return Err(invalid("Duplicate rows or seeds"));
         }
     }
-    if let Some(shard) = request.rows_per_shard {
-        if request.seed_per_rank == 0 {
-            let mut local_rows: Vec<_> = request.rows.iter().map(|r| r % shard).collect();
-            local_rows.sort_unstable();
-            local_rows.dedup();
-            if local_rows.len() != request.rows.len() {
-                return Err(invalid(
-                    "Repeated effective initialization rows across shards are not independent evidence",
-                ));
-            }
+    if let Some(shard) = request.rows_per_shard
+        && request.seed_per_rank == 0
+    {
+        let mut local_rows: Vec<_> = request.rows.iter().map(|r| r % shard).collect();
+        local_rows.sort_unstable();
+        local_rows.dedup();
+        if local_rows.len() != request.rows.len() {
+            return Err(invalid(
+                "Repeated effective initialization rows across shards are not independent evidence",
+            ));
         }
     }
     let mut layouts = request.sm_counts.clone();
@@ -425,8 +425,14 @@ pub fn analyze(request: &ComputeRequest, cancelled: &AtomicBool) -> Result<Value
         && best["rows_above_0_98"].as_u64().unwrap() >= 3;
     // Re-read the bounded header and samples from the same descriptor; never
     // promote this into a digest claim covering unsampled model bytes.
-    file.seek(SeekFrom::Start(8))
+    file.seek(SeekFrom::Start(0))
         .map_err(|_| invalid("Cannot recheck header"))?;
+    let mut prefix_again = [0u8; 8];
+    file.read_exact(&mut prefix_again)
+        .map_err(|_| invalid("Cannot recheck header prefix"))?;
+    if prefix_again != raw {
+        return Err(blocked("Weight header prefix changed during analysis"));
+    }
     let mut header_again = vec![0; header_len as usize];
     file.read_exact(&mut header_again)
         .map_err(|_| invalid("Cannot recheck header"))?;
@@ -494,7 +500,7 @@ fn median(values: &[f64]) -> f64 {
     let mut sorted = values.to_vec();
     sorted.sort_by(f64::total_cmp);
     let n = sorted.len();
-    if n % 2 == 0 {
+    if n.is_multiple_of(2) {
         (sorted[n / 2 - 1] + sorted[n / 2]) / 2.0
     } else {
         sorted[n / 2]
@@ -577,7 +583,7 @@ fn normal(position: u64, g: u64, seed: u64, offset: u64) -> f64 {
     let tp = inv * 6.2831855f32;
     let v = words[n + 1] as f32 * tp + tp / 2.0;
     let s = (-2.0 * u.ln()).sqrt();
-    (if lane % 2 == 0 {
+    (if lane.is_multiple_of(2) {
         v.sin() * s
     } else {
         v.cos() * s

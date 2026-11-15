@@ -42,6 +42,9 @@ class PackagingTests(unittest.TestCase):
         "provenance/source-catalog.evidence.json": '{"records":[]}\n',
         "provenance/history-map.json": '{"entries":[]}\n',
         "THIRD_PARTY_NOTICES.txt": "Synthetic third-party notices\n",
+        "android/app/src/main/java/example/MainActivity.kt": "// synthetic Kotlin source\n",
+        "android/build.gradle.kts": "// synthetic Android build\n",
+        "android/ANDROID_NOTICES.txt": "Synthetic Android notices\n",
     }
 
     def setUp(self) -> None:
@@ -72,9 +75,16 @@ class PackagingTests(unittest.TestCase):
             (destination / "THIRD_PARTY_NOTICES" / "assets" / "licenses" / "dependency" / "COPYRIGHT.txt").read_bytes(),
             (self.root / "assets" / "licenses" / "dependency" / "COPYRIGHT.txt").read_bytes(),
         )
+        self.assertEqual(
+            (destination / "THIRD_PARTY_NOTICES" / "ANDROID_NOTICES.txt").read_bytes(),
+            (self.root / "android/ANDROID_NOTICES.txt").read_bytes(),
+        )
         with zipfile.ZipFile(destination / "FileVeil-source.zip") as archive:
             self.assertIsNone(archive.testzip())
             names = set(archive.namelist())
+            self.assertFalse(any(name.startswith(("android/.gradle/", "android/app/.cxx/", "android/app/build/", "android/app/src/main/jniLibs/")) for name in names))
+            self.assertNotIn("android/local.properties", names)
+            self.assertFalse(any(name.endswith((".jks", ".keystore", ".password")) for name in names))
             self.assertTrue(set(self.SOURCE_FILES).issubset(names))
             for name, contents in self.SOURCE_FILES.items():
                 self.assertEqual(archive.read(name), contents.encode("utf-8"))
@@ -88,6 +98,14 @@ class PackagingTests(unittest.TestCase):
             "crates/fileveil-cli/target/local-artifact",
             "assets/.DS_Store",
             "work/local-private-input.pdf",
+            "android/.gradle/cache.bin",
+            "android/app/.cxx/local.bin",
+            "android/app/build/intermediates/local.bin",
+            "android/app/src/main/jniLibs/arm64-v8a/local.so",
+            "android/local.properties",
+            "android/signing/test.jks",
+            "android/signing/test.keystore",
+            "android/signing/test.password",
         ):
             self.write(self.root / relative, "Synthetic local artifact\n")
 
@@ -317,5 +335,3 @@ class PackagingTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
-# FVPROV1 17547 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiI5OWZlYTBhZjEyODA5ZTRjOTdhYTI1YzdjYTAyY2M4N2RiNjE1ZWU3YzM5OGQyMzUzYWI1MTQ3NjE3ZmRmZjY1IiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL3Rlc3RzL3Rlc3RfcGFja2FnaW5nLnB5In0sInNpZ25hdHVyZXMiOlt7ImtleV9pZCI6Ijk5ZWE2M2VmY2NmZDBmZGJkNjhlMTZlZDhmMDNkMzM3ZjE1ZWMyZTRhNmEzZDY0ZTExZDcxNGVhMWU1NDI1MzMiLCJwdWJsaWNfa2V5X2hleCI6ImFkYjNlMTdjZDEyZjk1NmQwMDcwZTE2NjNmNTMxNTM3ZmNlZGY3MzA4ZDAxNjU4ZmVhNDU2ZmVlYThmN2ZiYzUiLCJzaWduYXR1cmVfaGV4IjoiMzdjZWU2Y2M3ZjM5OTgzNjkxZWU0OTMyYzI0YjlhMDBkMmY4NWJmNGNkOGQ3ZjcyM2Q0YTM0OWI0MmRlZjRiZmNkYzJmMWJjM2M0OTIyY2QyZDQzMTcyZDg0NDc2ZDYyY2ZjZTZiOTY0YzQzN2E1MzVjNGRlOTVjNjJlYzRkMDgifV19XQ== FVPROV1-END

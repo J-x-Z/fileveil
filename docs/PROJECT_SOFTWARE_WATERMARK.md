@@ -217,3 +217,5 @@ python tools/software-watermark/project-build.py \
 构建时间包含共享缓存影响和不同依赖重编，不是随机化性能实验。每个程序的少量短执行受启动开销及 CPU 计时精度影响，不能据此保证固定的运行开销上限。CMake 的两项 CTest、Cargo 的依赖/计算单元测试及独立提取器测试另行通过。
 
 支持等级分项公开在每份软件报告的 `capabilities`。已知 packet 密码学验证与已认证 footer 的精确原字节恢复是 Stable；源码/IR 变换、compiler companion、抵抗主动删除能力保持 Experimental。rustc LLVM 插件明确为 Unsupported，任意语义等价和未知水印检测为 Not Assessed。这里的工程矩阵只取得 macOS ARM64 原生结果，新增 adapter 的 Windows/Linux 原生运行与其他架构不能借用旧流程的 CI 记录宣称完成。
+
+Windows 本地适配器目前不提供 Job Object 进程树隔离。自定义构建或测试命令若在主进程退出后留下后台子进程，需由调用方负责停止。报告的 `process_lifecycle` 和 `background_services` 明确记录该边界；前台程序的测试通过不构成后台进程已终止的证明。
