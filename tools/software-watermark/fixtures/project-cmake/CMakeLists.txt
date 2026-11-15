@@ -2,6 +2,10 @@
 cmake_minimum_required(VERSION 3.21)
 project(FileVeilRealProjectAcceptance LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
+if(WIN32)
+  # Hosted Windows acceptance uses the static vcpkg Zlib triplet (zs.lib).
+  set(ZLIB_USE_STATIC_LIBS ON)
+endif()
 find_package(ZLIB REQUIRED)
 add_library(calculation STATIC calculation.cpp compression.c)
 target_link_libraries(calculation PUBLIC ZLIB::ZLIB)

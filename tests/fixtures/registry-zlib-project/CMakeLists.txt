@@ -1,6 +1,10 @@
 # SPDX-License-Identifier: MPL-2.0
 cmake_minimum_required(VERSION 3.20)
 project(FileVeilRegistryArchiveProject VERSION 1.0 LANGUAGES C CXX)
+if(WIN32)
+  # Hosted Windows acceptance uses the static vcpkg Zlib triplet (zs.lib).
+  set(ZLIB_USE_STATIC_LIBS ON)
+endif()
 find_package(ZLIB REQUIRED)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 set(CMAKE_CXX_STANDARD 17)
