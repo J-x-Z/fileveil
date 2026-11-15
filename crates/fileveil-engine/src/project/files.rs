@@ -731,7 +731,9 @@ mod platform {
             let (device, file) = identity(directory)?;
             PathBuf::from(format!("/.vol/{device}/{file}"))
         };
-        #[cfg(not(target_os = "macos"))]
+        #[cfg(target_os = "android")]
+        let path = PathBuf::from(format!("/proc/self/fd/{}", directory.as_raw_fd()));
+        #[cfg(not(any(target_os = "macos", target_os = "android")))]
         let path = PathBuf::from(format!("/dev/fd/{}", directory.as_raw_fd()));
         let check =
             File::open(&path).map_err(|_| blocked("Bound directory namespace is unavailable"))?;
@@ -778,6 +780,20 @@ mod platform {
         #[cfg(target_os = "linux")]
         let result = unsafe {
             libc::renameat2(
+                parent.file.as_raw_fd(),
+                source.as_ptr(),
+                parent.file.as_raw_fd(),
+                target.as_ptr(),
+                libc::RENAME_NOREPLACE,
+            )
+        };
+        #[cfg(target_os = "android")]
+        let result = unsafe {
+            // The kernel primitive predates our minimum Android version. Calling
+            // it directly avoids depending on Bionic's API-30 renameat2 symbol.
+            // An unavailable syscall fails closed; never replace an existing name.
+            libc::syscall(
+                libc::SYS_renameat2,
                 parent.file.as_raw_fd(),
                 source.as_ptr(),
                 parent.file.as_raw_fd(),
@@ -959,5 +975,3 @@ mod tests {
         assert!(access.lock(&state).is_ok());
     }
 }
-
-// FVPROV1 33913 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiIxNzZjNjQzOGI5NzkzMzMzZTUzMDA3NDNiNGVjODRjYzdmMzBiZDE2M2ZhYjUxNzgyMDM4M2ZhOTZhMjhhYTI1IiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL2NyYXRlcy9maWxldmVpbC1lbmdpbmUvc3JjL3Byb2plY3QvZmlsZXMucnMifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiJhMTRhNjEyY2Y0ZTcxNzhmMTAwOTdjZGM0ZjFhYmU4ZmJmYjQ0NzU3NDY2YTgyNmZhZTM3N2M2NDRmZTY4ODYzNGI2YmJjMTNiYzYyNjg2NTgzNzgyNDkxYzAyM2I4YTUwZjdmOGFhYTU5MTc5ZWQwN2Y5MmQwNzdmZjMyMDUwMyJ9XX1d FVPROV1-END

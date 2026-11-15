@@ -765,6 +765,7 @@ fn read_generation(context: &Context, name: &str, committed: bool) -> Result<Gen
         .map_err(|_| Error::Input("Invalid project manifest".into()))?;
     if manifest.schema != "fileveil.project.manifest.v1"
         || manifest.project_id != context.config.project_id
+        || manifest.revision == 0
         || manifest.files.len() > context.budget.files
         || manifest.changes.len() > context.budget.files.saturating_mul(2)
     {
@@ -2211,7 +2212,7 @@ fn mark_copy(
 }
 fn recover_interrupted_release(
     context: &Context,
-    state: &State,
+    state: &mut State,
     limits: &Limits,
     flag: &AtomicBool,
 ) -> Result<bool> {
@@ -2234,6 +2235,37 @@ fn recover_interrupted_release(
         return Ok(false);
     }
     let prior = generations(context)?;
+    // A different authorized private state may have committed the next revision
+    // while this state retained an uncommitted checkpoint. Never publish that
+    // abandoned branch. Rebase only onto a fully checked chain with the same
+    // pinned root and the pending checkpoint's exact committed predecessor.
+    if pending.manifest.revision <= prior.count as u64 {
+        let predecessor_is_retained = if pending.manifest.revision == 1 {
+            pending.manifest.previous_generation.is_none()
+                && pending.manifest.previous_manifest_sha256.is_none()
+        } else {
+            prior
+                .metadata
+                .get((pending.manifest.revision - 2) as usize)
+                .is_some_and(|entry| {
+                    Some(&entry.generation) == pending.manifest.previous_generation.as_ref()
+                        && Some(&entry.manifest_sha256)
+                            == pending.manifest.previous_manifest_sha256.as_ref()
+                })
+        };
+        if prior.initial_key.as_ref() != Some(&state.initial_key) || !predecessor_is_retained {
+            return Err(files::blocked(
+                "An interrupted release cannot rebase onto an unrelated project chain",
+            ));
+        }
+        state.index_generation = None;
+        state.index_manifest_sha256 = None;
+        state.index_evidence_sha256 = None;
+        state.index.clear();
+        state.output_index.clear();
+        state.index_dirty = false;
+        return Ok(false);
+    }
     if pending.manifest.revision != prior.count as u64 + 1
         || pending.manifest.previous_generation.as_ref()
             != prior.latest.as_ref().map(|generation| &generation.name)
@@ -2286,7 +2318,7 @@ fn sync(
         files::blocked("Initialize a private project identity before synchronizing")
     })?;
     context.approved(&Some(state.clone()), request.options.automatic)?;
-    let recovered = recover_interrupted_release(&context, &state, limits, flag)?;
+    let recovered = recover_interrupted_release(&context, &mut state, limits, flag)?;
     if !request.options.force_full_scan {
         load_index(&context, &mut state);
     }
@@ -2772,5 +2804,3 @@ fn sync(
     report.integrity.original_unchanged = Some(true);
     Ok(report)
 }
-
-// FVPROV1 101891 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiJiMTY4NjhkNTY5ZjI4OTZjZmYyOGQ5MmNlODc4YWIxODBhOTFkODEyYWFiY2NlYmM1YWFlNmY0M2Q5NDI4NWRlIiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL2NyYXRlcy9maWxldmVpbC1lbmdpbmUvc3JjL3Byb2plY3QvcGlwZWxpbmUucnMifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiI4ZWFlYmIyYWQ3MTNjOGNhODk3MmNkNzU0NTVhYmFkYzMwNzY5NjE0M2EzODUxYTE0ZWQ2NjFjYTA3ODVmZmM3Y2NlM2NmMTM3M2M1NmYyNjA5YzJhYjdhNmY4ODIzNDUzZDhjMjMyY2I5MDc3OGY4NDIwOGEyZDY0YzhmYzEwNyJ9XX1d FVPROV1-END

@@ -164,7 +164,7 @@ jobs:
             ${{ runner.os }}-${{ runner.arch }}-cargo-sources-native-
       - name: Linux desktop dependencies
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y libx11-dev libxi-dev libxcursor-dev libxrandr-dev libxinerama-dev libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev libegl1-mesa-dev libgl1-mesa-dev libgl1-mesa-dri qpdf poppler-utils xvfb xauth xdotool libavif-bin libheif-examples libheif-plugin-libde265 ffmpeg libsecret-tools gnome-keyring dbus-x11 dpkg-dev desktop-file-utils
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y libx11-dev libxi-dev libxcursor-dev libxrandr-dev libxinerama-dev libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev libegl1-mesa-dev libgl1-mesa-dev libgl1-mesa-dri qpdf poppler-utils xvfb xauth xdotool zlib1g-dev libavif-bin libheif-examples libheif-plugin-libde265 ffmpeg libsecret-tools gnome-keyring dbus-x11 dpkg-dev desktop-file-utils
       - name: Probe Linux native media decoders
         if: runner.os == 'Linux'
         run: |
@@ -368,6 +368,33 @@ jobs:
         run: cargo run --locked -p fileveil-cli -- scan work/ci-fixtures/jpeg_exif_gps_author.jpg --json
       - name: Build CLI
         run: cargo build --locked -p fileveil-cli
+      - name: Real dependency project Registry and CI acceptance
+        shell: python {0}
+        run: |
+          import os, pathlib, subprocess, sys
+          environment = dict(os.environ)
+          if os.name == 'nt':
+              selected = os.environ.get('VCPKG_INSTALLATION_ROOT') or os.environ.get('VCPKG_ROOT')
+              assert selected, 'Windows acceptance needs the hosted vcpkg installation'
+              root = pathlib.Path(selected).resolve(strict=True)
+              subprocess.run([str(root / 'vcpkg.exe'), 'install', 'zlib:x64-windows-static-md', '--disable-metrics'], check=True, timeout=600)
+              prefix = root / 'installed/x64-windows-static-md'
+              assert (prefix / 'include/zlib.h').is_file(), 'zlib development header missing'
+              environment['CMAKE_PREFIX_PATH'] = str(prefix)
+              oracle = pathlib.Path(os.environ.get('ProgramFiles', 'C:/Program Files')) / 'Git/usr/bin'
+              if (oracle / 'openssl.exe').is_file():
+                  environment['PATH'] = str(oracle) + os.pathsep + environment['PATH']
+          executable = pathlib.Path('target/debug/fileveil' + ('.exe' if os.name == 'nt' else ''))
+          subprocess.run([sys.executable, 'tools/project-acceptance.py', '--fileveil', str(executable), '--output', 'work/project-registry-acceptance'], env=environment, check=True, timeout=600)
+      - name: Save real project integration evidence
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: project-registry-acceptance-${{ matrix.os }}
+          retention-days: 7
+          path: |
+            work/project-registry-acceptance/summary.json
+            work/project-registry-acceptance/logs/
       - name: Validate report schemas and legacy envelopes
         run: |
           python -m pip install "jsonschema>=4,<5"
@@ -598,5 +625,3 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
           key: ${{ steps.cargo-cache.outputs.cache-primary-key }}
-
-# FVPROV1 34747 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiJhNWUzOTVlOWEwMjA4MzU3MzdkODI1ZmQ3YzhmMTMxODRjZmY5ODFiM2E2YjRmYWNjMWYxMGI3MDk3MTFmNzc0IiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlLy5naXRodWIvd29ya2Zsb3dzL2NpLnltbCJ9LCJzaWduYXR1cmVzIjpbeyJrZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwicHVibGljX2tleV9oZXgiOiJhZGIzZTE3Y2QxMmY5NTZkMDA3MGUxNjYzZjUzMTUzN2ZjZWRmNzMwOGQwMTY1OGZlYTQ1NmZlZWE4ZjdmYmM1Iiwic2lnbmF0dXJlX2hleCI6IjYxMGRlYWM3YWNjYTEwZGQ1ZGVlY2Y2ZDZhNjYyMWI0NTkyZDM2NjVjYjIyZmNkODZkNDI2ODU4MDk2Mjg5ZmIyNDM4MmNkZDMyNzA0MzYyYjc1NWM3ZWY3YzliM2EyYjZjMDBiZDNjMTc2ZjBjMjdkYjg3OWYyNmQ0MjVmYzBmIn1dfV0= FVPROV1-END

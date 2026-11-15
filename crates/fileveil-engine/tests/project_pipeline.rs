@@ -896,6 +896,74 @@ fn shared_output_rebases_a_stale_private_checkpoint_without_forking_history() {
 }
 
 #[test]
+fn interrupted_private_checkpoint_rebases_after_another_writer_commits() {
+    let fixture = Fixture::new();
+    fixture.init(|config| {
+        config.source_root = fixture.source.clone();
+        config.include = vec!["main.rs".into()];
+    });
+    let mut first = fixture.request(ProjectAction::Sync);
+    first.options.version = "v1".into();
+    run(&first, &Limits::default(), &AtomicBool::new(false)).unwrap();
+    let mut second = alternate_private_binding(&fixture);
+    first.options.version = "interrupted-v2".into();
+    let pending = run(&first, &Limits::default(), &AtomicBool::new(false)).unwrap();
+    let pending_path = fixture.generation(details(&pending));
+    fs::remove_file(pending_path.join("COMMITTED")).unwrap();
+    second.options.version = "committed-v2".into();
+    let committed = run(&second, &Limits::default(), &AtomicBool::new(false)).unwrap();
+    let predecessor = details(&committed)["generation"].clone();
+    first.options.version = "v3".into();
+    let resumed = run(&first, &Limits::default(), &AtomicBool::new(false)).unwrap();
+    assert_eq!(resumed.result, Outcome::VerifiedWithinScope);
+    assert_eq!(details(&resumed)["revision"], 3);
+    assert!(!pending_path.join("COMMITTED").exists());
+    let manifest: Value = serde_json::from_slice(
+        &fs::read(fixture.generation(details(&resumed)).join("manifest.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(manifest["previous_generation"], predecessor);
+    for mut request in [first, second] {
+        request.action = ProjectAction::Verify;
+        assert_eq!(
+            run(&request, &Limits::default(), &AtomicBool::new(false))
+                .unwrap()
+                .result,
+            Outcome::VerifiedWithinScope
+        );
+    }
+}
+
+#[test]
+fn superseded_interrupted_checkpoint_still_rejects_metadata_tampering() {
+    let fixture = Fixture::new();
+    fixture.init(|config| {
+        config.source_root = fixture.source.clone();
+        config.include = vec!["main.rs".into()];
+    });
+    let mut first = fixture.request(ProjectAction::Sync);
+    first.options.version = "v1".into();
+    run(&first, &Limits::default(), &AtomicBool::new(false)).unwrap();
+    let mut second = alternate_private_binding(&fixture);
+    first.options.version = "pending-v2".into();
+    let pending = run(&first, &Limits::default(), &AtomicBool::new(false)).unwrap();
+    let pending_path = fixture.generation(details(&pending));
+    fs::remove_file(pending_path.join("COMMITTED")).unwrap();
+    second.options.version = "v2".into();
+    run(&second, &Limits::default(), &AtomicBool::new(false)).unwrap();
+    fs::write(pending_path.join("manifest.json"), b"{}").unwrap();
+    first.options.version = "v3".into();
+    assert!(run(&first, &Limits::default(), &AtomicBool::new(false)).is_err());
+    second.action = ProjectAction::Verify;
+    assert_eq!(
+        run(&second, &Limits::default(), &AtomicBool::new(false))
+            .unwrap()
+            .result,
+        Outcome::VerifiedWithinScope
+    );
+}
+
+#[test]
 fn shared_output_transaction_lock_excludes_an_independent_private_state() {
     let fixture = Fixture::new();
     let initial = fixture.init(|config| {
@@ -977,5 +1045,3 @@ fn windows_case_alias_cannot_place_private_state_inside_project_sources() {
         assert!(!fixture.output.exists());
     }
 }
-
-// FVPROV1 36080 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiI2NGZlMmZkYjY3ZjFlMjFlMWRjY2Y1Y2FjM2ViODI3ODE3ZmZiZWEzYzgzYjA4MGY1OWIwNWRmNmMxMzEyZTgyIiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlL2NyYXRlcy9maWxldmVpbC1lbmdpbmUvdGVzdHMvcHJvamVjdF9waXBlbGluZS5ycyJ9LCJzaWduYXR1cmVzIjpbeyJrZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwicHVibGljX2tleV9oZXgiOiJhZGIzZTE3Y2QxMmY5NTZkMDA3MGUxNjYzZjUzMTUzN2ZjZWRmNzMwOGQwMTY1OGZlYTQ1NmZlZWE4ZjdmYmM1Iiwic2lnbmF0dXJlX2hleCI6IjE5MmVjZDg0ZjJhMzEyMzNiNWI2NzdiNzUxODA5YzhkMzA1YTY1MDIzNTk2MGEzODNlZjkxNjVhZTYwMGU1NWUzMjYxNjQ0ZmU5Zjg1OWI4MzA5NzUwNTQxODY1YWEyNGY1YzYyODhiNzU2ZTdjMjVhMTdjZjRjNGQ0NDcwMzA2In1dfV0= FVPROV1-END

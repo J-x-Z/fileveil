@@ -157,6 +157,42 @@ jobs:
           compiler = runpy.run_path('.fileveil-engine/tools/project-ci-compiler.py')
           compiler['probe_built_pass'](pathlib.Path('fileveil-pass').resolve(), sdk)
           subprocess.run(['cargo', 'build', '--locked', '--release', '-p', 'fileveil-cli'], cwd='.fileveil-engine', check=True)
+      - name: Native multi-target software watermark acceptance without CI secrets
+        if: github.repository == 'J-x-Z/fileveil'
+        shell: python {0}
+        run: |
+          import os, pathlib, runpy, shutil, subprocess, sys
+          assert 'FILEVEIL_SIGNING_KEY_BASE64' not in os.environ, 'No signing Secret is authorized in the native project tests'
+          root = pathlib.Path('.fileveil-engine').resolve()
+          work = pathlib.Path('software-acceptance').resolve()
+          work.mkdir(mode=0o700)
+          cli = root / 'target/release' / ('fileveil.exe' if os.name == 'nt' else 'fileveil')
+          sdk = pathlib.Path('fileveil-llvm').resolve()
+          compiler = runpy.run_path(str(root / 'tools/project-ci-compiler.py'))
+          artifact, kind = compiler['built_pass'](pathlib.Path('fileveil-pass').resolve())
+          key = work / 'identity.key'
+          subprocess.run([str(cli), '--json', 'heritage-keygen', '--output', str(key)], check=True, capture_output=True)
+          for system, names in [('cmake', ['fv-calculate', 'fv-compress']), ('cargo', ['fv-rust-calculate', 'fv-rust-report'])]:
+              source = work / (system + '-source')
+              shutil.copytree(root / 'tools/software-watermark/fixtures' / ('project-' + system), source)
+              command = [sys.executable, str(root / 'tools/software-watermark/project-build.py'), '--build-system', system, '--source', str(source), '--output', str(work / (system + '-O2')), '--fileveil', str(cli), '--key', str(key), '--llvm-directory', str(sdk), '--plugin', str(artifact), '--work-id', 'fileveil-v07-' + system + '-acceptance', '--copy-id', 'native-ci', '--author', 'FileVeil acceptance', '--version', 'v1', '--created-at', '2026-11-15', '--optimization', 'O2', '--allow-execution', '--strip', '--test-arguments-json', '[["0"],["10"],["1000"],["99999"]]']
+              for name in names:
+                  command += ['--target', name]
+              if system == 'cargo':
+                  command += ['--cargo-target-directory', str(root / 'target')]
+              with (work / (system + '-O2.log')).open('w', encoding='utf-8') as log:
+                  subprocess.run(command, stdout=log, stderr=subprocess.STDOUT, check=True, timeout=600)
+          key.unlink()
+      - name: Save native software project evidence
+        uses: actions/upload-artifact@v4
+        if: always() && github.repository == 'J-x-Z/fileveil'
+        with:
+          name: software-project-acceptance-${{ needs.build.outputs.namespace }}-${{ github.run_id }}-${{ github.run_attempt }}
+          retention-days: 7
+          path: |
+            software-acceptance/cmake-O2/report.json
+            software-acceptance/cargo-O2/report.json
+            software-acceptance/*-O2.log
       - name: Sign and mark IR with the trusted pass
         env:
           FILEVEIL_SIGNING_KEY_BASE64: ${{ secrets.signing-key-base64 }}
@@ -358,5 +394,3 @@ jobs:
             fileveil-evidence/SHA256SUMS
           if-no-files-found: error
           retention-days: 14
-
-# FVPROV1 18622 W3siYm9keSI6eyJhY3Rvcl9rZXlfaWQiOiI5OWVhNjNlZmNjZmQwZmRiZDY4ZTE2ZWQ4ZjAzZDMzN2YxNWVjMmU0YTZhM2Q2NGUxMWQ3MTRlYTFlNTQyNTMzIiwiYWxnb3JpdGhtIjoiRWQyNTUxOSIsImF1dGhvciI6IkoteC1aL0ZpbGVWZWlsIiwiY29udGVudF9zaGEyNTYiOiJiN2ZlNTgxM2JmNDdlMGM1NzQ1NWE2ZTk4NmE1MTY1ZjAxODg5NDY1MTdjZTQ0ODljY2EwNmI4Y2UxNWZhZTBjIiwiY29weV9pZCI6InYwLjYuMC1hbHBoYS4xIiwiY3JlYXRlZF9hdCI6IjIwMjYtMTEtMTQiLCJlZGl0aW9uIjoiYWxwaGEiLCJpc3N1ZXJfcG9saWN5IjpudWxsLCJraW5kIjoiY3JlYXRlIiwibW9kZSI6InNlbGZfc2lnbiIsInBhcmVudF92ZXJzaW9uIjpudWxsLCJwcmV2aW91c19yZWNvcmRfc2hhMjU2IjpudWxsLCJzY2hlbWEiOiJmaWxldmVpbC5wcm92ZW5hbmNlLnNpZ25hdHVyZS52MiIsInNlcXVlbmNlIjowLCJ0cmFuc2Zlcl90b19rZXlfaWQiOm51bGwsInZlcnNpb24iOiJ2MC42LjAtYWxwaGEuMSIsIndvcmtfaWQiOiJodHRwczovL2dpdGh1Yi5jb20vSi14LVovZmlsZXZlaWwvc291cmNlLy5naXRodWIvd29ya2Zsb3dzL3Byb2plY3QtcmVsZWFzZS55bWwifSwic2lnbmF0dXJlcyI6W3sia2V5X2lkIjoiOTllYTYzZWZjY2ZkMGZkYmQ2OGUxNmVkOGYwM2QzMzdmMTVlYzJlNGE2YTNkNjRlMTFkNzE0ZWExZTU0MjUzMyIsInB1YmxpY19rZXlfaGV4IjoiYWRiM2UxN2NkMTJmOTU2ZDAwNzBlMTY2M2Y1MzE1MzdmY2VkZjczMDhkMDE2NThmZWE0NTZmZWVhOGY3ZmJjNSIsInNpZ25hdHVyZV9oZXgiOiJkOGI5YzllNDFlMWM1ZTdkOGUwZmYyNTA3YmMzZDc5ZDE0YTNmNWY1YjFiNzI0NjNhMGNhNmJkM2U3YTkzM2U0MGI4Y2NkODM1ZmRiM2ZhMTY2MGQ4NWZiNzk4YzQyYzI5MjEzMDIwMTBjYWM3ZjRiMTcwNTQwYTczMDdjMzkwYiJ9XX1d FVPROV1-END
